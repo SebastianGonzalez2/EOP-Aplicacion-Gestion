@@ -11,6 +11,7 @@ regeneran a partir de él cuando cambia.
 | [`requerimientos-no-funcionales.md`](./requerimientos-no-funcionales.md) | Los 20 RNF |
 | [`user-stories.md`](./user-stories.md) | Las 76 US con criterios de aceptación; las excluidas llevan aviso |
 | [`alcance.md`](./alcance.md) | Funcionalidades incluidas y excluidas de la primera versión |
+| [`decisiones-tecnicas.md`](./decisiones-tecnicas.md) | Decisiones de diseño con su motivo y alternativas descartadas |
 | [`uso-de-ia.md`](./uso-de-ia.md) | Registro de uso de IA generativa |
 
 ## Cómo usarlos
