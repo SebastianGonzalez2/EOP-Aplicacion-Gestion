@@ -54,6 +54,66 @@ Separar siempre presentación, lógica de negocio, persistencia e integraciones 
 - El **acceso a datos** pasa por EF Core
 - Cada **integración externa** se encapsula en su propio servicio, nunca se llama desde un Controller
 
+### Estructura de la solución
+
+```
+EOP.Gestion.slnx
+├── src/
+│   ├── EOP.Gestion.Core/              ← no referencia a ningún otro proyecto
+│   │   ├── Entidades/                 ← por módulo
+│   │   ├── ServiciosDominio/
+│   │   ├── CasosDeUso/                ← por módulo
+│   │   ├── Interfaces/
+│   │   ├── DTOs/
+│   │   └── Comun/
+│   ├── EOP.Gestion.Infrastructure/    ← referencia a Core
+│   │   ├── Persistencia/              ← DbContext, Configuraciones, Migraciones, Repositorios
+│   │   ├── Almacenamiento/            ← Blob Storage
+│   │   ├── Integraciones/             ← OpenAi, DatosUruguay
+│   │   └── Excel/                     ← ClosedXML
+│   └── EOP.Gestion.WebApp/            ← referencia a Core e Infrastructure
+│       ├── Controllers/  Views/  ViewModels/  Autorizacion/  wwwroot/
+└── tests/
+    └── EOP.Gestion.Tests/             ← xUnit
+```
+
+**Dirección de las dependencias:** `WebApp → Core ← Infrastructure`.
+`Core` no referencia a nadie. Si alguna vez hace falta agregarle una referencia,
+hay código en la capa equivocada.
+
+### Dónde va cada cosa
+
+- **`ServiciosDominio/`** — reglas de negocio puras, que valen siempre: validar un
+  RUT, calcular el margen de un presupuesto, decidir si un presupuesto está vencido.
+  No saben de base de datos ni de pantallas, y se testean sin infraestructura.
+- **`CasosDeUso/`** — orquestan una operación completa del usuario. «Registrar
+  factura de compra» busca el proveedor, valida, pide la cotización, guarda y
+  actualiza los indicadores. Usan servicios de dominio e interfaces, nunca EF Core
+  directamente.
+- **`Interfaces/`** — contratos de persistencia e integraciones que `Core` necesita
+  y que `Infrastructure` implementa.
+- **`DTOs/`** — datos que cruzan la frontera de `Core`. Los `ViewModels` de la capa
+  web son otra cosa y viven en `WebApp`.
+- **`Comun/`** — tipos y validaciones compartidas entre módulos.
+
+Si una regla sirve para más de un caso de uso, es servicio de dominio. Si describe
+un flujo que el usuario reconoce como una acción, es caso de uso.
+
+### Repositorios
+
+Se usa el patrón Repositorio para que `Core` no dependa de EF Core. Tres reglas:
+
+1. **Uno por agregado, nunca genérico.** `IRepositorioPresupuestos`, no `IRepositorio<T>`.
+2. **Los métodos se nombran según lo que necesita el caso de uso**, no según la tabla:
+   `ObtenerVigentesDelCliente(id)`, no `GetAll()` para filtrar afuera.
+3. **Nunca devolver `IQueryable`** desde la interfaz. Si se devuelve, EF Core se filtró
+   a `Core` y se pierde el desacoplamiento.
+
+**Excepción:** los listados con filtros combinables y los indicadores económicos no
+pasan por repositorios. Van por servicios de consulta en `Infrastructure` que usan EF
+Core directamente y devuelven DTOs. Meterlos en los repositorios los infla hasta
+volverlos inmanejables.
+
 ---
 
 ## Reglas que todo código debe cumplir
@@ -178,7 +238,6 @@ El tablero de Trello `EOP - Sistema de Gestion` tiene cinco listas: Product Back
 
 Se completa a medida que avance el sprint 1:
 
-- Estructura de carpetas de la solución
 - Nombres definitivos de entidades y DbContext
-- Estrategia de tests y su ubicación
+- Convención de nombres de las pruebas
 - Configuración de GitHub Actions
