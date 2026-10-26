@@ -4,7 +4,17 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Identificador del almacén local de User Secrets (no es un secreto). Cada integrante carga sus propios valores. -->
+    <UserSecretsId>eop-gestion-webapp-7c3e9a41-2f6d-4b8e-9d15-a0c4e6b28f73</UserSecretsId>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Necesario para que dotnet-ef use este proyecto como proyecto de inicio. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\EOP.Gestion.Core\EOP.Gestion.Core.csproj" />
