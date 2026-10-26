@@ -222,6 +222,18 @@ El tablero de Trello `EOP - Sistema de Gestion` tiene cinco listas: Product Back
 
 ---
 
+## Estimaciones de tiempo
+
+Las horas estimadas de las tareas son únicamente una referencia para la planificación del equipo de desarrollo.
+
+Los asistentes de IA deben implementar lo que solicita cada tarea, respetando su alcance y sus requerimientos, **sin utilizar las horas estimadas para decidir cuánto trabajo realizar**.
+
+No se debe ampliar, reducir ni modificar una implementación para ajustarla al tiempo estimado. Si una tarea se resuelve correctamente en menos tiempo del previsto, no hay que agregar trabajo adicional. Si requiere más tiempo, se debe completar igualmente.
+
+**El alcance de la tarea determina qué se implementa, no las horas estimadas.**
+
+---
+
 ## Qué NO hacer
 
 - No implementar funcionalidad que esté fuera del alcance de la primera versión
