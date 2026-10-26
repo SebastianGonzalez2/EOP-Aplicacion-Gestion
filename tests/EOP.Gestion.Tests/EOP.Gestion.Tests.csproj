@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\EOP.Gestion.Core\EOP.Gestion.Core.csproj" />
     <ProjectReference Include="..\..\src\EOP.Gestion.Infrastructure\EOP.Gestion.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\EOP.Gestion.WebApp\EOP.Gestion.WebApp.csproj" />
   </ItemGroup>
 
 </Project>
