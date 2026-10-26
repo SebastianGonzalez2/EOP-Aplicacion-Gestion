@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/EOP.Gestion.Core/EOP.Gestion.Core.csproj" />
+    <Project Path="src/EOP.Gestion.Infrastructure/EOP.Gestion.Infrastructure.csproj" />
+    <Project Path="src/EOP.Gestion.WebApp/EOP.Gestion.WebApp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/EOP.Gestion.Tests/EOP.Gestion.Tests.csproj" />
+  </Folder>
+</Solution>
