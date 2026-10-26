@@ -1,5 +1,6 @@
 using EOP.Gestion.Infrastructure;
 using EOP.Gestion.Infrastructure.Persistencia;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,7 +26,12 @@ public class InfraestructuraTests
         var contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
 
         Assert.True(contexto.Database.IsSqlServer());
-        Assert.Equal(CadenaDePrueba, contexto.Database.GetConnectionString());
+
+        // EF Core normaliza la cadena y le agrega datos propios (por ejemplo Application Name),
+        // así que se comparan los valores relevantes y no el texto literal.
+        var cadenaUsada = new SqlConnectionStringBuilder(contexto.Database.GetConnectionString());
+        Assert.Equal("localhost", cadenaUsada.DataSource);
+        Assert.Equal("EopPruebas", cadenaUsada.InitialCatalog);
     }
 
     [Theory]
