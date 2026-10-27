@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
+
 namespace EOP.Gestion.Infrastructure;
 
 /// <summary>
@@ -29,6 +30,9 @@ public static class InyeccionDeDependencias
         }
 
         services.AddDbContext<EopDbContext>(opciones => opciones.UseSqlServer(cadenaConexion));
+       //AddDbContext<EopDbContext>: registra nuestro contexto para que la aplicación pueda utilizarlo.
+       //UseSqlServer(cadenaConexion): indica que trabajaremos con SQL Server y proporciona los datos de conexión.
+
 
         return services;
     }
