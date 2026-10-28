@@ -4,13 +4,15 @@ Aplicación web de gestión para **EOP (Estudios, Obras y Proyectos)**, una empr
 
 Proyecto Integrador — Universidad ORT Uruguay. Equipo de 2 integrantes. 8 sprints de 2 semanas, del 26/10/2026 al 14/02/2027.
 
-> Este archivo define las reglas del proyecto y es la única fuente de verdad.
-> Leelo antes de escribir código. Si algo acá contradice lo que te piden en el
-> chat, preguntá antes de avanzar.
+> Este archivo define las instrucciones técnicas y de trabajo del proyecto.
+> **No sustituye el anteproyecto ni los requerimientos funcionales y no funcionales.**
+> Antes de escribir código, leé este archivo y consultá en `docs/` los requisitos
+> aplicables a la tarea. Ante contradicciones, informalas y solicitá una decisión
+> antes de implementar; no inventes ni cambies reglas de negocio.
 >
 > El equipo trabaja con dos asistentes distintos: Codex lee este archivo
 > automáticamente, y Claude Code llega hasta acá desde `CLAUDE.md`. Cualquier
-> cambio en las reglas se hace **en este archivo**, no en el otro.
+> cambio en las instrucciones de los asistentes se hace **en este archivo**, no en el otro.
 
 ---
 
@@ -212,11 +214,20 @@ S1-T03: configurar DbContext y migración inicial
 
 ---
 
-## Trazabilidad
+## Fuentes de verdad y trazabilidad
 
-Cada tarea de desarrollo corresponde a una user story, y cada user story a uno o más requerimientos funcionales. Al implementar algo, verificá el requerimiento real antes de asumir el comportamiento.
+`AGENTS.md` establece las convenciones técnicas, la arquitectura y las instrucciones de trabajo para los asistentes. La especificación funcional proviene del anteproyecto corregido en Word. Los archivos Markdown de `docs/` son copias de trabajo de ese documento y deben mantenerse sincronizados con él.
 
-Los requerimientos van a vivir en `docs/` (pendiente de cargar). Mientras tanto, el anteproyecto es la fuente.
+La documentación ya está cargada en `docs/`. Para implementar una tarea, seguí este procedimiento:
+
+1. Identificá la User Story (US), los requerimientos funcionales (RF), los no funcionales (RNF) y las restricciones de alcance relacionados.
+2. Leé las **secciones aplicables** de `docs/user-stories.md`, `docs/requerimientos-funcionales.md`, `docs/requerimientos-no-funcionales.md` y `docs/alcance.md`. No es necesario cargar completos todos los documentos en cada tarea.
+3. Inspeccioná el código y la configuración existentes para reutilizar lo ya implementado y evitar duplicaciones.
+4. Respetá el alcance concreto de la tarea y sus dependencias. No adelantes tareas posteriores ni inventes requisitos o reglas.
+5. Si detectás contradicciones entre documentación, instrucciones, pedido actual o código, **informalas antes de modificar el comportamiento**; no resuelvas diferencias de negocio por tu cuenta.
+6. Después de implementar, explicá los archivos modificados, las pruebas realizadas y la trazabilidad entre tarea, US y RF/RNF.
+
+Si cambia el anteproyecto original, actualizá también las copias Markdown correspondientes de `docs/` antes de tratarlas como vigentes.
 
 El tablero de Trello `EOP - Sistema de Gestion` tiene cinco listas: Product Backlog, Sprint Backlog, In Progress, Testing, Done. Las tareas se nombran `S<sprint>-T<nn> [categoría] descripción (<horas>h)`.
 
