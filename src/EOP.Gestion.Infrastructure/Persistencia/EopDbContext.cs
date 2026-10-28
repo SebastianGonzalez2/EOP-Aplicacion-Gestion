@@ -1,5 +1,7 @@
 using EOP.Gestion.Core.Entidades.Usuarios;
 using Microsoft.EntityFrameworkCore;
+using EOP.Gestion.Core.Entidades.Clientes;
+
 
 namespace EOP.Gestion.Infrastructure.Persistencia;
 
@@ -17,6 +19,7 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
     // Permite consultar, agregar, modificar y eliminar usuarios
     // mediante Entity Framework, sin escribir SQL manualmente.
     public DbSet<Usuario> Usuarios => Set<Usuario>();
+    public DbSet<Cliente> Clientes => Set<Cliente>();
 
 
 
