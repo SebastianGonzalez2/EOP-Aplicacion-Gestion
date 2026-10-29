@@ -2,6 +2,7 @@
 using EOP.Gestion.Infrastructure;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
+using EOP.Gestion.Core.CasosDeUso.Clientes;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +28,9 @@ builder.Services.AddControllersWithViews();
 // builder.Configuration contiene la configuración de la aplicación,
 // incluyendo appsettings.json, variables de entorno y User Secrets.
 builder.Services.AgregarInfraestructura(builder.Configuration);
+
+// Registramos el caso de uso que valida los datos del cliente.
+builder.Services.AddScoped<ValidarDatosCliente>();
 
 
 // ================================

@@ -1,0 +1,15 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace EOP.Gestion.Core.Interfaces.Clientes
+{
+    public interface IRepositorioClientes
+    {
+        // Comprueba si ya existe un cliente con el RUT normalizado, si existe devuelve true, si no existe devuelve false
+        //este metodo es el que se crea cuando se implementa la interfaz IRepositorioClientes
+        Task<bool> ExistePorRutAsync(string rutNormalizado,CancellationToken cancellationToken = default);
+
+
+    }
+}
