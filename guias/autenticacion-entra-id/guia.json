@@ -1,0 +1,29 @@
+{
+  "titulo": "Autenticación con Microsoft Entra ID en ASP.NET Core MVC",
+  "subtitulo": "Guía práctica paso a paso, desde cero hasta el inicio y cierre de sesión",
+  "proyecto": "Sistema de Gestión EOP — Proyecto Integrador, Universidad ORT Uruguay",
+  "version": "1.0",
+  "fecha": "29/10/2026",
+  "tareasDocumentadas": [
+    "S1-T08 — Configurar Microsoft Entra ID (PR #10)",
+    "S1-T09 — Implementar inicio y cierre de sesión (PR #13)"
+  ],
+  "archivoSalida": "Guia-Autenticacion-Entra-ID.pdf",
+  "capitulos": [
+    "capitulos/00-como-usar-esta-guia.md",
+    "capitulos/01-introduccion-y-conceptos.md",
+    "capitulos/02-requisitos-previos.md",
+    "capitulos/03-configuracion-entra-id.md",
+    "capitulos/04-integracion-aspnet-core.md",
+    "capitulos/05-inicio-de-sesion.md",
+    "capitulos/06-proteccion-y-autorizacion.md",
+    "capitulos/07-cierre-de-sesion.md",
+    "capitulos/08-errores-y-seguridad.md",
+    "capitulos/09-pruebas-y-verificacion.md",
+    "capitulos/10-errores-frecuentes.md",
+    "capitulos/11-checklist-de-reproduccion.md",
+    "capitulos/90-glosario.md",
+    "capitulos/91-referencias.md",
+    "capitulos/99-historial-de-la-guia.md"
+  ]
+}

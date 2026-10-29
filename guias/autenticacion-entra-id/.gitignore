@@ -1,0 +1,5 @@
+# Imágenes temporales para revisar el PDF
+salida/vista-previa/
+
+# HTML intermedio: usa rutas absolutas de la máquina donde se generó
+salida/guia.html

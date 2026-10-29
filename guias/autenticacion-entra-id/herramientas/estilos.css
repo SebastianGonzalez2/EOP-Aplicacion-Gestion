@@ -1,0 +1,129 @@
+/* Estilos de impresión de la guía. Paleta: azul institucional + acentos por tipo de aviso. */
+:root {
+  --azul: #1f4e8c;
+  --azul-oscuro: #12325c;
+  --azul-claro: #e8f0fb;
+  --texto: #1d2533;
+  --gris: #5b6577;
+  --borde: #d5dbe5;
+  --codigo-fondo: #f6f8fa;
+}
+
+@page { size: A4; }
+
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: var(--texto);
+  margin: 0;
+}
+
+/* ---------- Portada ---------- */
+.portada { height: 255mm; display: flex; flex-direction: column; break-after: page; }
+.portada-banda {
+  background: linear-gradient(135deg, var(--azul-oscuro) 0%, var(--azul) 60%, #2f6fbf 100%);
+  color: white; padding: 34mm 14mm 22mm; border-radius: 0 0 6mm 6mm;
+}
+.portada-etiqueta { text-transform: uppercase; letter-spacing: 3px; font-size: 9pt; opacity: .85; margin-bottom: 8mm; }
+.portada-titulo { break-before: auto !important; font-size: 30pt; line-height: 1.15; margin: 0 0 6mm; border: none; color: white; padding: 0; }
+.portada-subtitulo { font-size: 13pt; margin: 0; opacity: .92; }
+.portada-cuerpo { padding: 14mm 14mm 0; flex: 1; }
+.portada-proyecto { font-size: 12pt; color: var(--azul-oscuro); font-weight: 600; margin: 0 0 10mm; }
+.portada-tareas { border-left: 4px solid var(--azul); background: var(--azul-claro); padding: 4mm 6mm; margin-bottom: 10mm; }
+.portada-tareas-titulo { font-weight: 700; color: var(--azul-oscuro); margin-bottom: 2mm; }
+.portada-tareas ul { margin: 0; padding-left: 5mm; }
+.portada-datos { border-collapse: collapse; width: auto; font-size: 10pt; }
+.portada-datos th { text-align: left; color: var(--gris); font-weight: 600; padding: 1.5mm 8mm 1.5mm 0; background: none; border: none; }
+.portada-datos td { padding: 1.5mm 0; border: none; }
+.portada-datos tr:nth-child(even) td { background: none; }
+
+/* ---------- Índice ---------- */
+.indice { break-after: page; }
+.indice-titulo { break-before: auto !important; }
+.indice-lista { list-style: none; padding: 0; margin: 0; columns: 1; }
+.indice-lista li { margin: 0; }
+.indice-lista li.nivel-1 { font-weight: 700; margin-top: 3.2mm; font-size: 11pt; }
+.indice-lista li.nivel-1 a { color: var(--azul-oscuro); }
+.indice-lista li.nivel-2 { padding-left: 7mm; font-size: 9.6pt; line-height: 1.5; }
+.indice-lista a { color: var(--texto); text-decoration: none; }
+
+/* ---------- Títulos ---------- */
+h1 {
+  break-before: page;
+  font-size: 22pt; color: var(--azul-oscuro); margin: 0 0 6mm;
+  padding-bottom: 3mm; border-bottom: 3px solid var(--azul);
+}
+.capitulo-intro h1 { break-before: auto; }
+h2 { font-size: 15pt; color: var(--azul); margin: 9mm 0 3mm; break-after: avoid; }
+h3 { font-size: 12pt; color: var(--azul-oscuro); margin: 6mm 0 2mm; break-after: avoid; }
+h4 { font-size: 10.5pt; color: var(--texto); margin: 4mm 0 1.5mm; break-after: avoid; }
+p { margin: 0 0 2.6mm; orphans: 3; widows: 3; }
+a { color: var(--azul); }
+strong { color: #111a2b; }
+hr { border: none; border-top: 1px solid var(--borde); margin: 6mm 0; }
+ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+li { margin-bottom: 1mm; }
+
+/* ---------- Código ---------- */
+code {
+  font-family: "Cascadia Code", Consolas, "Courier New", monospace;
+  font-size: 9pt; background: #eef1f5; padding: .2mm 1.2mm; border-radius: 1mm; color: #24292f;
+}
+pre {
+  background: var(--codigo-fondo); border: 1px solid var(--borde); border-left: 4px solid var(--azul);
+  border-radius: 1.5mm; padding: 3mm 4mm; margin: 0 0 4mm; overflow: hidden;
+  white-space: pre-wrap; word-break: break-word; font-size: 8.6pt; line-height: 1.45;
+}
+pre code, pre code.hljs { background: none; padding: 0; font-size: inherit; }
+/* Sin ligaduras: que "=>" se vea como se escribe y no como una flecha. */
+code, pre { font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0; }
+
+/* Checklist: casilla en lugar de viñeta */
+li:has(> input[type="checkbox"]) { list-style: none; margin-left: -5mm; }
+li > input[type="checkbox"] { width: 3.4mm; height: 3.4mm; margin: 0 2mm 0 0; vertical-align: -0.5mm; }
+
+/* ---------- Tablas ---------- */
+table { border-collapse: collapse; width: 100%; margin: 0 0 4mm; font-size: 9.4pt; break-inside: auto; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th { background: var(--azul); color: white; text-align: left; padding: 2mm 2.5mm; font-weight: 600; }
+td { border-bottom: 1px solid var(--borde); padding: 1.8mm 2.5mm; vertical-align: top; }
+tr:nth-child(even) td { background: #f7f9fc; }
+td code, th code { white-space: nowrap; }
+
+/* ---------- Avisos ---------- */
+blockquote { margin: 0 0 4mm; padding: 3mm 4mm; border-left: 4px solid var(--borde); background: #f7f8fa; border-radius: 1.5mm; break-inside: avoid; }
+blockquote p:last-child { margin-bottom: 0; }
+.aviso-titulo { font-weight: 700; font-size: 9pt; text-transform: uppercase; letter-spacing: .6px; margin-bottom: 1.5mm; }
+.aviso-eop { border-color: #2b7a3d; background: #eef7ef; } .aviso-eop .aviso-titulo { color: #2b7a3d; }
+.aviso-eop .aviso-titulo::before { content: "🏢 "; }
+.aviso-general { border-color: #6a4bb6; background: #f3effb; } .aviso-general .aviso-titulo { color: #6a4bb6; }
+.aviso-general .aviso-titulo::before { content: "🧭 "; }
+.aviso-advertencia { border-color: #c0392b; background: #fdf0ee; } .aviso-advertencia .aviso-titulo { color: #b03a2e; }
+.aviso-advertencia .aviso-titulo::before { content: "⚠️ "; }
+.aviso-consejo { border-color: #1f8a99; background: #ecf8fa; } .aviso-consejo .aviso-titulo { color: #17707c; }
+.aviso-consejo .aviso-titulo::before { content: "💡 "; }
+.aviso-nota { border-color: var(--azul); background: var(--azul-claro); } .aviso-nota .aviso-titulo { color: var(--azul); }
+.aviso-nota .aviso-titulo::before { content: "ℹ️ "; }
+.aviso-reconstruido { border-color: #b7791f; background: #fdf6e7; } .aviso-reconstruido .aviso-titulo { color: #95621a; }
+.aviso-reconstruido .aviso-titulo::before { content: "🧩 "; }
+.aviso-pendiente { border-color: #7a869a; background: #f1f3f6; border-left-style: dashed; } .aviso-pendiente .aviso-titulo { color: #4d5869; }
+.aviso-pendiente .aviso-titulo::before { content: "⏳ "; }
+.aviso-prueba { border-color: #2f6fbf; background: #eef5ff; } .aviso-prueba .aviso-titulo { color: #2f6fbf; }
+.aviso-prueba .aviso-titulo::before { content: "✅ "; }
+
+/* ---------- Figuras ---------- */
+figure { margin: 0 0 5mm; text-align: center; break-inside: avoid; }
+figure.captura img { max-width: 100%; max-height: 120mm; border: 1px solid var(--borde); border-radius: 1.5mm; box-shadow: 0 1mm 3mm rgba(0,0,0,.08); }
+figcaption { font-size: 8.8pt; color: var(--gris); margin-top: 2mm; font-style: italic; }
+figure.diagrama { background: #fbfcfe; border: 1px solid var(--borde); border-radius: 2mm; padding: 4mm 2mm; }
+figure.diagrama pre.mermaid { background: none; border: none; padding: 0; margin: 0; white-space: pre; text-align: center; }
+figure.diagrama svg { display: inline-block; }
+.captura-pendiente div { border: 2px dashed #b9c2d0; border-radius: 2mm; padding: 6mm; color: var(--gris); background: #fafbfc; font-size: 9.5pt; }
+
+/* Utilidades usadas desde el Markdown */
+.paso { display: inline-block; background: var(--azul); color: white; border-radius: 50%; width: 6mm; height: 6mm; text-align: center; line-height: 6mm; font-size: 8.5pt; font-weight: 700; margin-right: 1.5mm; }
+.ruta-ui { font-family: "Segoe UI", Arial; background: #eef1f5; border: 1px solid var(--borde); border-radius: 1mm; padding: .3mm 1.5mm; font-size: 9.2pt; white-space: nowrap; }
+kbd { font-family: "Segoe UI", Arial; font-size: 8.8pt; border: 1px solid #b9c2d0; border-bottom-width: 2px; border-radius: 1mm; padding: 0 1.4mm; background: white; }
