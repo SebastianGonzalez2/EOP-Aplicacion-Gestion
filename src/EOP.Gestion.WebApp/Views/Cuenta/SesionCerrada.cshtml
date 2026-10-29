@@ -1,0 +1,18 @@
+@{
+    ViewData["Title"] = "Sesión cerrada";
+}
+
+@* Pantalla que aparece después de cerrar sesión. La ve alguien sin sesión,
+   por eso la acción que la muestra tiene [AllowAnonymous]. *@
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card text-center mt-4">
+            <div class="card-body">
+                <h1 class="h4 card-title">Cerraste sesión</h1>
+                <p class="card-text">Tu sesión en EOP terminó correctamente.</p>
+                <a class="btn btn-primary" asp-controller="Cuenta" asp-action="IniciarSesion">Iniciar sesión de nuevo</a>
+            </div>
+        </div>
+    </div>
+</div>
