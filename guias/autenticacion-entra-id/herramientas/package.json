@@ -1,0 +1,18 @@
+{
+  "name": "guia-autenticacion-entra-id",
+  "private": true,
+  "description": "Genera el PDF de la guía de autenticación con Microsoft Entra ID a partir de los capítulos en Markdown.",
+  "type": "module",
+  "scripts": {
+    "capturas": "node capturar.mjs",
+    "construir": "node construir.mjs"
+  },
+  "dependencies": {
+    "highlight.js": "11.12.0",
+    "marked": "18.1.2",
+    "marked-highlight": "2.2.4",
+    "mermaid": "12.2.0",
+    "pdfjs-dist": "6.4.299",
+    "puppeteer-core": "25.16.0"
+  }
+}

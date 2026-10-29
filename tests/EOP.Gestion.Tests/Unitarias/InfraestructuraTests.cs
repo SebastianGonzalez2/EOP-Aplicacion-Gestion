@@ -4,6 +4,9 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using EOP.Gestion.Core.Interfaces.Clientes;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Clientes;
+
 
 namespace EOP.Gestion.Tests.Unitarias;
 
@@ -24,6 +27,12 @@ public class InfraestructuraTests
         using var proveedor = services.BuildServiceProvider();
         using var alcance = proveedor.CreateScope();
         var contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
+
+        // Comprobamos que ASP.NET Core pueda obtener el repositorio de clientes.
+        var repositorio = alcance.ServiceProvider.GetRequiredService<IRepositorioClientes>();
+
+        // Verificamos que la implementación obtenida sea RepositorioClientes.
+        Assert.IsType<RepositorioClientes>(repositorio);
 
         Assert.True(contexto.Database.IsSqlServer());
 
