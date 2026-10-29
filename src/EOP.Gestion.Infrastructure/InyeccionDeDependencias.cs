@@ -2,7 +2,8 @@ using EOP.Gestion.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
+using EOP.Gestion.Core.Interfaces.Clientes;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Clientes;
 
 namespace EOP.Gestion.Infrastructure;
 
@@ -30,8 +31,11 @@ public static class InyeccionDeDependencias
         }
 
         services.AddDbContext<EopDbContext>(opciones => opciones.UseSqlServer(cadenaConexion));
-       //AddDbContext<EopDbContext>: registra nuestro contexto para que la aplicación pueda utilizarlo.
-       //UseSqlServer(cadenaConexion): indica que trabajaremos con SQL Server y proporciona los datos de conexión.
+        //AddDbContext<EopDbContext>: registra nuestro contexto para que la aplicación pueda utilizarlo.
+        //UseSqlServer(cadenaConexion): indica que trabajaremos con SQL Server y proporciona los datos de conexión.
+
+        // Registramos el repositorio de clientes para consultar sus datos.
+        services.AddScoped<IRepositorioClientes, RepositorioClientes>();
 
 
         return services;
