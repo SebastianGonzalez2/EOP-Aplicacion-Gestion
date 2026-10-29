@@ -1,0 +1,21 @@
+@{
+    ViewData["Title"] = "No se pudo iniciar sesión";
+}
+
+@* Pantalla que aparece cuando el login falla del lado de Microsoft. El detalle
+   técnico queda registrado en el log; acá solo le explicamos al usuario qué hacer. *@
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card text-center mt-4">
+            <div class="card-body">
+                <h1 class="h4 card-title">No se pudo iniciar sesión</h1>
+                <p class="card-text">
+                    El inicio de sesión no se completó. Puede pasar si se canceló el proceso
+                    o si no se terminó la verificación en dos pasos.
+                </p>
+                <a class="btn btn-primary" asp-controller="Cuenta" asp-action="IniciarSesion">Intentar de nuevo</a>
+            </div>
+        </div>
+    </div>
+</div>

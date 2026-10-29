@@ -1,4 +1,5 @@
 using EOP.Gestion.WebApp.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,10 @@ namespace EOP.Gestion.WebApp.Controllers
             return View();
         }
 
+        // La página de error tiene que poder mostrarse siempre, incluso a alguien
+        // sin sesión. Si no, un error durante el login terminaría en otra
+        // redirección al login en lugar de mostrar el aviso.
+        [AllowAnonymous]
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
