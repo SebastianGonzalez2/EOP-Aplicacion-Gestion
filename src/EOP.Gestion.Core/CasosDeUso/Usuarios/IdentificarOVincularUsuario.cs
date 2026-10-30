@@ -13,7 +13,16 @@ public class IdentificarOVincularUsuario
         _repositorioUsuarios = repositorioUsuarios;
     }
 
-    public async Task<Usuario?> EjecutarAsync(string entraObjectId, string? correoCorporativo, CancellationToken cancellationToken = default){
+    /*
+     el método identifica qué usuario de EOP corresponde a la persona que inició sesión con Microsoft.
+
+        Hace lo siguiente:
+        1. Primero busca por EntraObjectId: si el usuario ya está vinculado y activo, lo encuentra y lo devuelve.
+        2. Si no está vinculado, busca por correo: comprueba si existe un usuario de EOP con el mismo correo corporativo.
+        3. Si lo encuentra y está activo y sin vinculación, guarda su EntraObjectId para reconocerlo en futuros inicios de sesión.
+        4. Finalmente devuelve el usuario de EOP. Si no puede identificarlo o vincularlo correctamente, devuelve null. 
+    */
+    public async Task<Usuario?> ObtenerUsuarioEopPorEntraIdOVincularloPorCorreoCorporativoAsync(string entraObjectId, string? correoCorporativo, CancellationToken cancellationToken = default){
         // Sin identificador externo no podemos identificar al usuario.
         if (string.IsNullOrWhiteSpace(entraObjectId))
         {
@@ -51,14 +60,20 @@ public class IdentificarOVincularUsuario
         }
 
         // Intentamos vincular la identidad externa al usuario existente. Si otro proceso ya lo vinculó, no hacemos nada.
-        bool vinculacionExitosa = await _repositorioUsuarios.VincularIdentidadSiNoVinculadaAsync(usuario.Id, entraObjectId,  cancellationToken);
+        // Si devuelve false no cortamos todavía: puede ser que otro inicio de sesión
+        // simultáneo de la misma persona lo haya vinculado un instante antes.
+        await _repositorioUsuarios.VincularIdentidadSiNoVinculadaAsync(usuario.Id, entraObjectId, cancellationToken);
 
-        if (!vinculacionExitosa)
+        // Recuperamos el usuario con la vinculación ya guardada.
+        Usuario? usuarioVinculado = await _repositorioUsuarios.ObtenerPorIdentidadExternaAsync(entraObjectId, cancellationToken);
+
+        // Solo lo aceptamos si quedó vinculado ESTE mismo usuario y sigue activo
+        // (pudieron inactivarlo justo mientras se vinculaba).
+        if (usuarioVinculado == null || usuarioVinculado.Id != usuario.Id || !usuarioVinculado.Activo)
         {
             return null;
         }
 
-        // Recuperamos el usuario con la vinculación ya guardada.
-        return await _repositorioUsuarios.ObtenerPorIdentidadExternaAsync(entraObjectId, cancellationToken);
+        return usuarioVinculado;
     }
 }
