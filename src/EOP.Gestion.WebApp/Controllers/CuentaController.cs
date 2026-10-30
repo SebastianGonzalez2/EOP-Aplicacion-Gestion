@@ -110,8 +110,11 @@ namespace EOP.Gestion.WebApp.Controllers
 
         // GET /Cuenta/ErrorInicioSesion
         //
-        // Acá llega el usuario cuando el login falló del lado de Microsoft
-        // (canceló, no completó el MFA, etc.). Lo manda ManejadorFallosInicioSesion.
+        // Acá llega el usuario cuando el login no se completó:
+        // - falló del lado de Microsoft (canceló, no completó el MFA, etc.).
+        //   Lo manda ManejadorFallosInicioSesion.
+        // - EOP no lo reconoce como usuario habilitado, o falló la base de datos.
+        //   Lo manda el evento OnTicketReceived de Program.cs.
         //
         // Es pública porque el usuario, justamente, no pudo iniciar sesión.
         // El mensaje es genérico a propósito: el detalle técnico queda en el log,

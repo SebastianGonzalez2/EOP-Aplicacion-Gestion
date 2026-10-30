@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Identity.Web;
 using EOP.Gestion.Core.CasosDeUso.Clientes;
+using EOP.Gestion.Core.CasosDeUso.Usuarios;
+using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -32,9 +34,14 @@ builder.Services.AddControllersWithViews();
 // incluyendo appsettings.json, variables de entorno y User Secrets.
 builder.Services.AgregarInfraestructura(builder.Configuration);
 
+
+//CASO DE USO
+
 // Registramos el caso de uso que valida los datos del cliente.
 builder.Services.AddScoped<ValidarDatosCliente>();
 
+// Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
+builder.Services.AddScoped<IdentificarOVincularUsuario>();
 
 // ================================
 // AUTENTICACIÓN CON MICROSOFT ENTRA ID
@@ -71,6 +78,125 @@ builder.Services.PostConfigure<OpenIdConnectOptions>(
         // que protege el intercambio del código de
         // autorización frente a determinados ataques.
         options.UsePkce = true;
+
+
+        //Un evento es una oportunidad que nos da un programa o una biblioteca para ejecutar nuestro propio código cuando sucede algo determinado
+        //Aca estaruamos diciendo que :
+        //ASP.NET Core, cuando recibas el ticket de autenticación procedente de Microsoft, ejecutá también este código que escribimos nosotros.
+
+        /*Juan ingresó sus credenciales en Microsoft.
+        Microsoft completó la autenticación.
+        Microsoft devolvió la información de Juan a nuestra aplicación.
+        ASP.NET Core recibió el ticket de autenticación y está por ejecutar OnTicketReceived.Estamos acá.*/
+
+        var eventoAnteriorTicket = options.Events.OnTicketReceived;
+        //Guardamos una referencia a una fución que ya estaba configurada para ejecutarse cuando se recibe el ticket de autenticación. 
+        //Porque nosotros despues le asignamos nuestra propia función, pero queremos que la función original se siga ejecutando antes de la nuestra.
+
+        //datosDelInicioDeSesion es un objeto que ASP.NET Core nos pasa con información sobre la autenticación que acaba de ocurrir.
+        //Contiene datos como la identidad del usuario, el token recibido y otros detalles relevantes.
+        options.Events.OnTicketReceived = async datosDelInicioDeSesion =>
+        {
+            //Creamos nuestra propia funcion que ASP.NET Core ejecutará cuando reciba el ticket de autenticación de Microsoft.
+
+            // Conservamos el comportamiento que ya configuró Microsoft.
+            await eventoAnteriorTicket(datosDelInicioDeSesion);
+
+            if (datosDelInicioDeSesion.Result != null)
+            {
+                return;
+            }
+
+            // Con este registrador dejamos constancia de los accesos rechazados (RNF-12).
+            // Nunca registramos correos, Object IDs, tokens ni mensajes de excepciones:
+            // solo el motivo general y el Id de la solicitud, que sirve para encontrar
+            // el resto de los logs de ese mismo pedido.
+            var registradorDeAccesos = datosDelInicioDeSesion.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("VinculacionUsuarios");
+
+            string idSolicitud = datosDelInicioDeSesion.HttpContext.TraceIdentifier;
+
+            // Corta el inicio de sesión: manda al usuario a la pantalla de error y le
+            // avisa a ASP.NET Core que ya respondimos nosotros (HandleResponse).
+            // Así ASP.NET Core NO crea la cookie de sesión.
+            void RechazarInicioDeSesion()
+            {
+                datosDelInicioDeSesion.Response.Redirect(
+                    datosDelInicioDeSesion.Request.PathBase +
+                    ManejadorFallosInicioSesion.RutaPantallaError);
+
+                datosDelInicioDeSesion.HandleResponse();
+            }
+
+            //Traemos los datos del usuario autenticado por Microsoft Entra ID (identificador externo, correo)
+            var identidad = datosDelInicioDeSesion.Principal;
+
+            string? entraObjectId = identidad?.GetObjectId();
+
+            // Sin identidad o sin Object ID no tenemos forma de saber quién es.
+            if (identidad == null || string.IsNullOrWhiteSpace(entraObjectId))
+            {
+                registradorDeAccesos.LogWarning(
+                    "Inicio de sesión rechazado: Microsoft Entra ID no envió una identidad válida. Id de solicitud: {IdSolicitud}",
+                    idSolicitud);
+
+                RechazarInicioDeSesion();
+                return;
+            }
+
+            string? correoCorporativo = identidad.FindFirst("preferred_username")?.Value ?? identidad.FindFirst(ClaimTypes.Email)?.Value;
+
+            // Buscamos al usuario de EOP o intentamos su primera vinculación.
+            try
+            {
+                // Obtenemos nuestro caso de uso mediante inyección de dependencias.
+                // Va dentro del try: si fallara al crearse, también cortamos el login.
+                var IdentificarOVincularUsuario = datosDelInicioDeSesion.HttpContext.RequestServices.GetRequiredService<IdentificarOVincularUsuario>();
+
+                var usuarioEop = await IdentificarOVincularUsuario
+                    .ObtenerUsuarioEopPorEntraIdOVincularloPorCorreoCorporativoAsync(
+                        entraObjectId,
+                        correoCorporativo,
+                        datosDelInicioDeSesion.HttpContext.RequestAborted);
+
+                if (usuarioEop == null)
+                {
+                    // Usamos el mismo mensaje si no existe, si está inactivo o si ya está
+                    // vinculado a otra cuenta: el log no necesita más detalle que este.
+                    registradorDeAccesos.LogWarning(
+                        "Inicio de sesión rechazado: no se encontró un usuario habilitado de EOP. Id de solicitud: {IdSolicitud}",
+                        idSolicitud);
+
+                    RechazarInicioDeSesion();
+                }
+            }
+            catch (OperationCanceledException) when (datosDelInicioDeSesion.HttpContext.RequestAborted.IsCancellationRequested)
+            {
+                // El usuario cerró la pestaña o se cortó la conexión a mitad del login.
+                // No es una falla de la base de datos, así que no lo registramos como error.
+                // Igual cortamos el login: nunca creamos una sesión sin haber identificado al usuario.
+                registradorDeAccesos.LogInformation(
+                    "Inicio de sesión interrumpido: la solicitud fue cancelada antes de identificar al usuario. Id de solicitud: {IdSolicitud}",
+                    idSolicitud);
+
+                RechazarInicioDeSesion();
+            }
+            catch (Exception errorAlIdentificarUsuario)
+            {
+                // Por ejemplo: SQL Server no responde. Registramos solo el tipo de error,
+                // no su mensaje, porque puede traer datos personales (SQL Server, por
+                // ejemplo, incluye el valor repetido cuando se viola un índice único).
+                registradorDeAccesos.LogError(
+                    "No se pudo identificar al usuario de EOP. Tipo de error: {TipoError}. Id de solicitud: {IdSolicitud}",
+                    errorAlIdentificarUsuario.GetType().Name,
+                    idSolicitud);
+
+                // No permitimos continuar el inicio de sesión.
+                RechazarInicioDeSesion();
+            }
+        };
+
 
         // Los "eventos" son puntos donde la librería nos deja meter código
         // propio en distintos momentos del login.
