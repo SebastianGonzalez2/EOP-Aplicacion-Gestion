@@ -16,22 +16,13 @@ var builder = WebApplication.CreateBuilder(args);
 // REGISTRO DE SERVICIOS
 // ================================
 
-// Registramos los servicios necesarios para utilizar ASP.NET Core MVC.
-// Esto permite trabajar con Controllers y Views (vistas Razor).
-// Por ejemplo, cuando un usuario accede a una URL,
-// un Controller procesa la solicitud y devuelve una View.
+// Activamos MVC: cada pedido lo atiende un Controller, que devuelve una vista Razor.
+// Por ejemplo, /Home/Index lo atiende HomeController y muestra Views/Home/Index.cshtml.
 builder.Services.AddControllersWithViews();
 
-
-// Registramos los servicios de nuestra capa Infrastructure.
-// AgregarInfraestructura() es un método que creamos nosotros
-// para centralizar las configuraciones técnicas del proyecto.
-//
-// Actualmente permite configurar servicios como EopDbContext,
-// que utiliza Entity Framework Core para comunicarse con SQL Server.
-//
-// builder.Configuration contiene la configuración de la aplicación,
-// incluyendo appsettings.json, variables de entorno y User Secrets.
+// Sumamos lo de la capa Infrastructure: la base de datos (EopDbContext con EF Core)
+// y los repositorios. Le pasamos la configuración porque de ahí saca la cadena de
+// conexión (appsettings, variables de entorno o User Secrets).
 builder.Services.AgregarInfraestructura(builder.Configuration);
 
 
@@ -42,6 +33,10 @@ builder.Services.AddScoped<ValidarDatosCliente>();
 
 // Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
 builder.Services.AddScoped<IdentificarOVincularUsuario>();
+
+// verifica si un usuario sigue habilitado en EOP cuando utiliza una sesión que ya estaba iniciada.
+builder.Services.AddScoped<VerificarUsuarioHabilitado>();
+
 
 // ================================
 // AUTENTICACIÓN CON MICROSOFT ENTRA ID
@@ -255,6 +250,28 @@ builder.Services.Configure<CookieAuthenticationOptions>(
 
         // No cambiamos cuánto dura la sesión. Los requerimientos no lo dicen,
         // así que preferimos no inventar un valor y dejar el de ASP.NET Core.
+
+
+        // Conservamos el evento de validación que ya estaba configurado.
+        // No queremos reemplazar las verificaciones anteriores del framework.
+        var validacionDeCookieConfiguradaAnteriormente = options.Events.OnValidatePrincipal;
+
+        options.Events.OnValidatePrincipal = async contextoValidacionCookie =>
+        {
+            // Primero ejecutamos la validación que ya existía.
+            await validacionDeCookieConfiguradaAnteriormente(contextoValidacionCookie);
+
+            // Si la validación anterior rechazó la identidad,
+            // no necesitamos continuar.
+            if (contextoValidacionCookie.Principal == null)
+            {
+                return;
+            }
+
+            // Comprobamos si el usuario sigue habilitado en EOP.
+            // Si no lo está, el manejador rechazará su sesión.
+            await ManejadorDeValidacionDeAccesoConSesionIniciada.VerificarQueUsuarioSigueHabilitadoORechazarSesionAsync(contextoValidacionCookie);
+        };
     });
 
 
@@ -277,8 +294,9 @@ builder.Services.Configure<CookieAuthenticationOptions>(
 // Si alguien entra sin sesión, ASP.NET Core lo manda solo a Microsoft
 // para que inicie sesión, y después lo devuelve a la página que quería ver.
 //
-// Esto solo verifica que el usuario esté autenticado en Entra ID.
-// Chequear que exista en EOP y que esté Activo queda para la T11.
+// Esto solo pide que el usuario haya iniciado sesión con Entra ID.
+// Que además exista en EOP y siga Activo lo revisa la cookie en cada
+// pedido (OnValidatePrincipal, más arriba).
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()

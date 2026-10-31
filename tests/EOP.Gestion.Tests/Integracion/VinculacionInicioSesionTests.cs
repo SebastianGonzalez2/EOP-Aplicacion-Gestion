@@ -1,10 +1,10 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Tests.Compartido;
 using EOP.Gestion.WebApp.Autorizacion;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -790,48 +790,7 @@ public class VinculacionInicioSesionTests
         }
     }
 
-    // Un "destino" de logs que guarda todo en memoria para revisarlo en la prueba.
-    // Se suma a los que ya tiene la app; no reemplaza ninguno.
-    private sealed class RegistroDeLogsDePrueba : ILoggerProvider
-    {
-        private readonly ConcurrentQueue<EntradaDeLog> _entradas = new();
-
-        public IReadOnlyCollection<EntradaDeLog> Entradas => _entradas.ToArray();
-
-        public ILogger CreateLogger(string categoryName) => new LoggerEnMemoria(categoryName, _entradas);
-
-        public void Dispose()
-        {
-        }
-
-        private sealed class LoggerEnMemoria(string categoria, ConcurrentQueue<EntradaDeLog> entradas) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-
-            public bool IsEnabled(LogLevel logLevel) => true;
-
-            public void Log<TState>(
-                LogLevel logLevel,
-                EventId eventId,
-                TState state,
-                Exception? exception,
-                Func<TState, Exception?, string> formatter)
-            {
-                // Además del texto final, guardamos los valores sueltos del mensaje
-                // ({TipoError}, etc.), que es lo que verían herramientas como Application Insights.
-                string valores = state is IEnumerable<KeyValuePair<string, object?>> pares
-                    ? string.Join(" | ", pares.Select(p => $"{p.Key}={p.Value}"))
-                    : string.Empty;
-
-                entradas.Enqueue(new EntradaDeLog(categoria, logLevel, formatter(state, exception), valores, exception));
-            }
-        }
-    }
-
-    private sealed record EntradaDeLog(
-        string Categoria,
-        LogLevel Nivel,
-        string Mensaje,
-        string Valores,
-        Exception? Excepcion);
+    // El registro de logs en memoria (RegistroDeLogsDePrueba y EntradaDeLog)
+    // estaba acá. Se movió, sin cambios, a Compartido/RegistroDeLogsDePrueba.cs
+    // para que también lo usen las pruebas de la T11.
 }
