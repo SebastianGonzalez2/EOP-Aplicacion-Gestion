@@ -233,15 +233,13 @@ El tablero de Trello `EOP - Sistema de Gestion` tiene cinco listas: Product Back
 
 ---
 
-## Estimaciones de tiempo
+## Horas estimadas — regla obligatoria para asistentes de IA
 
-Las horas estimadas de las tareas son únicamente una referencia para la planificación del equipo de desarrollo.
+Las horas estimadas de las tareas son estimaciones internas del equipo y **deben ignorarse por completo**. No las busques, consultes, analices, interpretes ni menciones, salvo que el usuario lo solicite expresamente. Si aparecen incidentalmente en el título, la descripción o la documentación de una tarea, ignorá ese dato.
 
-Los asistentes de IA deben implementar lo que solicita cada tarea, respetando su alcance y sus requerimientos, **sin utilizar las horas estimadas para decidir cuánto trabajo realizar**.
+**Nunca utilices las horas estimadas** para planificar, dividir tareas, asignar duraciones a etapas, dimensionar, limitar, simplificar, recortar o ampliar el trabajo. Tampoco ajustes la implementación para que coincida con una estimación, ni repartas horas entre pasos por iniciativa propia.
 
-No se debe ampliar, reducir ni modificar una implementación para ajustarla al tiempo estimado. Si una tarea se resuelve correctamente en menos tiempo del previsto, no hay que agregar trabajo adicional. Si requiere más tiempo, se debe completar igualmente.
-
-**El alcance de la tarea determina qué se implementa, no las horas estimadas.**
+La planificación y la implementación deben basarse en los requerimientos (RF/RNF), historias de usuario, criterios de aceptación, dependencias, estado real del código, complejidad técnica y buenas prácticas. **El alcance y la calidad determinan el trabajo necesario; las horas estimadas no intervienen en ninguna decisión.**
 
 ---
 

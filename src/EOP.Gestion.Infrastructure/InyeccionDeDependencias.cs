@@ -2,6 +2,10 @@ using EOP.Gestion.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+
+using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios;
+
 using EOP.Gestion.Core.Interfaces.Clientes;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Clientes;
 
@@ -37,6 +41,8 @@ public static class InyeccionDeDependencias
         // Registramos el repositorio de clientes para consultar sus datos.
         services.AddScoped<IRepositorioClientes, RepositorioClientes>();
 
+        services.AddScoped<IRepositorioUsuarios, RepositorioUsuarios>();
+        //Cuando alguna clase necesite un IRepositorioUsuarios, creá y proporcionale una instancia de RepositorioUsuarios.
 
         return services;
     }
