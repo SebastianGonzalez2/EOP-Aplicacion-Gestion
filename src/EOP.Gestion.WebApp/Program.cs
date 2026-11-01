@@ -35,6 +35,11 @@ builder.Services.AgregarInfraestructura(builder.Configuration);
 // Registramos el caso de uso que valida los datos del cliente.
 builder.Services.AddScoped<ValidarDatosCliente>();
 
+// Registramos el caso de uso que valida y guarda
+// los nuevos clientes en la base de datos.
+builder.Services.AddScoped<RegistrarCliente>();
+
+
 
 // ================================
 // AUTENTICACIÓN CON MICROSOFT ENTRA ID

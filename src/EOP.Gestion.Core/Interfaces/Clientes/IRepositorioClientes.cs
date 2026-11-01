@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using EOP.Gestion.Core.Entidades.Clientes;
 
 namespace EOP.Gestion.Core.Interfaces.Clientes
 {
@@ -9,6 +10,13 @@ namespace EOP.Gestion.Core.Interfaces.Clientes
         // Comprueba si ya existe un cliente con el RUT normalizado, si existe devuelve true, si no existe devuelve false
         //este metodo es el que se crea cuando se implementa la interfaz IRepositorioClientes
         Task<bool> ExistePorRutAsync(string rutNormalizado,CancellationToken cancellationToken = default);
+
+
+
+
+        // Registra un nuevo cliente en la base de datos.
+        // Recibe el cliente validado y permite cancelar la operación.
+        Task AgregarAsync(Cliente cliente, CancellationToken cancellationToken = default);
 
 
     }

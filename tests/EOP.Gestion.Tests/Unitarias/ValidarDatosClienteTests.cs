@@ -22,6 +22,14 @@ public class ValidarDatosClienteTests
             return Task.FromResult(RutExiste);
         }
 
+        public Task AgregarAsync(Cliente cliente, CancellationToken cancellationToken = default)
+        {
+            // Este repositorio falso se utiliza únicamente para probar
+            // las validaciones de clientes, no para guardar información.
+            throw new NotSupportedException("Este repositorio falso no permite guardar clientes.");
+        }
+
+
     }
 
     [Fact]
