@@ -1,9 +1,11 @@
 ﻿
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using EOP.Gestion.WebApp.ViewModels.Clientes;
 using EOP.Gestion.Core.CasosDeUso.Clientes;
 using EOP.Gestion.Core.Entidades.Clientes;
+using EOP.Gestion.Core.Interfaces.Clientes;
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -13,17 +15,29 @@ namespace EOP.Gestion.WebApp.Controllers
         // Caso de uso encargado de validar y registrar clientes.
         private readonly RegistrarCliente _registrarCliente;
 
+        // Nos da la lista de países para el selector del número de WhatsApp.
+        private readonly IServicioTelefonos _servicioTelefonos;
+
+        // El país que aparece elegido al abrir el formulario.
+        private const string PaisPredeterminadoWhatsApp = "UY";
+
         // Recibimos el caso de uso mediante inyección de dependencias.
-        public ClientesController(RegistrarCliente registrarCliente)
+        public ClientesController(RegistrarCliente registrarCliente, IServicioTelefonos servicioTelefonos)
         {
             _registrarCliente = registrarCliente;
+            _servicioTelefonos = servicioTelefonos;
         }
 
         // GET: muestra el formulario de registro.
         [HttpGet]
         public IActionResult Registrar()
         {
-            var modelo = new RegistrarClienteViewModel();
+            var modelo = new RegistrarClienteViewModel
+            {
+                PaisWhatsApp = PaisPredeterminadoWhatsApp
+            };
+
+            CargarPaisesWhatsApp(modelo);
 
             return View(modelo);
         }
@@ -37,6 +51,8 @@ namespace EOP.Gestion.WebApp.Controllers
             // al recibir los datos del formulario.
             if (!ModelState.IsValid)
             {
+                CargarPaisesWhatsApp(modelo);
+
                 return View(modelo);
             }
 
@@ -46,12 +62,13 @@ namespace EOP.Gestion.WebApp.Controllers
                 Nombre = modelo.Nombre,
                 Rut = modelo.Rut,
                 CorreoContacto = modelo.CorreoContacto,
-                CorreoFacturacion = modelo.CorreoFacturacion,
-                NumeroWhatsApp = modelo.NumeroWhatsApp
+                CorreoFacturacion = modelo.CorreoFacturacion
             };
 
             // Ejecutamos el caso de uso que valida y guarda el cliente.
-            List<string> errores = await _registrarCliente.EjecutarAsync(cliente, HttpContext.RequestAborted);
+            // El número de WhatsApp no lo armamos acá: el Controller solo coordina,
+            // y es el caso de uso el que deja el número internacional en el cliente.
+            List<string> errores = await _registrarCliente.EjecutarAsync(cliente, modelo.PaisWhatsApp, modelo.NumeroNacionalWhatsApp, HttpContext.RequestAborted);
 
             // Si existen errores de negocio, los mostramos en el formulario.
             if (errores.Count > 0)
@@ -61,6 +78,8 @@ namespace EOP.Gestion.WebApp.Controllers
                     ModelState.AddModelError(string.Empty, error);
                 }
 
+                CargarPaisesWhatsApp(modelo);
+
                 return View(modelo);
             }
 
@@ -69,6 +88,15 @@ namespace EOP.Gestion.WebApp.Controllers
 
             // Volvemos al formulario para registrar otro cliente.
             return RedirectToAction(nameof(Registrar));
+        }
+
+        // Las opciones del desplegable no viajan en el POST (el navegador solo manda la elegida),
+        // así que hay que volver a cargarlas cada vez que se muestra el formulario.
+        private void CargarPaisesWhatsApp(RegistrarClienteViewModel modelo)
+        {
+            modelo.PaisesWhatsApp = _servicioTelefonos.ObtenerPaises()
+                .Select(pais => new SelectListItem(pais.Descripcion, pais.CodigoIso))
+                .ToList();
         }
     }
 }

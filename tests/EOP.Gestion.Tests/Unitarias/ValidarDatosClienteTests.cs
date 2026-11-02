@@ -264,6 +264,32 @@ public class ValidarDatosClienteTests
             errores);
     }
 
+    [Fact]
+    public async Task ValidarAsync_ConErrorDeWhatsAppInformado_DebeMostrarEseErrorSinElGenerico()
+    {
+        // Simulamos que el RUT no está registrado.
+        var repositorio = new RepositorioClientesFalso
+        {
+            RutExiste = false
+        };
+
+        var validador = new ValidarDatosCliente(repositorio);
+
+        // El cliente queda sin número porque no se pudo armar el internacional.
+        var cliente = new Cliente
+        {
+            Nombre = "Empresa de prueba",
+            Rut = "215521750017",
+            CorreoContacto = "cliente@ejemplo.com"
+        };
+
+        // Ejecutamos las validaciones pasando el motivo por el que no se pudo armar.
+        List<string> errores = await validador.ValidarAsync(cliente, "El número no es válido para Uruguay.");
+
+        // Comprobamos que se muestre únicamente el motivo concreto.
+        Assert.Equal(["El número no es válido para Uruguay."], errores);
+    }
+
 
 
 

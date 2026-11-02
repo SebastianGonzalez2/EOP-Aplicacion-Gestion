@@ -16,7 +16,16 @@ public class ValidarDatosCliente
     }
 
     // Comprueba los datos del cliente antes de registrarlo.
-    public async Task<List<string>> ValidarAsync(Cliente cliente,CancellationToken cancellationToken = default)
+    public Task<List<string>> ValidarAsync(Cliente cliente,CancellationToken cancellationToken = default)
+    {
+        return ValidarAsync(cliente, errorWhatsApp: null, cancellationToken);
+    }
+
+    // Variante para cuando quien nos llama ya intentó armar el número de WhatsApp y falló.
+    // En errorWhatsApp nos pasa el motivo concreto, para mostrar ese mensaje en lugar del
+    // genérico de formato internacional, que no le serviría de nada a quien escribió 099123.
+    // Igual seguimos revisando el resto de los datos, así el usuario ve todos los errores juntos.
+    public async Task<List<string>> ValidarAsync(Cliente cliente,string? errorWhatsApp,CancellationToken cancellationToken = default)
     {
         // Guardamos los mensajes de los errores encontrados.
         List<string> errores = new();
@@ -58,8 +67,12 @@ public class ValidarDatosCliente
             errores.Add("El correo de facturación no tiene un formato válido.");
         }
 
+        if (errorWhatsApp != null)
+        {
+            errores.Add(errorWhatsApp);
+        }
         // Comprobamos que el número de WhatsApp tenga un formato internacional válido.
-        if (!ValidadorWhatsApp.EsValido(cliente.NumeroWhatsApp))
+        else if (!ValidadorWhatsApp.EsValido(cliente.NumeroWhatsApp))
         {
             errores.Add("El número de WhatsApp debe tener un formato internacional válido, por ejemplo +59899123456.");
         }
