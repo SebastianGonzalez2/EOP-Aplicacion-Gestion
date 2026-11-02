@@ -52,13 +52,13 @@ public class RepositorioUsuariosTests : IDisposable
         return new EopDbContext(opciones);
     }
 
-    private async Task<Usuario> GuardarUsuarioAsync(string correo, bool activo = true, string? entraObjectId = null)
+    private async Task<Usuario> GuardarUsuarioAsync(string correo, bool activo = true, string? entraObjectId = null, RolUsuario rol = RolUsuario.Operador)
     {
         var usuario = new Usuario
         {
             NombreCompleto = "Usuario de prueba",
             CorreoCorporativo = correo,
-            Rol = RolUsuario.Operador,
+            Rol = rol,
             Activo = activo,
             EntraObjectId = entraObjectId
         };
@@ -207,6 +207,107 @@ public class RepositorioUsuariosTests : IDisposable
 
         Assert.Null(await LeerEntraObjectIdGuardadoAsync(juan.Id));
         Assert.Equal(ObjectIdAna, await LeerEntraObjectIdGuardadoAsync(ana.Id));
+    }
+
+    // ---------- Cambio de rol (T14) ----------
+
+    // Los bloqueos propios de SQL Server (UPDLOCK, HOLDLOCK) no corren sobre SQLite:
+    // se prueban en ModificarRolConcurrenciaSqlServerTests. Acá probamos el resto.
+
+    private async Task<RolUsuario> LeerRolGuardadoAsync(int usuarioId)
+    {
+        using var contexto = CrearContexto();
+        return await contexto.Usuarios
+            .Where(u => u.Id == usuarioId)
+            .Select(u => u.Rol)
+            .SingleAsync();
+    }
+
+    [Fact]
+    public async Task ObtenerPorIdAsync_DevuelveElUsuarioConEseId()
+    {
+        await GuardarUsuarioAsync("ana@eop.com.uy");
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy", rol: RolUsuario.Supervisor);
+
+        Usuario? resultado = await _repositorio.ObtenerPorIdAsync(juan.Id);
+
+        Assert.NotNull(resultado);
+        Assert.Equal("juan@eop.com.uy", resultado.CorreoCorporativo);
+        Assert.Equal(RolUsuario.Supervisor, resultado.Rol);
+    }
+
+    [Fact]
+    public async Task ObtenerPorIdAsync_DevuelveNullSiNoExiste()
+    {
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy");
+
+        Usuario? resultado = await _repositorio.ObtenerPorIdAsync(juan.Id + 999);
+
+        Assert.Null(resultado);
+    }
+
+    [Fact]
+    public async Task ContarAdministradoresActivosAsync_SoloCuentaLosQueSonAdministradoresYEstanActivos()
+    {
+        await GuardarUsuarioAsync("admin1@eop.com.uy", rol: RolUsuario.Administrador);
+        await GuardarUsuarioAsync("admin2@eop.com.uy", rol: RolUsuario.Administrador);
+        await GuardarUsuarioAsync("inactivo@eop.com.uy", activo: false, rol: RolUsuario.Administrador);
+        await GuardarUsuarioAsync("supervisor@eop.com.uy", rol: RolUsuario.Supervisor);
+        await GuardarUsuarioAsync("operador@eop.com.uy", rol: RolUsuario.Operador);
+
+        int cantidadAdministradoresActivos = await _repositorio.ContarAdministradoresActivosAsync();
+
+        Assert.Equal(2, cantidadAdministradoresActivos);
+    }
+
+    [Fact]
+    public async Task ActualizarRolAsync_ConfirmandoElTurno_GuardaElRolYNoTocaLosDemasDatos()
+    {
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy", entraObjectId: ObjectIdJuan);
+        var ana = await GuardarUsuarioAsync("ana@eop.com.uy");
+
+        await using (var bloqueo = await _repositorio.BloquearAdministradoresAsync())
+        {
+            await _repositorio.ActualizarRolAsync(juan.Id, RolUsuario.Supervisor);
+            await bloqueo.ConfirmarAsync();
+        }
+
+        using var contexto = CrearContexto();
+        Usuario juanGuardado = await contexto.Usuarios.SingleAsync(u => u.Id == juan.Id);
+        Assert.Equal(RolUsuario.Supervisor, juanGuardado.Rol);
+        Assert.Equal("Usuario de prueba", juanGuardado.NombreCompleto);
+        Assert.Equal("juan@eop.com.uy", juanGuardado.CorreoCorporativo);
+        Assert.Equal(ObjectIdJuan, juanGuardado.EntraObjectId);
+        Assert.True(juanGuardado.Activo);
+
+        // RF-72: el cambio afecta solo al usuario modificado.
+        Usuario anaGuardada = await contexto.Usuarios.SingleAsync(u => u.Id == ana.Id);
+        Assert.Equal(RolUsuario.Operador, anaGuardada.Rol);
+    }
+
+    [Fact]
+    public async Task ActualizarRolAsync_SinConfirmarElTurno_ConservaElRolOriginal()
+    {
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy");
+
+        await using (await _repositorio.BloquearAdministradoresAsync())
+        {
+            await _repositorio.ActualizarRolAsync(juan.Id, RolUsuario.Administrador);
+        }
+
+        Assert.Equal(RolUsuario.Operador, await LeerRolGuardadoAsync(juan.Id));
+    }
+
+    [Fact]
+    public async Task ActualizarRolAsync_ConUnRolFueraDeLosFijos_LoRechazaLaBase()
+    {
+        // Es la última defensa: la restricción CK_Usuarios_RolValido de la tabla.
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy");
+
+        await Assert.ThrowsAnyAsync<DbException>(() =>
+            _repositorio.ActualizarRolAsync(juan.Id, (RolUsuario)99));
+
+        Assert.Equal(RolUsuario.Operador, await LeerRolGuardadoAsync(juan.Id));
     }
 
     // ---------- Índice único de EntraObjectId ----------
