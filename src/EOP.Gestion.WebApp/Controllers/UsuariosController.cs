@@ -44,10 +44,7 @@ namespace EOP.Gestion.WebApp.Controllers
             // Después de la validación sabemos que el texto es el nombre de uno de los roles.
             RolUsuario nuevoRol = Enum.Parse<RolUsuario>(modelo.NuevoRol!);
 
-            ResultadoModificarRol resultado = await _modificarRolUsuario.EjecutarAsync(
-                modelo.UsuarioId,
-                nuevoRol,
-                HttpContext.RequestAborted);
+            ResultadoModificarRol resultado = await _modificarRolUsuario.EjecutarAsync(modelo.UsuarioId,nuevoRol,HttpContext.RequestAborted);
 
             switch (resultado)
             {
