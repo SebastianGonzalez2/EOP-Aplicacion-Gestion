@@ -31,11 +31,17 @@ builder.Services.AgregarInfraestructura(builder.Configuration);
 // Registramos el caso de uso que valida los datos del cliente.
 builder.Services.AddScoped<ValidarDatosCliente>();
 
+
+// Registramos el caso de uso que valida y guarda
+// los nuevos clientes en la base de datos.
+builder.Services.AddScoped<RegistrarCliente>();
+
 // Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
 builder.Services.AddScoped<IdentificarOVincularUsuario>();
 
 // verifica si un usuario sigue habilitado en EOP cuando utiliza una sesión que ya estaba iniciada.
 builder.Services.AddScoped<VerificarUsuarioHabilitado>();
+
 
 
 // ================================

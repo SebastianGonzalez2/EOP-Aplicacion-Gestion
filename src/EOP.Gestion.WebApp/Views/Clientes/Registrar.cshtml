@@ -1,0 +1,79 @@
+﻿@*
+    For more information on enabling MVC for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+*@
+@{
+}
+
+@model EOP.Gestion.WebApp.ViewModels.Clientes.RegistrarClienteViewModel
+
+@{
+    ViewData["Title"] = "Registrar cliente";
+}
+
+<h2>Registrar cliente</h2>
+
+<p>Ingresá los datos del nuevo cliente.</p>
+
+@* Mostramos un mensaje cuando el cliente se registra correctamente. *@
+@if (TempData["MensajeExito"] is string mensaje)
+{
+    <div class="alert alert-success" role="alert">
+        @mensaje
+    </div>
+}
+
+<form asp-controller="Clientes" asp-action="Registrar" method="post"> <!-- esto es el formulario de registro de cliente -->
+    @Html.AntiForgeryToken() <!-- Protege contra solicitudes falsas (CSRF) -->
+    <!-- Muestra los errores generales de validación. -->
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div> <!-- 	Muestra errores generales del formulario -->
+
+    <!-- Nombre del cliente -->
+    <div class="mb-3">
+        <label asp-for="Nombre" class="form-label">Nombre</label>
+        <input asp-for="Nombre" class="form-control" />
+        <span asp-validation-for="Nombre" class="text-danger"></span>
+    </div>
+
+    <!-- RUT -->
+    <div class="mb-3">
+        <label asp-for="Rut" class="form-label">RUT</label>
+        <input asp-for="Rut" class="form-control" />
+        <span asp-validation-for="Rut" class="text-danger"></span>
+    </div>
+
+    <!-- Correo de contacto -->
+    <div class="mb-3">
+        <label asp-for="CorreoContacto" class="form-label">Correo de contacto</label>
+        <input asp-for="CorreoContacto" type="email" class="form-control" />
+        <span asp-validation-for="CorreoContacto" class="text-danger"></span>
+    </div>
+
+    <!-- Correo de facturación -->
+    <div class="mb-3">
+        <label asp-for="CorreoFacturacion" class="form-label">Correo de facturación</label>
+        <input asp-for="CorreoFacturacion" type="email" class="form-control" />
+        <span asp-validation-for="CorreoFacturacion" class="text-danger"></span>
+    </div>
+
+    <p class="text-muted">
+        Debe ingresarse al menos uno de los dos correos electrónicos.
+    </p>
+
+    <!-- WhatsApp -->
+    <div class="mb-3">
+        <label asp-for="NumeroWhatsApp" class="form-label">Número de WhatsApp</label>
+        <input asp-for="NumeroWhatsApp" class="form-control"
+               placeholder="+59899123456" />
+        <span asp-validation-for="NumeroWhatsApp" class="text-danger"></span>
+    </div>
+
+    <!-- Botón para registrar el cliente -->
+    <button type="submit" class="btn btn-success">
+        Registrar cliente
+    </button>
+
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
