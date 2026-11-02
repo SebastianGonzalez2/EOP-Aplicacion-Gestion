@@ -55,7 +55,7 @@ public class UsuariosControllerTests
         AgregarUsuario(1, RolUsuario.Administrador);
         AgregarUsuario(2, RolUsuario.Operador);
 
-        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 2, NuevoRol = RolUsuario.Supervisor });
+        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 2, NuevoRol = "Supervisor" });
 
         AssertVuelveAlListado(respuesta);
         Assert.Equal("El rol del usuario se modificó correctamente.", _controller.TempData[MensajeExito]);
@@ -65,7 +65,7 @@ public class UsuariosControllerTests
     [Fact]
     public async Task UsuarioQueNoExiste_InformaElMotivoYVuelveAlListado()
     {
-        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 999, NuevoRol = RolUsuario.Supervisor });
+        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 999, NuevoRol = "Supervisor" });
 
         AssertVuelveAlListado(respuesta);
         Assert.Equal("No se pudo modificar el rol: el usuario no existe.", _controller.TempData[MensajeError]);
@@ -77,7 +77,7 @@ public class UsuariosControllerTests
     {
         AgregarUsuario(1, RolUsuario.Administrador);
 
-        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 1, NuevoRol = RolUsuario.Operador });
+        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 1, NuevoRol = "Operador" });
 
         AssertVuelveAlListado(respuesta);
         Assert.Equal("No se puede modificar el rol: es el último Administrador activo del sistema.", _controller.TempData[MensajeError]);
@@ -89,7 +89,7 @@ public class UsuariosControllerTests
     {
         AgregarUsuario(1, RolUsuario.Operador);
 
-        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 1, NuevoRol = (RolUsuario)99 });
+        IActionResult respuesta = await _controller.ModificarRol(new ModificarRolViewModel { UsuarioId = 1, NuevoRol = "99" });
 
         AssertVuelveAlListado(respuesta);
         Assert.Equal("No se pudo modificar el rol: el rol seleccionado no es válido.", _controller.TempData[MensajeError]);

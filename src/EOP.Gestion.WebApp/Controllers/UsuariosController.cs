@@ -41,9 +41,12 @@ namespace EOP.Gestion.WebApp.Controllers
                 return LocalRedirect(RutaListadoUsuarios);
             }
 
+            // Después de la validación sabemos que el texto es el nombre de uno de los roles.
+            RolUsuario nuevoRol = Enum.Parse<RolUsuario>(modelo.NuevoRol!);
+
             ResultadoModificarRol resultado = await _modificarRolUsuario.EjecutarAsync(
                 modelo.UsuarioId,
-                modelo.NuevoRol!.Value, // Después de la validación sabemos que [Required] se cumplió.
+                nuevoRol,
                 HttpContext.RequestAborted);
 
             switch (resultado)

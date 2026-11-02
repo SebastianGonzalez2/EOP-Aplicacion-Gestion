@@ -101,6 +101,7 @@ public partial class ValidacionSesionIniciadaIntegracionTests
     public async Task PedidoGet_NoEjecutaLaModificacion()
     {
         // Un enlace o una imagen en otra página generarían un GET: no pueden cambiar datos.
+        // Para un GET esta acción directamente no existe, por eso responde 404.
         using var fabrica = new FabricaConSesionReal();
         string cookieAdministrador = await PrepararAdministradorConSesionAsync(fabrica);
         int idJuan = await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: RolUsuario.Operador);
@@ -110,20 +111,40 @@ public partial class ValidacionSesionIniciadaIntegracionTests
             $"{RutaModificarRol}?UsuarioId={idJuan}&NuevoRol=Administrador",
             cookieAdministrador);
 
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, respuesta.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, respuesta.StatusCode);
         Assert.Equal(RolUsuario.Operador, (await fabrica.LeerUsuarioAsync(idJuan))?.Rol);
     }
 
     // ---------- Validación de los datos recibidos ----------
 
     [Theory]
+    [InlineData("Administrador", RolUsuario.Administrador)]
+    [InlineData("Supervisor", RolUsuario.Supervisor)]
+    [InlineData("Operador", RolUsuario.Operador)]
+    public async Task CadaUnoDeLosTresRoles_SeAceptaPorSuNombre(string rolEnviado, RolUsuario rolEsperado)
+    {
+        using var fabrica = new FabricaConSesionReal();
+        string cookieAdministrador = await PrepararAdministradorConSesionAsync(fabrica);
+        int idJuan = await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: RolUsuario.Operador);
+
+        await EnviarModificarRolAsync(fabrica, cookieAdministrador, idJuan.ToString(), rolEnviado);
+
+        Assert.Equal(rolEsperado, (await fabrica.LeerUsuarioAsync(idJuan))?.Rol);
+    }
+
+    [Theory]
     [InlineData("Gerente")]
     [InlineData("99")]
     [InlineData("0")]
     [InlineData("")]
+    [InlineData("Operador ")]
+    // Estos dos son los peligrosos: si el dato se recibiera directamente como un enum,
+    // ASP.NET Core los aceptaría combinando los números y el usuario quedaría como Operador.
     [InlineData("Administrador,Supervisor")]
     [InlineData("1,2")]
-    public async Task RolQueNoEsDeLosTresFijos_SeRechazaYElRolNoCambia(string rolEnviado)
+    // El número de un rol tampoco se acepta: solo el nombre.
+    [InlineData("2")]
+    public async Task RolQueNoEsElNombreDeUnoDeLosTresFijos_SeRechazaYElRolNoCambia(string rolEnviado)
     {
         using var fabrica = new FabricaConSesionReal();
         string cookieAdministrador = await PrepararAdministradorConSesionAsync(fabrica);
