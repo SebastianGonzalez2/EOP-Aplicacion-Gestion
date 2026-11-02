@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 
+
 namespace EOP.Gestion.WebApp.Controllers
 {
     public class HomeController : Controller
@@ -20,7 +21,7 @@ namespace EOP.Gestion.WebApp.Controllers
         {
             return View();
         }
-
+       
         public IActionResult Privacy()
         {
             return View();

@@ -254,6 +254,11 @@ builder.Services.Configure<CookieAuthenticationOptions>(
         // perfil "https" y no con el "http".
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 
+        // A dónde va un usuario con sesión cuando su rol no le permite una acción.
+        // Si no lo indicamos, ASP.NET Core usa /Account/AccessDenied, que en EOP
+        // no existe, y el usuario vería un error 404.
+        options.AccessDeniedPath = "/Cuenta/AccesoDenegado";
+
         // No cambiamos cuánto dura la sesión. Los requerimientos no lo dicen,
         // así que preferimos no inventar un valor y dejar el de ASP.NET Core.
 
@@ -406,8 +411,11 @@ app.UseAuthentication();
 // más arriba: si el usuario no está autenticado, lo manda a
 // iniciar sesión con Microsoft.
 //
-// Los permisos según el rol (Administrador, Supervisor, Operador)
-// se agregan en tareas posteriores.
+// También acá se aplican los permisos según el rol (Administrador,
+// Supervisor, Operador) de las acciones con [Authorize(Roles = "...")].
+// Se comparan con el rol actual del usuario, que OnValidatePrincipal
+// (más arriba) carga desde la tabla Usuarios en cada pedido. Si su rol
+// no alcanza, la acción no se ejecuta y va a la pantalla de acceso denegado.
 app.UseAuthorization();
 
 // Los archivos estáticos (CSS de Bootstrap, JavaScript, imágenes)

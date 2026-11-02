@@ -3,6 +3,7 @@ using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.Identity.Web;
+using System.Security.Claims;
 
 namespace EOP.Gestion.WebApp.Autorizacion;
 
@@ -27,15 +28,26 @@ public static class ManejadorDeValidacionDeAccesoConSesionIniciada
             var verificadorDeUsuarioHabilitado =contextoValidacionCookie.HttpContext.RequestServices
                     .GetRequiredService<VerificarUsuarioHabilitado>();
 
-            // Consultamos el estado actualizado del usuario en EOP.
-            bool usuarioSigueHabilitado =
-                await verificadorDeUsuarioHabilitado
-                    .EstaHabilitadoAsync(
-                        identificadorExternoDeMicrosoft,
-                        contextoValidacionCookie.HttpContext.RequestAborted);
+            // Obtenemos el usuario activo desde nuestra base de datos.
+            var usuario = await verificadorDeUsuarioHabilitado.ObtenerUsuarioHabilitadoAsync(identificadorExternoDeMicrosoft,
+                                                        contextoValidacionCookie.HttpContext.RequestAborted);
 
-            if (usuarioSigueHabilitado)
-            {
+            // Si el usuario existe y su identidad es válida:
+            if (usuario != null && contextoValidacionCookie.Principal?.Identity is ClaimsIdentity identidad){
+
+                // Quitamos cualquier rol anterior de la sesión.
+                foreach (var otraIdentidad in contextoValidacionCookie.Principal.Identities)
+                {
+                    foreach (var rolAnterior in otraIdentidad.FindAll(otraIdentidad.RoleClaimType).ToList())
+                    {
+                        otraIdentidad.RemoveClaim(rolAnterior);
+                    }
+                }
+
+                // Agregamos el rol ACTUAL guardado en EOP.
+                identidad.AddClaim(
+                    new Claim(identidad.RoleClaimType, usuario.Rol.ToString()));
+
                 // El usuario sigue habilitado.
                 // Permitimos que conserve su sesión.
                 return;
