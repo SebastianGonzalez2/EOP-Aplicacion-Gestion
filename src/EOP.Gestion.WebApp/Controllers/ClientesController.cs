@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using EOP.Gestion.WebApp.ViewModels.Clientes;
 using EOP.Gestion.Core.CasosDeUso.Clientes;
 using EOP.Gestion.Core.Entidades.Clientes;
+using EOP.Gestion.Infrastructure.Consultas.Clientes;
 using EOP.Gestion.Core.Interfaces.Clientes;
 
 namespace EOP.Gestion.WebApp.Controllers
@@ -15,6 +16,10 @@ namespace EOP.Gestion.WebApp.Controllers
         // Caso de uso encargado de validar y registrar clientes.
         private readonly RegistrarCliente _registrarCliente;
 
+
+        // Servicio encargado de consultar y filtrar clientes.
+        private readonly ConsultarClientes _consultarClientes;
+
         // Nos da la lista de países para el selector del número de WhatsApp.
         private readonly IServicioTelefonos _servicioTelefonos;
 
@@ -22,11 +27,31 @@ namespace EOP.Gestion.WebApp.Controllers
         private const string PaisPredeterminadoWhatsApp = "UY";
 
         // Recibimos el caso de uso mediante inyección de dependencias.
-        public ClientesController(RegistrarCliente registrarCliente, IServicioTelefonos servicioTelefonos)
+        public ClientesController(RegistrarCliente registrarCliente,ConsultarClientes consultarClientes,IServicioTelefonos servicioTelefonos)
         {
             _registrarCliente = registrarCliente;
+            _consultarClientes = consultarClientes;
             _servicioTelefonos = servicioTelefonos;
         }
+        // GET: muestra el listado de clientes.
+        // Permite buscar por nombre o RUT y filtrar por estado.
+        [HttpGet]
+        public async Task<IActionResult> Index(string? busqueda,bool? activo)
+        {
+            // Consultamos los clientes aplicando los filtros recibidos.
+            var clientes = await _consultarClientes.EjecutarAsync(busqueda,activo,HttpContext.RequestAborted);
+
+            // Conservamos los filtros para mostrarlos en la pantalla.
+            ViewBag.Busqueda = busqueda;
+            ViewBag.Activo = activo;
+
+            // Enviamos los clientes a la vista.
+            return View(clientes);
+        }
+
+
+
+
 
         // GET: muestra el formulario de registro.
         [HttpGet]
