@@ -1,11 +1,11 @@
 ﻿
 using EOP.Gestion.Core.Entidades.Usuarios;
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios;
+namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
 
 public class RepositorioUsuarios : IRepositorioUsuarios
 {

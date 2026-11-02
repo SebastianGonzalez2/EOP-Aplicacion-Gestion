@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 using EOP.Gestion.Core.Entidades.Usuarios;  
 
 namespace EOP.Gestion.Core.CasosDeUso.Usuarios;

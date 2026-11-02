@@ -1,7 +1,7 @@
 using System.Data.Common;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
-using EOP.Gestion.Infrastructure.Persistencia.Repositorios;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 

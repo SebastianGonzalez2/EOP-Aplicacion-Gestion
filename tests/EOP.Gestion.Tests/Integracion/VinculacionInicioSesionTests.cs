@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using EOP.Gestion.Core.Entidades.Usuarios;
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 using EOP.Gestion.Tests.Compartido;
 using EOP.Gestion.WebApp.Autorizacion;
 using Microsoft.AspNetCore.Authentication;

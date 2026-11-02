@@ -1,7 +1,7 @@
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios;
+namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
 
 // Por dentro, el "turno" es una transacción abierta de la base de datos.
 // Los bloqueos de SQL Server duran hasta que la transacción termina, así que

@@ -2,9 +2,9 @@ using System.Data.Common;
 using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using EOP.Gestion.Core.DTOs.Usuarios;
 using EOP.Gestion.Core.Entidades.Usuarios;
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
-using EOP.Gestion.Infrastructure.Persistencia.Repositorios;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
 using EOP.Gestion.Tests.Compartido;
 using Microsoft.EntityFrameworkCore;
 

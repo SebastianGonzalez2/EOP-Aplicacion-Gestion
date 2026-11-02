@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using EOP.Gestion.Core.Entidades.Usuarios;
 
-namespace EOP.Gestion.Core.Interfaces;
+namespace EOP.Gestion.Core.Interfaces.Usuarios;
 
 public interface IRepositorioUsuarios
 {

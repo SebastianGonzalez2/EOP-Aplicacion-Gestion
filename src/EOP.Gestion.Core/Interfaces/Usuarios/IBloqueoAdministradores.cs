@@ -1,4 +1,4 @@
-namespace EOP.Gestion.Core.Interfaces;
+namespace EOP.Gestion.Core.Interfaces.Usuarios;
 
 // Representa el "turno" que se pide con IRepositorioUsuarios.BloquearAdministradoresAsync.
 // Mientras alguien lo tiene, ninguna otra solicitud puede pedir el suyo: tiene que esperar.

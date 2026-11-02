@@ -1,6 +1,6 @@
 using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using EOP.Gestion.Core.Entidades.Usuarios;
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 
 namespace EOP.Gestion.Tests.Unitarias;
 
