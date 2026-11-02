@@ -16,18 +16,10 @@ namespace EOP.Gestion.WebApp.Controllers
         // Caso de uso encargado de validar y registrar clientes.
         private readonly RegistrarCliente _registrarCliente;
 
-<<<<<<< HEAD
+
         // Servicio encargado de consultar y filtrar clientes.
         private readonly ConsultarClientes _consultarClientes;
 
-
-
-        // Recibimos el caso de uso mediante inyección de dependencias.
-        public ClientesController(RegistrarCliente registrarCliente, ConsultarClientes consultarClientes)
-        {
-            _registrarCliente = registrarCliente;
-            _consultarClientes = consultarClientes;
-=======
         // Nos da la lista de países para el selector del número de WhatsApp.
         private readonly IServicioTelefonos _servicioTelefonos;
 
@@ -35,13 +27,12 @@ namespace EOP.Gestion.WebApp.Controllers
         private const string PaisPredeterminadoWhatsApp = "UY";
 
         // Recibimos el caso de uso mediante inyección de dependencias.
-        public ClientesController(RegistrarCliente registrarCliente, IServicioTelefonos servicioTelefonos)
+        public ClientesController(RegistrarCliente registrarCliente,ConsultarClientes consultarClientes,IServicioTelefonos servicioTelefonos)
         {
             _registrarCliente = registrarCliente;
+            _consultarClientes = consultarClientes;
             _servicioTelefonos = servicioTelefonos;
->>>>>>> origin/main
         }
-
         // GET: muestra el listado de clientes.
         // Permite buscar por nombre o RUT y filtrar por estado.
         [HttpGet]
