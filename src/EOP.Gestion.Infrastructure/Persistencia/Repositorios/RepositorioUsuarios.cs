@@ -3,6 +3,7 @@ using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces;
 using EOP.Gestion.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios;
 
@@ -64,5 +65,78 @@ public class RepositorioUsuarios : IRepositorioUsuarios
         {
             return false;
         }
+    }
+
+    // Este método es el que protege la regla del último Administrador activo cuando
+    // llegan varias solicitudes al mismo tiempo.
+    //
+    // El problema: dos solicitudes cuentan 2 administradores a la vez, cada una degrada
+    // a uno distinto, y el sistema queda sin ninguno. Cada una hizo bien su cuenta, pero
+    // ninguna vio lo que hacía la otra. Hay que lograr que pasen de a una.
+    //
+    // La solución: abrimos una transacción y, dentro de ella, leemos los administradores
+    // activos con dos pedidos especiales para SQL Server:
+    //
+    // - UPDLOCK: "voy a modificar estas filas". Solo una transacción a la vez puede tener
+    //   este bloqueo sobre una fila, así que la segunda solicitud se queda esperando en
+    //   esta línea hasta que la primera termine. Las lecturas comunes no se frenan, por
+    //   eso esto no traba a los demás usuarios que están navegando la aplicación.
+    // - HOLDLOCK: "mantené el bloqueo hasta el final de la transacción, y que tampoco
+    //   puedan aparecer filas nuevas en lo que leí". Sin esto, el bloqueo se soltaría
+    //   apenas termina la lectura y no protegería nada.
+    //
+    // ¿Por qué no alcanza con una transacción común? Porque por sí sola no impide que dos
+    // transacciones lean lo mismo a la vez. En Azure SQL Database y en las bases que crea
+    // EF Core es todavía más claro: las lecturas ven una copia de los datos sin esperar a
+    // nadie (READ_COMMITTED_SNAPSHOT). Con UPDLOCK la lectura sí espera y ve el último dato real.
+    //
+    // ¿Por qué no un nivel de aislamiento Serializable sin UPDLOCK? También evitaría el
+    // error, pero las dos solicitudes leerían juntas y se trabarían entre sí al escribir
+    // (un deadlock): SQL Server cancelaría una con un error. Así, en cambio, simplemente
+    // hacen fila.
+    public async Task<IBloqueoAdministradores> BloquearAdministradoresAsync(CancellationToken cancellationToken = default)
+    {
+        IDbContextTransaction transaccion = await _contexto.Database.BeginTransactionAsync(cancellationToken);
+
+        // UPDLOCK y HOLDLOCK son propios de SQL Server. Las pruebas que corren sobre
+        // SQLite no los entienden, pero tampoco los necesitan: ahí, abrir la transacción
+        // ya reserva toda la base para escribir (BEGIN IMMEDIATE).
+        if (_contexto.Database.IsSqlServer())
+        {
+            int rolAdministrador = (int)RolUsuario.Administrador;
+
+            await _contexto.Database.ExecuteSqlAsync(
+                $"SELECT COUNT(*) FROM Usuarios WITH (UPDLOCK, HOLDLOCK) WHERE Rol = {rolAdministrador} AND Activo = 1",
+                cancellationToken);
+        }
+
+        return new BloqueoAdministradores(transaccion);
+    }
+
+    public async Task<Usuario?> ObtenerPorIdAsync(int usuarioId, CancellationToken cancellationToken = default)
+    {
+        return await _contexto.Usuarios
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                u => u.Id == usuarioId,
+                cancellationToken);
+    }
+
+    public async Task<int> ContarAdministradoresActivosAsync(CancellationToken cancellationToken = default)
+    {
+        return await _contexto.Usuarios.CountAsync(
+            u => u.Rol == RolUsuario.Administrador && u.Activo,
+            cancellationToken);
+    }
+
+    // Cambia únicamente la columna Rol. Los demás datos del usuario y los registros
+    // relacionados con él quedan como estaban (RF-73: no se altera su historial).
+    public async Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default)
+    {
+        await _contexto.Usuarios
+            .Where(u => u.Id == usuarioId)
+            .ExecuteUpdateAsync(
+                cambios => cambios.SetProperty(u => u.Rol, nuevoRol),
+                cancellationToken);
     }
 }
