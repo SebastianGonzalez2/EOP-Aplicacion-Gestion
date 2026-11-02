@@ -8,8 +8,11 @@ using EOP.Gestion.Infrastructure.Persistencia.Repositorios;
 
 using EOP.Gestion.Core.Interfaces.Clientes;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Clientes;
+using EOP.Gestion.Infrastructure.Telefonia;
 
 namespace EOP.Gestion.Infrastructure;
+
+using EOP.Gestion.Infrastructure.Consultas.Clientes;
 
 /// <summary>
 /// Punto único de registro de los servicios de Infrastructure en el contenedor.
@@ -40,6 +43,16 @@ public static class InyeccionDeDependencias
 
         // Registramos el repositorio de clientes para consultar sus datos.
         services.AddScoped<IRepositorioClientes, RepositorioClientes>();
+
+        // Registramos el servicio encargado de consultar
+        // y filtrar los clientes para el listado.
+        services.AddScoped<ConsultarClientes>();
+
+
+
+        // Singleton: arma la lista de países una sola vez y no guarda nada de cada pedido,
+        // así que todos los pedidos pueden compartir la misma instancia sin pisarse.
+        services.AddSingleton<IServicioTelefonos, ServicioTelefonos>();
 
         services.AddScoped<IRepositorioUsuarios, RepositorioUsuarios>();
         //Cuando alguna clase necesite un IRepositorioUsuarios, creá y proporcionale una instancia de RepositorioUsuarios.

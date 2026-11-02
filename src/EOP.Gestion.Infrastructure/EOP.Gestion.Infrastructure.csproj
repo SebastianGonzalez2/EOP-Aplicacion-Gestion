@@ -8,6 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Reglas de numeración telefónica de cada país (biblioteca de Google, portada a .NET). -->
+    <PackageReference Include="libphonenumber-csharp" Version="9.0.42" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="10.0.10" />
   </ItemGroup>
