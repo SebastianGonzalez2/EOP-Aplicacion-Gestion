@@ -78,12 +78,13 @@ public class RepositorioUsuarios : IRepositorioUsuarios
     // activos con dos pedidos especiales para SQL Server:
     //
     // - UPDLOCK: "voy a modificar estas filas". Solo una transacción a la vez puede tener
-    //   este bloqueo sobre una fila, así que la segunda solicitud se queda esperando en
-    //   esta línea hasta que la primera termine. Las lecturas comunes no se frenan, por
-    //   eso esto no traba a los demás usuarios que están navegando la aplicación.
-    // - HOLDLOCK: "mantené el bloqueo hasta el final de la transacción, y que tampoco
-    //   puedan aparecer filas nuevas en lo que leí". Sin esto, el bloqueo se soltaría
-    //   apenas termina la lectura y no protegería nada.
+    //   este bloqueo sobre una fila, y lo conserva hasta terminar. Así, la segunda solicitud
+    //   se queda esperando en esta línea hasta que la primera termine. Las lecturas comunes
+    //   no se frenan, por eso esto no traba a los demás usuarios que navegan la aplicación.
+    // - HOLDLOCK: "y que tampoco cambie el conjunto de filas que leí". Además de las filas,
+    //   bloquea el espacio entre ellas, para que ninguna fila nueva pueda aparecer en esa
+    //   lectura mientras dure la transacción. Con los dos juntos, todas las solicitudes
+    //   que piden turno chocan entre sí y pasan de a una, sin casos especiales que pensar.
     //
     // ¿Por qué no alcanza con una transacción común? Porque por sí sola no impide que dos
     // transacciones lean lo mismo a la vez. En Azure SQL Database y en las bases que crea
