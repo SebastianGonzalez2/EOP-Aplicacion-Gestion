@@ -41,6 +41,30 @@ namespace EOP.Gestion.Tests.Unitarias
         }
 
 
+        [Theory]
+        [InlineData("099123456")]
+        [InlineData("099 123 456")]
+        [InlineData("(099) 123-456")]
+        [InlineData("099.123.456")]
+        public void TieneSoloCaracteresDeNumeroNacional_DebeAceptarDigitosYSeparadores(string numero) //Lo que el usuario puede escribir en el campo del numero, sin prefijo
+        {
+            Assert.True(ValidadorWhatsApp.TieneSoloCaracteresDeNumeroNacional(numero));
+        }
+
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("- -")]             // Solo separadores.
+        [InlineData("+59899123456")]    // Tiene el prefijo escrito a mano.
+        [InlineData("099ABC456")]       // Contiene letras.
+        [InlineData("٠٩٩١٢٣٤٥٦")]       // Son digitos, pero de otro alfabeto.
+        public void TieneSoloCaracteresDeNumeroNacional_DebeRechazarLoDemas(string? numero)
+        {
+            Assert.False(ValidadorWhatsApp.TieneSoloCaracteresDeNumeroNacional(numero));
+        }
+
+
 
 
     }

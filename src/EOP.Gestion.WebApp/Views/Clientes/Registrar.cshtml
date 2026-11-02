@@ -59,13 +59,30 @@
         Debe ingresarse al menos uno de los dos correos electrónicos.
     </p>
 
-    <!-- WhatsApp -->
-    <div class="mb-3">
-        <label asp-for="NumeroWhatsApp" class="form-label">Número de WhatsApp</label>
-        <input asp-for="NumeroWhatsApp" class="form-control"
-               placeholder="+59899123456" />
-        <span asp-validation-for="NumeroWhatsApp" class="text-danger"></span>
-    </div>
+    <!-- WhatsApp: se elige el país y se escribe el número habitual. El número internacional lo arma el servidor. -->
+    <fieldset class="mb-3">
+        <legend class="form-label fs-6">Número de WhatsApp</legend>
+
+        <!-- En pantallas chicas van uno abajo del otro, así el país y el prefijo se leen completos. -->
+        <div class="row g-2">
+            <div class="col-12 col-md-5">
+                <label asp-for="PaisWhatsApp" class="form-label small mb-1">País y prefijo</label>
+                <select asp-for="PaisWhatsApp" asp-items="Model.PaisesWhatsApp" class="form-select">
+                    <!-- Queda elegida solo si llega un país que no está en la lista: así no cambiamos de país sin avisar. -->
+                    <option value="">Seleccioná un país</option>
+                </select>
+                <span asp-validation-for="PaisWhatsApp" class="text-danger"></span>
+            </div>
+
+            <div class="col-12 col-md-7">
+                <label asp-for="NumeroNacionalWhatsApp" class="form-label small mb-1">Número de teléfono</label>
+                <input asp-for="NumeroNacionalWhatsApp" type="tel" maxlength="30" class="form-control"
+                       placeholder="099 123 456" />
+                <div class="form-text">Escribilo como se usa en ese país, sin el prefijo internacional.</div>
+                <span asp-validation-for="NumeroNacionalWhatsApp" class="text-danger"></span>
+            </div>
+        </div>
+    </fieldset>
 
     <!-- Botón para registrar el cliente -->
     <button type="submit" class="btn btn-success">
