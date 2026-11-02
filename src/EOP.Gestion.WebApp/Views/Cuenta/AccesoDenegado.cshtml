@@ -1,0 +1,18 @@
+@{
+    ViewData["Title"] = "Acceso denegado";
+}
+
+@* Pantalla que aparece cuando un usuario con sesión intenta hacer algo que su
+   rol no permite. El control ya lo hizo el servidor: esto solo se lo explica. *@
+
+<div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+        <div class="card text-center mt-4">
+            <div class="card-body">
+                <h1 class="h4 card-title">Acceso denegado</h1>
+                <p class="card-text">No tenés permiso para realizar esta operación.</p>
+                <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Volver al inicio</a>
+            </div>
+        </div>
+    </div>
+</div>

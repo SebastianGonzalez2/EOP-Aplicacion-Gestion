@@ -125,5 +125,23 @@ namespace EOP.Gestion.WebApp.Controllers
         {
             return View();
         }
+
+        // GET /Cuenta/AccesoDenegado
+        //
+        // Acá lo manda ASP.NET Core cuando el usuario inició sesión, pero su rol
+        // no le permite hacer lo que pidió (ver AccessDeniedPath en Program.cs).
+        // Para ese momento la acción protegida ya fue frenada: esta pantalla
+        // solo le explica lo que pasó.
+        //
+        // A diferencia de las otras pantallas de error, no lleva [AllowAnonymous]:
+        // la ve alguien con sesión, así que queda cubierta por la política de respaldo.
+        [HttpGet]
+        public IActionResult AccesoDenegado()
+        {
+            // 403 es el código HTTP de "sé quién sos, pero no tenés permiso".
+            Response.StatusCode = StatusCodes.Status403Forbidden;
+
+            return View();
+        }
     }
 }
