@@ -69,6 +69,13 @@ public class ValidacionSesionIniciadaIntegracionTests
     private const string MensajeDeFallaConDatosSensibles =
         "Fallo simulado de la base para " + CorreoJuan + " con " + ObjectIdJuan;
 
+    // Rutas del Controller que solo existe en las pruebas (T13).
+    private const string RutaDeAccionesPorRol = "/AccionesDePruebaPorRol/";
+    private const string RutaSoloAdministrador = RutaDeAccionesPorRol + nameof(AccionesDePruebaPorRolController.SoloAdministrador);
+    private const string RutaSoloSupervisor = RutaDeAccionesPorRol + nameof(AccionesDePruebaPorRolController.SoloSupervisor);
+    private const string RutaSoloOperador = RutaDeAccionesPorRol + nameof(AccionesDePruebaPorRolController.SoloOperador);
+    private const string RutaAdministradorOSupervisor = RutaDeAccionesPorRol + nameof(AccionesDePruebaPorRolController.AdministradorOSupervisor);
+
     // ---------- 1. Usuario habilitado ----------
 
     [Fact]
@@ -357,7 +364,155 @@ public class ValidacionSesionIniciadaIntegracionTests
         Assert.Equal(ManejadorFallosInicioSesion.RutaPantallaError, respuesta.Headers.Location?.OriginalString);
     }
 
+    // ---------- 8. Autorización por rol (T13) ----------
+
+    // US-044, RF-73 y RNF-4: el permiso lo decide el servidor en cada pedido, con
+    // el rol que está guardado HOY en la tabla Usuarios. Estas pruebas pasan por
+    // toda la app: cookie real, OnValidatePrincipal, base con las tablas reales y
+    // el atributo [Authorize(Roles = ...)] de una acción (la del Controller de prueba).
+
+    [Theory]
+    [InlineData(RolUsuario.Administrador, RutaSoloAdministrador)]
+    [InlineData(RolUsuario.Supervisor, RutaSoloSupervisor)]
+    [InlineData(RolUsuario.Operador, RutaSoloOperador)]
+    public async Task CadaRolGuardadoEnEop_EsReconocidoYSoloEntraALaAccionDeSuRol(RolUsuario rol, string rutaDeSuRol)
+    {
+        // Probamos también las acciones de los OTROS roles: así una app que
+        // le diera todos los roles a cualquiera no pasaría esta prueba.
+        using var fabrica = new FabricaConSesionReal();
+        await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: rol);
+        string cookieDeSesion = await IniciarSesionYObtenerCookieAsync(fabrica);
+
+        foreach (string ruta in new[] { RutaSoloAdministrador, RutaSoloSupervisor, RutaSoloOperador })
+        {
+            var respuesta = await PedirConCookieAsync(fabrica, ruta, cookieDeSesion);
+
+            if (ruta == rutaDeSuRol)
+            {
+                await AssertAccionEjecutadaAsync(respuesta);
+            }
+            else
+            {
+                await AssertAccesoDenegadoPorRolAsync(respuesta);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(RolUsuario.Administrador)]
+    [InlineData(RolUsuario.Supervisor)]
+    public async Task AdministradorYSupervisor_EntranALaAccionPermitidaParaAmbos(RolUsuario rol)
+    {
+        using var fabrica = new FabricaConSesionReal();
+        await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: rol);
+        string cookieDeSesion = await IniciarSesionYObtenerCookieAsync(fabrica);
+
+        var respuesta = await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion);
+
+        await AssertAccionEjecutadaAsync(respuesta);
+    }
+
+    [Fact]
+    public async Task Operador_NoEntraALaAccionDeAdministradorYSupervisorAunquePidaLaUrlDirectamente()
+    {
+        // Es el pedido directo por URL del que habla RNF-4: no hay ningún botón
+        // de por medio, así que el único que puede frenarlo es el servidor.
+        using var fabrica = new FabricaConSesionReal();
+        await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: RolUsuario.Operador);
+        string cookieDeSesion = await IniciarSesionYObtenerCookieAsync(fabrica);
+
+        var respuesta = await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion);
+
+        await AssertAccesoDenegadoPorRolAsync(respuesta);
+    }
+
+    [Fact]
+    public async Task UsuarioSinPermiso_VeLaPantallaDeAccesoDenegadoYNoLaAccionProtegida()
+    {
+        using var fabrica = new FabricaConSesionReal();
+        await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: RolUsuario.Operador);
+        string cookieDeSesion = await IniciarSesionYObtenerCookieAsync(fabrica);
+
+        var respuesta = await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion);
+        await AssertAccesoDenegadoPorRolAsync(respuesta);
+        Assert.Equal("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.AbsolutePath);
+
+        // Seguimos la redirección, como haría el navegador.
+        var pantalla = await PedirConCookieAsync(fabrica, respuesta.Headers.Location!.PathAndQuery, cookieDeSesion);
+        string html = await pantalla.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Forbidden, pantalla.StatusCode);
+        Assert.Contains("Acceso denegado", html);
+        Assert.DoesNotContain(AccionesDePruebaPorRolController.TextoDeAccionEjecutada, html);
+
+        // Sin sesión, la pantalla tampoco se muestra: primero hay que identificarse.
+        var sinSesion = await CrearCliente(fabrica).GetAsync("/Cuenta/AccesoDenegado");
+        Assert.Equal(HttpStatusCode.Unauthorized, sinSesion.StatusCode);
+    }
+
+    [Fact]
+    public async Task RolCambiadoEnLaBaseConLaSesionAbierta_LosPedidosSiguientesUsanElRolNuevo()
+    {
+        // Siempre mandamos LA MISMA cookie y nunca volvemos a iniciar sesión.
+        // Probamos los dos sentidos: ganar un permiso y, sobre todo, perderlo.
+        using var fabrica = new FabricaConSesionReal();
+        int idJuan = await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: RolUsuario.Operador);
+        string cookieDeSesion = await IniciarSesionYObtenerCookieAsync(fabrica);
+
+        await AssertAccesoDenegadoPorRolAsync(await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion));
+
+        await fabrica.ModificarUsuarioAsync(idJuan, usuario => usuario.Rol = RolUsuario.Supervisor);
+        await AssertAccionEjecutadaAsync(await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion));
+
+        await fabrica.ModificarUsuarioAsync(idJuan, usuario => usuario.Rol = RolUsuario.Operador);
+        await AssertAccesoDenegadoPorRolAsync(await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion));
+    }
+
+    [Theory]
+    [InlineData("inactivo")]
+    [InlineData("inexistente")]
+    public async Task UsuarioConRolPermitidoQueDejaDeEstarHabilitado_NoEntraConSuSesionAnterior(string situacion)
+    {
+        // Tener el rol correcto no alcanza: primero tiene que seguir siendo un
+        // usuario habilitado. Por eso usamos un Administrador, que tiene permiso.
+        using var fabrica = new FabricaConSesionReal();
+        int idJuan = await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: RolUsuario.Administrador);
+        string cookieDeSesion = await IniciarSesionYObtenerCookieAsync(fabrica);
+        await AssertAccionEjecutadaAsync(await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion));
+
+        if (situacion == "inactivo")
+        {
+            await fabrica.ModificarUsuarioAsync(idJuan, usuario => usuario.Activo = false);
+        }
+        else
+        {
+            await fabrica.EliminarUsuarioAsync(idJuan);
+        }
+
+        var respuesta = await PedirConCookieAsync(fabrica, RutaAdministradorOSupervisor, cookieDeSesion);
+
+        await AssertAccesoRechazadoSinMostrarLaPantallaNiDatosDelUsuarioAsync(respuesta);
+        Assert.DoesNotContain(AccionesDePruebaPorRolController.TextoDeAccionEjecutada, await respuesta.Content.ReadAsStringAsync());
+        Assert.True(BorraLaCookieDeSesion(respuesta));
+    }
+
     // ---------- Ayudas ----------
+
+    private static async Task AssertAccionEjecutadaAsync(HttpResponseMessage respuesta)
+    {
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Equal(AccionesDePruebaPorRolController.TextoDeAccionEjecutada, await respuesta.Content.ReadAsStringAsync());
+    }
+
+    // Autenticado pero sin permiso: la acción no se ejecuta y ASP.NET Core lo manda
+    // a la ruta de "acceso denegado". No es lo mismo que un rechazo de sesión (401):
+    // el usuario sigue siendo válido, así que su cookie NO se borra.
+    private static async Task AssertAccesoDenegadoPorRolAsync(HttpResponseMessage respuesta)
+    {
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.DoesNotContain(AccionesDePruebaPorRolController.TextoDeAccionEjecutada, await respuesta.Content.ReadAsStringAsync());
+        Assert.False(BorraLaCookieDeSesion(respuesta), "La app borró la cookie de un usuario que solo no tenía permiso.");
+    }
 
     // El pedido protegido no se atendió: el esquema simulado responde 401 donde
     // la app real mandaría a Microsoft a iniciar sesión. Lo importante es que no
@@ -507,6 +662,10 @@ public class ValidacionSesionIniciadaIntegracionTests
 
                 servicios.AddSingleton<ILoggerProvider>(Logs);
 
+                // Le mostramos a MVC el Controller que solo existe en las pruebas.
+                servicios.AddControllersWithViews()
+                    .AddApplicationPart(typeof(AccionesDePruebaPorRolController).Assembly);
+
                 // Mismo esquema, mismas opciones, mismos eventos: solo cambia la
                 // clase que lo atiende.
                 servicios.PostConfigure<AuthenticationOptions>(opciones =>
@@ -519,7 +678,7 @@ public class ValidacionSesionIniciadaIntegracionTests
             });
         }
 
-        public async Task<int> GuardarUsuarioAsync(bool activo, string? entraObjectId)
+        public async Task<int> GuardarUsuarioAsync(bool activo, string? entraObjectId, RolUsuario rol = RolUsuario.Operador)
         {
             using var alcance = CrearAlcanceConBaseCreada();
             var contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
@@ -528,7 +687,7 @@ public class ValidacionSesionIniciadaIntegracionTests
             {
                 NombreCompleto = "Juan Pérez",
                 CorreoCorporativo = CorreoJuan,
-                Rol = RolUsuario.Operador,
+                Rol = rol,
                 Activo = activo,
                 EntraObjectId = entraObjectId
             };

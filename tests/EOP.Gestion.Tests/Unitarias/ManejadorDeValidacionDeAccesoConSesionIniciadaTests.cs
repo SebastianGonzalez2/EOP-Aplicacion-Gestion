@@ -85,6 +85,32 @@ public class ManejadorDeValidacionDeAccesoConSesionIniciadaTests
         Assert.Equal(cancelacionDeLaSolicitud.Token, Assert.Single(escenario.Repositorio.TokensRecibidos));
     }
 
+    // ---------- Rol de la sesión (T13) ----------
+
+    [Fact]
+    public async Task SesionConRolesAnteriores_SoloConservaElRolActualGuardadoEnEop()
+    {
+        // La cookie puede traer roles viejos: por ejemplo, cuando ASP.NET Core la
+        // renueva, guarda también el rol que tenía en ese momento. Ninguno puede
+        // sobrevivir, en ninguna de las identidades de la sesión. La segunda usa
+        // otro nombre de claim para el rol ("roles", el que usa Entra ID) porque
+        // cada identidad define cuál es el suyo.
+        var escenario = new EscenarioDeValidacion();
+        escenario.Repositorio.Usuarios.Add(CrearUsuario(activo: true));
+        var contexto = escenario.CrearContexto(
+            new Claim(ClaimOidCorto, ObjectIdJuan),
+            new Claim(ClaimTypes.Role, nameof(RolUsuario.Administrador)));
+        contexto.Principal!.AddIdentity(new ClaimsIdentity(
+            [new Claim("roles", nameof(RolUsuario.Supervisor))], "OtraIdentidad", "name", "roles"));
+
+        await ManejadorDeValidacionDeAccesoConSesionIniciada.VerificarQueUsuarioSigueHabilitadoORechazarSesionAsync(contexto);
+
+        // CrearUsuario lo guarda como Operador: ese es el único rol que tiene que quedar.
+        Assert.True(contexto.Principal!.IsInRole(nameof(RolUsuario.Operador)));
+        Assert.False(contexto.Principal.IsInRole(nameof(RolUsuario.Administrador)));
+        Assert.False(contexto.Principal.IsInRole(nameof(RolUsuario.Supervisor)));
+    }
+
     // ---------- Usuario no habilitado: se rechaza la sesión ----------
 
     [Fact]
