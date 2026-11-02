@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using EOP.Gestion.WebApp.ViewModels.Clientes;
 using EOP.Gestion.Core.CasosDeUso.Clientes;
 using EOP.Gestion.Core.Entidades.Clientes;
+using EOP.Gestion.Infrastructure.Consultas.Clientes;
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -13,11 +14,37 @@ namespace EOP.Gestion.WebApp.Controllers
         // Caso de uso encargado de validar y registrar clientes.
         private readonly RegistrarCliente _registrarCliente;
 
+        // Servicio encargado de consultar y filtrar clientes.
+        private readonly ConsultarClientes _consultarClientes;
+
+
+
         // Recibimos el caso de uso mediante inyección de dependencias.
-        public ClientesController(RegistrarCliente registrarCliente)
+        public ClientesController(RegistrarCliente registrarCliente, ConsultarClientes consultarClientes)
         {
             _registrarCliente = registrarCliente;
+            _consultarClientes = consultarClientes;
         }
+
+        // GET: muestra el listado de clientes.
+        // Permite buscar por nombre o RUT y filtrar por estado.
+        [HttpGet]
+        public async Task<IActionResult> Index(string? busqueda,bool? activo)
+        {
+            // Consultamos los clientes aplicando los filtros recibidos.
+            var clientes = await _consultarClientes.EjecutarAsync(busqueda,activo,HttpContext.RequestAborted);
+
+            // Conservamos los filtros para mostrarlos en la pantalla.
+            ViewBag.Busqueda = busqueda;
+            ViewBag.Activo = activo;
+
+            // Enviamos los clientes a la vista.
+            return View(clientes);
+        }
+
+
+
+
 
         // GET: muestra el formulario de registro.
         [HttpGet]
