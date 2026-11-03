@@ -1,6 +1,7 @@
 using EOP.Gestion.Core.Entidades.Usuarios;
 using Microsoft.EntityFrameworkCore;
 using EOP.Gestion.Core.Entidades.Clientes;
+using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Entidades.Catalogo;
 
 namespace EOP.Gestion.Infrastructure.Persistencia;
@@ -18,8 +19,14 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
     // DbSet representa un conjunto de entidades de tipo Usuario.
     // Permite consultar, agregar, modificar y eliminar usuarios
     // mediante Entity Framework, sin escribir SQL manualmente.
+    // DbSet representa un conjunto de entidades de tipo Usuario.
+    // Permite consultar, agregar, modificar y eliminar usuarios
+    // mediante Entity Framework, sin escribir SQL manualmente.
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
+
+    public DbSet<Proveedor> Proveedores => Set<Proveedor>();
+    public DbSet<CuentaBancaria> CuentasBancarias => Set<CuentaBancaria>();
 
     // Representa los materiales registrados en el catálogo.
     public DbSet<Material> Materiales => Set<Material>();
