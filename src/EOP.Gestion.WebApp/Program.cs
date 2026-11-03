@@ -42,6 +42,9 @@ builder.Services.AddScoped<IdentificarOVincularUsuario>();
 // verifica si un usuario sigue habilitado en EOP cuando utiliza una sesión que ya estaba iniciada.
 builder.Services.AddScoped<VerificarUsuarioHabilitado>();
 
+// Registramos el caso de uso con el que el Administrador le cambia el rol a un usuario.
+builder.Services.AddScoped<ModificarRolUsuario>();
+
 
 
 // ================================

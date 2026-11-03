@@ -3,7 +3,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using EOP.Gestion.Core.Entidades.Usuarios;
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 using EOP.Gestion.Tests.Compartido;
 using EOP.Gestion.WebApp.Autorizacion;
 using Microsoft.AspNetCore.Authentication;
@@ -788,6 +788,15 @@ public class VinculacionInicioSesionTests
             usuario.EntraObjectId = entraObjectId;
             return Task.FromResult(true);
         }
+
+        // El cambio de rol (T14) no se usa en las pruebas de este repositorio.
+        public Task<IBloqueoAdministradores> BloquearAdministradoresAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Usuario?> ObtenerPorIdAsync(int usuarioId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<int> ContarAdministradoresActivosAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     // El registro de logs en memoria (RegistroDeLogsDePrueba y EntradaDeLog)

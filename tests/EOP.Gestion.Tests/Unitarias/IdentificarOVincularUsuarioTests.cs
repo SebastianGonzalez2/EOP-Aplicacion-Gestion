@@ -1,6 +1,6 @@
 using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using EOP.Gestion.Core.Entidades.Usuarios;
-using EOP.Gestion.Core.Interfaces;
+using EOP.Gestion.Core.Interfaces.Usuarios;
 
 namespace EOP.Gestion.Tests.Unitarias;
 
@@ -31,6 +31,15 @@ public class IdentificarOVincularUsuarioTests
         // Administrador que inactiva al usuario, etc.).
         public Action? AntesDeVincular { get; set; }
         public Action? DespuesDeVincular { get; set; }
+
+        // El cambio de rol (T14) no se usa en las pruebas de este repositorio.
+        public Task<IBloqueoAdministradores> BloquearAdministradoresAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<Usuario?> ObtenerPorIdAsync(int usuarioId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task<int> ContarAdministradoresActivosAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Usuario?> ObtenerPorIdentidadExternaAsync(string entraObjectId, CancellationToken cancellationToken = default)
         {

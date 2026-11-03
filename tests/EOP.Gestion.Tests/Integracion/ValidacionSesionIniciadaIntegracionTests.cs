@@ -53,7 +53,10 @@ namespace EOP.Gestion.Tests.Integracion;
 // configuración del tenant (acceso condicional o valores predeterminados de
 // seguridad) y se verifica a mano en Azure. Acá solo comprobamos lo que hace
 // EOP con lo que Microsoft le devuelve.
-public class ValidacionSesionIniciadaIntegracionTests
+//
+// La clase es "partial" porque las pruebas de la T14, que usan esta misma fábrica,
+// están en ValidacionSesionIniciadaIntegracionTests.ModificarRol.cs.
+public partial class ValidacionSesionIniciadaIntegracionTests
 {
     private const string ObjectIdJuan = "11111111-1111-1111-1111-111111111111";
     private const string ObjectIdOtraIdentidad = "33333333-3333-3333-3333-333333333333";
@@ -678,7 +681,7 @@ public class ValidacionSesionIniciadaIntegracionTests
             });
         }
 
-        public async Task<int> GuardarUsuarioAsync(bool activo, string? entraObjectId, RolUsuario rol = RolUsuario.Operador)
+        public async Task<int> GuardarUsuarioAsync(bool activo, string? entraObjectId, RolUsuario rol = RolUsuario.Operador, string correo = CorreoJuan)
         {
             using var alcance = CrearAlcanceConBaseCreada();
             var contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
@@ -686,7 +689,7 @@ public class ValidacionSesionIniciadaIntegracionTests
             var usuario = new Usuario
             {
                 NombreCompleto = "Juan Pérez",
-                CorreoCorporativo = CorreoJuan,
+                CorreoCorporativo = correo,
                 Rol = rol,
                 Activo = activo,
                 EntraObjectId = entraObjectId

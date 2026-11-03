@@ -3,8 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-using EOP.Gestion.Core.Interfaces;
-using EOP.Gestion.Infrastructure.Persistencia.Repositorios;
+using EOP.Gestion.Core.Interfaces.Usuarios;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
 
 using EOP.Gestion.Core.Interfaces.Clientes;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Clientes;

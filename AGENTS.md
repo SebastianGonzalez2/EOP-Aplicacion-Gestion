@@ -212,6 +212,85 @@ S1-T03: configurar DbContext y migración inicial
 
 **Pull requests** — Todo cambio entra por PR, revisada por el otro integrante. Antes de aprobar se verifica que compile, funcione y no rompa lo existente. Las versiones de entregas se marcan con tags.
 
+### Estilo de código: claridad y facilidad de comprensión
+
+Estas reglas son obligatorias para toda implementación futura, tanto de Claude Code como de Codex.
+
+**1. Priorizar claridad sobre brevedad**
+
+El código debe estar pensado para un estudiante con conocimientos básicos e intermedios de programación que necesita entender su funcionamiento.
+
+No busques escribir la menor cantidad posible de líneas. Si una solución requiere algunas líneas adicionales pero resulta significativamente más fácil de entender, preferila.
+
+Esto no significa duplicar código ni introducir complejidad innecesaria. Queremos código sencillo, correcto y mantenible.
+
+**2. Utilizar estructuras de control explícitas**
+
+- Preferir `if`, `else if` y `else` claramente escritos.
+- Utilizar llaves `{ }`, incluso cuando un bloque tenga una sola instrucción.
+- Evitar operadores ternarios (`condicion ? valor1 : valor2`) cuando un `if/else` sea más claro.
+- Evitar expresiones `switch` compactas si un `switch` tradicional se entiende mejor.
+- Evitar combinar múltiples condiciones complejas en una sola expresión difícil de leer.
+- Evitar operadores de acceso condicional (`?.`) y coalescencia nula (`??`) cuando oculten decisiones relevantes o hagan menos claro el flujo. Se permiten cuando su significado es inmediato.
+- Mantener los tipos anulables (`Usuario?`, `string?`, etc.) cuando correspondan. Son parte del sistema de tipos de C# y no deben eliminarse por preferencias de estilo.
+
+**3. Nombres descriptivos**
+
+Utilizar nombres de clases, métodos, propiedades y variables claros y descriptivos, preferentemente en español siguiendo las convenciones del proyecto.
+
+Evitar abreviaturas poco evidentes. Preferir `cantidadAdministradoresActivos` antes que `cantAdmin`, y `usuarioEncontrado` antes que nombres genéricos.
+
+**4. Métodos fáciles de seguir**
+
+- Organizar el código en pasos lógicos.
+- Separar validaciones, operaciones y resultados cuando mejore la comprensión.
+- Evitar métodos excesivamente largos que mezclen responsabilidades.
+- Evitar expresiones lambda complejas cuando existan alternativas más legibles.
+- Evitar encadenamientos largos de métodos cuando dificulten comprender el resultado.
+- No introducir patrones, abstracciones, clases auxiliares o librerías que la funcionalidad no necesite.
+- Utilizar características normales de C#, EF Core y ASP.NET Core cuando sean apropiadas. No sacrificar seguridad, eficiencia o integridad de los datos por evitar una sintaxis que sea necesaria.
+
+**5. Comentarios explicativos en español**
+
+Los comentarios deben tener un lenguaje natural, claro y relativamente informal, parecido a una explicación entre compañeros de facultad.
+
+Comentar principalmente:
+
+- Por qué existe una validación importante.
+- Qué regla de negocio se está aplicando.
+- Qué hace una operación que no resulta evidente a primera vista.
+- Por qué se eligió una solución técnica que requiere explicación.
+
+No agregar comentarios por obligación a cada línea. Evitar comentarios excesivamente técnicos, ceremoniosos o que simplemente repitan el código.
+
+No eliminar, resumir ni reescribir los comentarios explicativos existentes del estudiante por considerarlos largos o redundantes. Si un comentario contiene un error conceptual real, señalarlo y explicar la corrección antes de modificarlo.
+
+**6. Código didáctico sin sacrificar calidad**
+
+La simplicidad de escritura no debe comprometer:
+
+- Seguridad y autorización.
+- Validaciones del servidor.
+- Integridad y consistencia de los datos.
+- Manejo correcto de errores.
+- Seguridad ante operaciones concurrentes.
+- Separación de responsabilidades.
+- Capacidad de realizar pruebas.
+- Rendimiento razonable.
+
+Cuando una solución técnicamente correcta requiera código menos sencillo, implementarla correctamente y agregar una explicación clara de cómo funciona.
+
+**7. Explicar las implementaciones**
+
+Al finalizar una tarea, explicar en términos sencillos:
+
+- Qué se implementó.
+- Qué archivos se modificaron y por qué.
+- Cómo se relacionan las clases principales.
+- Cuál es el recorrido de una operación.
+- Qué validaciones se realizan.
+- Qué pruebas se ejecutaron.
+
 ---
 
 ## Fuentes de verdad y trazabilidad

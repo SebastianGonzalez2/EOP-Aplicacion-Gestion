@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using EOP.Gestion.Core.Entidades.Usuarios;
 
-namespace EOP.Gestion.Core.Interfaces;
+namespace EOP.Gestion.Core.Interfaces.Usuarios;
 
 public interface IRepositorioUsuarios
 {
@@ -17,6 +17,17 @@ public interface IRepositorioUsuarios
     Task<Usuario?> ObtenerPorCorreoCorporativoAsync(string correoCorporativo, CancellationToken cancellationToken = default);
 
     Task<bool> VincularIdentidadSiNoVinculadaAsync(int usuarioId,string entraObjectId,CancellationToken cancellationToken = default);
+
+    // Espera su turno para operar sobre los administradores y abre una transacción.
+    // Los métodos de abajo que se llamen mientras dure el turno forman parte de ella.
+    // Ver la explicación completa en IBloqueoAdministradores.
+    Task<IBloqueoAdministradores> BloquearAdministradoresAsync(CancellationToken cancellationToken = default);
+
+    Task<Usuario?> ObtenerPorIdAsync(int usuarioId, CancellationToken cancellationToken = default);
+
+    Task<int> ContarAdministradoresActivosAsync(CancellationToken cancellationToken = default);
+
+    Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default);
 
 }
 
