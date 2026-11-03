@@ -21,6 +21,29 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Catalogo.Material", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Unidad")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Materiales", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Materiales_UnidadValida", "[Unidad] IN (1, 2, 3, 4, 5)");
+                        });
+                });
+
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Clientes.Cliente", b =>
                 {
                     b.Property<int>("Id")
