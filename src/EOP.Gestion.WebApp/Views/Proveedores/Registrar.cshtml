@@ -1,0 +1,163 @@
+@using EOP.Gestion.Core.Comun
+@using EOP.Gestion.Core.Entidades.Proveedores
+@model EOP.Gestion.WebApp.ViewModels.Proveedores.RegistrarProveedorViewModel
+
+@{
+    ViewData["Title"] = "Registrar proveedor";
+
+    // Las opciones salen directamente de los enums, con el nombre que tienen en [Display]. Así la
+    // lista de RF-23 está escrita en un solo lugar y acá no hay que repetir ningún banco.
+    IEnumerable<SelectListItem> opcionesBanco = Html.GetEnumSelectList<Banco>();
+    IEnumerable<SelectListItem> opcionesMoneda = Html.GetEnumSelectList<Moneda>();
+}
+
+<h2>Registrar proveedor</h2>
+
+<p>
+    Ingresá los datos del nuevo proveedor y al menos una cuenta bancaria.
+    Los campos marcados con <span class="text-danger">*</span> son obligatorios.
+</p>
+
+@* El aviso va arriba para que nadie complete todo el formulario y recién al final se entere. *@
+<div id="aviso-guardado-no-disponible" class="alert alert-warning" role="note">
+    <strong>El guardado todavía no está disponible.</strong>
+    Podés ver y completar el formulario, pero por ahora no se registra ningún proveedor.
+</div>
+
+@* Como es un POST con asp-action, el Tag Helper agrega solo el token antifalsificación. *@
+<form asp-controller="Proveedores" asp-action="Registrar" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <fieldset class="mb-4">
+        <legend class="h5">Datos del proveedor</legend>
+
+        <div class="row g-3">
+            <div class="col-12">
+                <label asp-for="Nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
+                <input asp-for="Nombre" class="form-control" aria-required="true" />
+                <span asp-validation-for="Nombre" class="text-danger"></span>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Rut" class="form-label">RUT <span class="text-danger">*</span></label>
+                <input asp-for="Rut" class="form-control" aria-required="true" />
+                <span asp-validation-for="Rut" class="text-danger"></span>
+            </div>
+
+            @* Igual que el WhatsApp de Clientes: se elige el país y se escribe el número habitual.
+               El número internacional que pide RF-23 lo va a armar el servidor. *@
+            <div class="col-12">
+                <fieldset>
+                    <legend class="form-label fs-6">Teléfono</legend>
+
+                    @* En pantallas chicas van uno abajo del otro, así el país y el prefijo se leen completos. *@
+                    <div class="row g-2">
+                        <div class="col-12 col-md-5">
+                            <label asp-for="PaisTelefono" class="form-label small mb-1">País y prefijo <span class="text-danger">*</span></label>
+                            <select asp-for="PaisTelefono" asp-items="Model.PaisesTelefono" class="form-select" aria-required="true">
+                                @* Queda elegida solo si llega un país que no está en la lista: así no cambiamos de país sin avisar. *@
+                                <option value="">Seleccioná un país</option>
+                            </select>
+                            <span asp-validation-for="PaisTelefono" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-7">
+                            <label asp-for="NumeroNacionalTelefono" class="form-label small mb-1">Número de teléfono <span class="text-danger">*</span></label>
+                            <input asp-for="NumeroNacionalTelefono" type="tel" maxlength="30" class="form-control" placeholder="099 123 456"
+                                   aria-required="true" aria-describedby="ayuda-telefono" />
+                            <div id="ayuda-telefono" class="form-text">Escribilo como se usa en ese país, sin el prefijo internacional.</div>
+                            <span asp-validation-for="NumeroNacionalTelefono" class="text-danger"></span>
+                        </div>
+                    </div>
+                </fieldset>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label asp-for="CorreoContacto" class="form-label">Correo de contacto</label>
+                <input asp-for="CorreoContacto" type="email" class="form-control" aria-describedby="ayuda-correos" />
+                <span asp-validation-for="CorreoContacto" class="text-danger"></span>
+            </div>
+
+            <div class="col-12 col-md-6">
+                <label asp-for="CorreoFacturacion" class="form-label">Correo de facturación</label>
+                <input asp-for="CorreoFacturacion" type="email" class="form-control" aria-describedby="ayuda-correos" />
+                <span asp-validation-for="CorreoFacturacion" class="text-danger"></span>
+            </div>
+
+            <div class="col-12">
+                <div id="ayuda-correos" class="form-text mt-0">Debe ingresarse al menos uno de los dos correos electrónicos.</div>
+            </div>
+        </div>
+    </fieldset>
+
+    <section class="mb-4" aria-labelledby="titulo-cuentas-bancarias">
+        <h3 id="titulo-cuentas-bancarias" class="h5">Cuentas bancarias</h3>
+        <p class="form-text mt-0">Cada cuenta necesita banco, número de cuenta, titular y moneda.</p>
+        <span asp-validation-for="CuentasBancarias" class="text-danger"></span>
+
+        @* Usamos for con índice y no foreach porque el índice es lo que termina en el nombre del
+           campo: CuentasBancarias[0].Banco, CuentasBancarias[1].Banco... Con esos nombres, ASP.NET
+           Core sabe qué dato va en cada cuenta. El archivo cuentas-bancarias-formulario.js copia este
+           mismo bloque cuando el usuario agrega otra cuenta. *@
+        <div id="lista-cuentas-bancarias">
+            @for (int i = 0; i < Model.CuentasBancarias.Count; i++)
+            {
+                <fieldset class="cuenta-bancaria border rounded p-3 mb-3">
+                    <legend class="titulo-cuenta h6">Cuenta bancaria @(i + 1)</legend>
+
+                    <div class="row g-3">
+                        <div class="col-12 col-md-6">
+                            <label asp-for="CuentasBancarias[i].Banco" class="form-label">Banco <span class="text-danger">*</span></label>
+                            <select asp-for="CuentasBancarias[i].Banco" asp-items="opcionesBanco" class="form-select" aria-required="true">
+                                <option value="">Seleccioná un banco</option>
+                            </select>
+                            <span asp-validation-for="CuentasBancarias[i].Banco" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="CuentasBancarias[i].Moneda" class="form-label">Moneda <span class="text-danger">*</span></label>
+                            <select asp-for="CuentasBancarias[i].Moneda" asp-items="opcionesMoneda" class="form-select" aria-required="true">
+                                <option value="">Seleccioná una moneda</option>
+                            </select>
+                            <span asp-validation-for="CuentasBancarias[i].Moneda" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="CuentasBancarias[i].NumeroCuenta" class="form-label">Número de cuenta <span class="text-danger">*</span></label>
+                            <input asp-for="CuentasBancarias[i].NumeroCuenta" class="form-control" aria-required="true" />
+                            <span asp-validation-for="CuentasBancarias[i].NumeroCuenta" class="text-danger"></span>
+                        </div>
+
+                        <div class="col-12 col-md-6">
+                            <label asp-for="CuentasBancarias[i].Titular" class="form-label">Titular <span class="text-danger">*</span></label>
+                            <input asp-for="CuentasBancarias[i].Titular" class="form-control" aria-required="true" />
+                            <span asp-validation-for="CuentasBancarias[i].Titular" class="text-danger"></span>
+                        </div>
+                    </div>
+
+                    @* Con una sola cuenta el botón queda oculto: siempre tiene que quedar una como mínimo. *@
+                    <div class="text-end mt-3">
+                        <button type="button" class="boton-quitar-cuenta btn btn-outline-secondary btn-sm" hidden="@(Model.CuentasBancarias.Count == 1)">
+                            Quitar cuenta @(i + 1)
+                        </button>
+                    </div>
+                </fieldset>
+            }
+        </div>
+
+        @* type="button" para que este botón nunca envíe el formulario. *@
+        <button type="button" id="boton-agregar-cuenta" class="btn btn-outline-primary">
+            Agregar otra cuenta bancaria
+        </button>
+    </section>
+
+    @* Deshabilitado hasta S2-T13. Un botón deshabilitado tampoco deja enviar el formulario
+       apretando Enter en un campo. El control real es que en el servidor no exista el POST. *@
+    <button type="submit" class="btn btn-success" disabled aria-describedby="aviso-guardado-no-disponible">
+        Registrar proveedor
+    </button>
+</form>
+
+@section Scripts {
+    <script src="~/js/cuentas-bancarias-formulario.js" asp-append-version="true"></script>
+}
