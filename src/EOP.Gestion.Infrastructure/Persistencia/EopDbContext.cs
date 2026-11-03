@@ -1,7 +1,7 @@
 using EOP.Gestion.Core.Entidades.Usuarios;
 using Microsoft.EntityFrameworkCore;
 using EOP.Gestion.Core.Entidades.Clientes;
-
+using EOP.Gestion.Core.Entidades.Catalogo;
 
 namespace EOP.Gestion.Infrastructure.Persistencia;
 
@@ -21,7 +21,8 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
 
-
+    // Representa los materiales registrados en el catálogo.
+    public DbSet<Material> Materiales => Set<Material>();
 
 
     // Se ejecuta cuando Entity Framework construye el modelo
