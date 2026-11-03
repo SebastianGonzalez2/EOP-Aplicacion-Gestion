@@ -1,6 +1,7 @@
 using EOP.Gestion.Core.Entidades.Usuarios;
 using Microsoft.EntityFrameworkCore;
 using EOP.Gestion.Core.Entidades.Clientes;
+using EOP.Gestion.Core.Entidades.Proveedores;
 
 
 namespace EOP.Gestion.Infrastructure.Persistencia;
@@ -20,8 +21,8 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
     // mediante Entity Framework, sin escribir SQL manualmente.
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Cliente> Clientes => Set<Cliente>();
-
-
+    public DbSet<Proveedor> Proveedores => Set<Proveedor>();
+    public DbSet<CuentaBancaria> CuentasBancarias => Set<CuentaBancaria>();
 
 
     // Se ejecuta cuando Entity Framework construye el modelo

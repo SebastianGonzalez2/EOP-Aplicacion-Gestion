@@ -842,7 +842,7 @@ El alta se realizará mediante acción explícita y confirmación del usuario, n
 
 El proveedor dado de alta quedará inmediatamente disponible en el catálogo para futuras selecciones desde los demás módulos.
 
-Los nombres deberán compararse por denominación completa ignorando mayúsculas, minúsculas y espacios innecesarios.
+Los nombres deberán compararse por denominación completa ignorando mayúsculas, minúsculas, tildes y espacios innecesarios. La ñ y la ü no se consideran tildes: se distinguen de la n y la u.
 
 El RUT y el Nombre deberán validarse de manera independiente contra Proveedores existentes y cualquier duplicado impedirá confirmar el alta.
 
