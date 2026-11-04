@@ -92,6 +92,6 @@ public class RepositorioProveedoresSqlServerTests : IAsyncLifetime
         var repositorio = new RepositorioProveedores(contexto);
 
         Assert.True(await repositorio.ExistePorRutAsync("215521750017"));
-        Assert.False(await repositorio.ExistePorRutAsync("210000000019"));
+        Assert.False(await repositorio.ExistePorRutAsync("210000010014"));
     }
 }

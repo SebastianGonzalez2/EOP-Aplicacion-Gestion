@@ -93,7 +93,7 @@ public class RepositorioProveedoresTests : IDisposable
         using EopDbContext contexto = CrearContexto();
         var repositorio = new RepositorioProveedores(contexto);
 
-        Assert.False(await repositorio.ExistePorRutAsync("210000000019"));
+        Assert.False(await repositorio.ExistePorRutAsync("210000010014"));
     }
 
     [Fact]
@@ -117,7 +117,7 @@ public class RepositorioProveedoresTests : IDisposable
         await GuardarAsync(DatosDePruebaProveedores.CrearProveedor("Fivisa", "215521750017"));
 
         using EopDbContext contexto = CrearContexto();
-        Proveedor proveedorNuevo = DatosDePruebaProveedores.CrearProveedor("Otro proveedor", "21.000.000-0019");
+        Proveedor proveedorNuevo = DatosDePruebaProveedores.CrearProveedor("Otro proveedor", "21.000.001-0014");
 
         List<string> errores = await CrearValidador(contexto).ValidarAsync(proveedorNuevo, "UY", "099 123 456");
 
@@ -128,7 +128,7 @@ public class RepositorioProveedoresTests : IDisposable
     // puede guardar nada: un proveedor correcto sigue sin existir hasta que S2-T13 lo registre.
     [Theory]
     [InlineData("Proveedor existente", "215521750017")]
-    [InlineData("Proveedor nuevo", "210000000019")]
+    [InlineData("Proveedor nuevo", "210000010014")]
     public async Task ValidarAsync_NoDebeModificarNiAgregarRegistros(string nombre, string rut)
     {
         Proveedor proveedorExistente = DatosDePruebaProveedores.CrearProveedor("Proveedor existente", "215521750017");

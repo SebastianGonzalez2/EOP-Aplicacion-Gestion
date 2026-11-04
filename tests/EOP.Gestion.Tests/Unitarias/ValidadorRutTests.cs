@@ -4,6 +4,51 @@ namespace EOP.Gestion.Tests.Unitarias;
 
 public class ValidadorRutTests
 {
+    // Los extremos de cada parte que admite la estructura, con su dígito verificador correcto.
+    [Theory]
+    [InlineData("010000010011")]    // El prefijo más chico.
+    [InlineData("220000010011")]    // El prefijo más grande.
+    [InlineData("019999990013")]    // El número de serie más grande.
+    [InlineData("229999990013")]
+    [InlineData("21-000001-001-4")] // Con los separadores habituales.
+    public void EsValido_DebeAceptarRutConEstructuraCorrecta(string rut)
+    {
+        Assert.True(ValidadorRut.EsValido(rut));
+    }
+
+    // Todos estos tienen bien la cuenta del dígito verificador: lo único que falla es la
+    // estructura. Antes de agregar ese control, el validador los aceptaba a todos.
+    [Theory]
+    [InlineData("000000000000")]    // Todo ceros.
+    [InlineData("001599340019")]    // Prefijo 00.
+    [InlineData("230000010019")]    // Prefijo 23, el primero fuera del rango.
+    [InlineData("991599340011")]    // Prefijo 99.
+    [InlineData("210000000019")]    // Número de serie en cero.
+    [InlineData("211599345519")]    // Sufijo 455.
+    [InlineData("211234560027")]    // Sufijo 002.
+    public void EsValido_DebeRechazarRutConEstructuraIncorrecta(string rut)
+    {
+        Assert.False(ValidadorRut.EsValido(rut));
+    }
+
+    // Con estos primeros 11 dígitos la cuenta da 10, y 10 no entra en un solo dígito. Por eso
+    // no existe ningún RUT que empiece así, sea cual sea el último número.
+    [Theory]
+    [InlineData("210000020010")]
+    [InlineData("210000020011")]
+    [InlineData("210000020012")]
+    [InlineData("210000020013")]
+    [InlineData("210000020014")]
+    [InlineData("210000020015")]
+    [InlineData("210000020016")]
+    [InlineData("210000020017")]
+    [InlineData("210000020018")]
+    [InlineData("210000020019")]
+    public void EsValido_DebeRechazarRutSinDigitoVerificadorPosible(string rut)
+    {
+        Assert.False(ValidadorRut.EsValido(rut));
+    }
+
     [Fact]
     public void Normalizar_DebeEliminarPuntosGuionesYEspacios()
     {
