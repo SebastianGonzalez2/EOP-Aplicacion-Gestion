@@ -10,7 +10,7 @@ namespace EOP.Gestion.WebApp.Controllers
     // RF-72: solamente el Administrador puede acceder a la administración de usuarios.
     // El rol lo compara ASP.NET Core con el que tiene el usuario HOY en la tabla Usuarios,
     // porque OnValidatePrincipal lo vuelve a cargar en cada pedido (T13).
-    [Authorize(Roles = nameof(RolUsuario.Administrador))]
+    [Authorize(Roles = "Administrador")]
     public class UsuariosController : Controller
     {
         // Después de cada intento volvemos al listado de usuarios, donde se muestra el resultado.

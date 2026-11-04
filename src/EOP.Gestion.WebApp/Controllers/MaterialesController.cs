@@ -1,5 +1,4 @@
 ﻿
-using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
 using EOP.Gestion.WebApp.ViewModels.Materiales;
 using Microsoft.AspNetCore.Authorization;
@@ -9,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 namespace EOP.Gestion.WebApp.Controllers
 {
     // Solamente Supervisor y Administrador pueden registrar materiales.
-    [Authorize(Roles = nameof(RolUsuario.Supervisor) + "," + nameof(RolUsuario.Administrador))]
+    [Authorize(Roles = "Supervisor,Administrador")]
     public class MaterialesController : Controller
     {
         private readonly ConsultarProveedoresParaSeleccion _consultarProveedores;
