@@ -291,6 +291,30 @@ Al finalizar una tarea, explicar en términos sencillos:
 - Qué validaciones se realizan.
 - Qué pruebas se ejecutaron.
 
+**8. Escribir directamente los roles en los atributos de autorización**
+
+Cuando un Controller o una acción necesite restringir el acceso por rol, escribir los nombres
+de los roles permitidos directamente en el atributo `[Authorize]`, sin crear una
+constante auxiliar para agruparlos ni armar la cadena con `nameof`.
+
+Ejemplo para una acción disponible para Administrador o Supervisor:
+
+```csharp
+[Authorize(Roles = "Administrador,Supervisor")]
+```
+
+- Usar exactamente los nombres definidos en `RolUsuario`: `Administrador`, `Supervisor`
+  y `Operador`. Si se cambia el nombre de un rol, revisar también los atributos
+  que lo mencionen, porque las cadenas de texto no se actualizan automáticamente.
+- Separar los roles con comas significa que alcanza con tener **uno** de ellos.
+- Para acciones que solo requieren una sesión iniciada, utilizar `[Authorize]`
+  sin especificar `Roles`.
+- Aplicar las restricciones correspondientes **en cada acción**, incluidos los métodos
+  `GET` que muestran formularios restringidos y los métodos `POST` que procesan datos.
+  Restringir la pantalla no sustituye la autorización de la operación en el servidor.
+- Esta regla es una convención de legibilidad: nunca debe ampliar los permisos
+  establecidos por los requerimientos ni sustituir las verificaciones de seguridad.
+
 ---
 
 ## Fuentes de verdad y trazabilidad
