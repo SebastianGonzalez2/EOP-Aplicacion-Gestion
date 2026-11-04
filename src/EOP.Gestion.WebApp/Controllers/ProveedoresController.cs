@@ -1,5 +1,4 @@
 using EOP.Gestion.Core.DTOs.Clientes;
-using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Clientes;
 using EOP.Gestion.WebApp.ViewModels.Proveedores;
 using Microsoft.AspNetCore.Authorization;
@@ -11,11 +10,6 @@ namespace EOP.Gestion.WebApp.Controllers
     [Authorize] // Para entrar a la sección Proveedores hay que tener sesión, sea cual sea el rol.
     public class ProveedoresController : Controller
     {
-        // RF-23: el alta es solo para Administrador y Supervisor. Con la coma alcanza con tener uno
-        // de los dos. Usamos nameof para que un rol mal escrito no compile, en vez de dejar
-        // a todos afuera sin ningún aviso.
-        private const string RolesQuePuedenRegistrar = nameof(RolUsuario.Administrador) + "," + nameof(RolUsuario.Supervisor);
-
         // El país que aparece elegido al abrir el formulario.
         private const string PaisPredeterminadoTelefono = "UY";
 
@@ -35,10 +29,10 @@ namespace EOP.Gestion.WebApp.Controllers
         // esta sección cuando llegue el listado (US-074). Por eso, el POST de S2-T13 va a
         // necesitar este mismo atributo: no lo hereda de acá.
         //
-        // Todavía no hay POST a propósito: guardar le corresponde a S2-T13, y una acción
-        // que no guarda de verdad haría creer que el proveedor quedó registrado.
+        // RF-23: el alta es solo para Administrador y Supervisor. Con la coma alcanza con tener uno
+        // de los dos.
         [HttpGet]
-        [Authorize(Roles = RolesQuePuedenRegistrar)]
+        [Authorize(Roles = "Administrador,Supervisor")]
         public IActionResult Registrar()
         {
             var modelo = new RegistrarProveedorViewModel
