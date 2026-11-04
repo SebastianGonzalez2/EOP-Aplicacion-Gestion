@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Identity.Web;
 using EOP.Gestion.Core.CasosDeUso.Clientes;
+using EOP.Gestion.Core.CasosDeUso.Proveedores;
 using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using System.Security.Claims;
 
@@ -35,6 +36,9 @@ builder.Services.AddScoped<ValidarDatosCliente>();
 // Registramos el caso de uso que valida y guarda
 // los nuevos clientes en la base de datos.
 builder.Services.AddScoped<RegistrarCliente>();
+
+// Registramos el caso de uso que valida los datos del proveedor.
+builder.Services.AddScoped<ValidarDatosProveedor>();
 
 // Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
 builder.Services.AddScoped<IdentificarOVincularUsuario>();

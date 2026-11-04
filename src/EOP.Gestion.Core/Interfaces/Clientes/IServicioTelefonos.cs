@@ -12,5 +12,8 @@ public interface IServicioTelefonos
 
     // Convierte el número que el usuario usa en su país (099 123 456) al formato
     // internacional E.164 (+59899123456), aplicando las reglas del país elegido.
-    ResultadoNumeroInternacional ConvertirAInternacional(string? codigoPais, string? numeroNacional);
+    //
+    // nombreDelNumero es cómo se llama ese número en los mensajes de error. Lo usan Clientes
+    // (WhatsApp) y Proveedores (teléfono), y a un proveedor no le tiene que aparecer "WhatsApp".
+    ResultadoNumeroInternacional ConvertirAInternacional(string? codigoPais, string? numeroNacional, string nombreDelNumero = "WhatsApp");
 }

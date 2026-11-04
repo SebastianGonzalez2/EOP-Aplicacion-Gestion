@@ -50,25 +50,25 @@ public sealed class ServicioTelefonos : IServicioTelefonos
 
     public IReadOnlyList<PaisTelefonico> ObtenerPaises() => _paises;
 
-    public ResultadoNumeroInternacional ConvertirAInternacional(string? codigoPais, string? numeroNacional)
+    public ResultadoNumeroInternacional ConvertirAInternacional(string? codigoPais, string? numeroNacional, string nombreDelNumero = "WhatsApp")
     {
         // Solo aceptamos países de nuestra lista. El desplegable no alcanza como control:
         // cualquiera puede editar el HTML o mandar un POST a mano con lo que quiera.
         if (codigoPais is null || !_paisesPorCodigo.TryGetValue(codigoPais, out PaisTelefonico? pais))
         {
-            return ResultadoNumeroInternacional.Invalido("Seleccioná un país válido para el número de WhatsApp.");
+            return ResultadoNumeroInternacional.Invalido($"Seleccioná un país válido para el número de {nombreDelNumero}.");
         }
 
         string numeroSinSeparadores = ValidadorWhatsApp.Normalizar(numeroNacional);
 
         if (numeroSinSeparadores.Length == 0)
         {
-            return ResultadoNumeroInternacional.Invalido("Ingresá el número de WhatsApp.");
+            return ResultadoNumeroInternacional.Invalido($"Ingresá el número de {nombreDelNumero}.");
         }
 
         if (numeroNacional!.Length > MaximoCaracteresNumeroNacional)
         {
-            return ResultadoNumeroInternacional.Invalido("El número de WhatsApp es demasiado largo.");
+            return ResultadoNumeroInternacional.Invalido($"El número de {nombreDelNumero} es demasiado largo.");
         }
 
         // Filtramos ANTES de llamar a la biblioteca, porque ella es muy permisiva: acepta
@@ -77,7 +77,7 @@ public sealed class ServicioTelefonos : IServicioTelefonos
         if (!ValidadorWhatsApp.TieneSoloCaracteresDeNumeroNacional(numeroNacional))
         {
             return ResultadoNumeroInternacional.Invalido(
-                "El número de WhatsApp solo puede tener dígitos, espacios, guiones, puntos y paréntesis. " +
+                $"El número de {nombreDelNumero} solo puede tener dígitos, espacios, guiones, puntos y paréntesis. " +
                 "No escribas el prefijo internacional: se toma del país seleccionado.");
         }
 
@@ -107,7 +107,7 @@ public sealed class ServicioTelefonos : IServicioTelefonos
         }
 
         return ResultadoNumeroInternacional.Invalido(
-            $"El número de WhatsApp no es válido para {pais.Descripcion}. Revisá el número y el país seleccionado.");
+            $"El número de {nombreDelNumero} no es válido para {pais.Descripcion}. Revisá el número y el país seleccionado.");
     }
 
     private PaisTelefonico CrearPais(string codigoIso)
