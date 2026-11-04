@@ -10,8 +10,8 @@ public class MaterialConfiguracion : IEntityTypeConfiguration<Material>
     public void Configure(EntityTypeBuilder<Material> builder)
     {
         // Definimos el nombre de la tabla y restringimos
-        // las unidades a las cinco opciones permitidas.
-        builder.ToTable("Materiales", tabla =>tabla.HasCheckConstraint("CK_Materiales_UnidadValida","[Unidad] IN (1, 2, 3, 4, 5)"));
+        // las unidades a las opciones permitidas en UnidadMedida.
+        builder.ToTable("Materiales", tabla =>tabla.HasCheckConstraint("CK_Materiales_UnidadValida","[Unidad] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)"));
 
         // El Id identifica de forma única cada material.
         builder.HasKey(m => m.Id);

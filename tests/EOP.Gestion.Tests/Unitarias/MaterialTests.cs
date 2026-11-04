@@ -10,19 +10,32 @@ namespace EOP.Gestion.Tests.Unitarias;
 public class MaterialTests
 {
     [Fact]
-    public void ExistenExactamenteCincoUnidadesFijas()
+    public void ExistenExactamenteCatorceUnidadesFijas()
     {
         // Obtenemos todas las unidades que definimos en el enum.
         var unidades = Enum.GetValues<UnidadMedida>();
 
-        // Comprobamos que sean exactamente las cinco permitidas.
-        Assert.Equal(5, unidades.Length);
+        // Comprobamos que sean exactamente las catorce permitidas.
+        Assert.Equal(14, unidades.Length);
 
+        // Las cinco originales tienen que conservar su número: es lo que
+        // ya está guardado en la base para los materiales existentes.
         Assert.Equal(1, (int)UnidadMedida.Metro);
         Assert.Equal(2, (int)UnidadMedida.MetroCuadrado);
         Assert.Equal(3, (int)UnidadMedida.MetroCubico);
         Assert.Equal(4, (int)UnidadMedida.Kilogramo);
         Assert.Equal(5, (int)UnidadMedida.Litro);
+
+        // Las nuevas siguen desde el 6.
+        Assert.Equal(6, (int)UnidadMedida.Milimetro);
+        Assert.Equal(7, (int)UnidadMedida.Centimetro);
+        Assert.Equal(8, (int)UnidadMedida.Kilometro);
+        Assert.Equal(9, (int)UnidadMedida.CentimetroCuadrado);
+        Assert.Equal(10, (int)UnidadMedida.CentimetroCubico);
+        Assert.Equal(11, (int)UnidadMedida.Mililitro);
+        Assert.Equal(12, (int)UnidadMedida.Gramo);
+        Assert.Equal(13, (int)UnidadMedida.Tonelada);
+        Assert.Equal(14, (int)UnidadMedida.Unidad);
     }
 
     [Fact]
@@ -70,12 +83,12 @@ public class MaterialTests
         Assert.NotNull(unidad);
         Assert.False(unidad.IsNullable);
 
-        // Verificamos que exista la restricción de las cinco unidades.
+        // Verificamos que exista la restricción de las catorce unidades.
         Assert.Contains(
             entidad.GetCheckConstraints(),
             restriccion =>
                 restriccion.Name == "CK_Materiales_UnidadValida" &&
-                restriccion.Sql == "[Unidad] IN (1, 2, 3, 4, 5)");
+                restriccion.Sql == "[Unidad] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)");
     }
 
 

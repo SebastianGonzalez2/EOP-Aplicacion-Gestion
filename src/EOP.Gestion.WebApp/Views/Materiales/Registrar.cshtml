@@ -28,11 +28,30 @@
         <label asp-for="Unidad" class="form-label">Unidad de medida</label>
         <select asp-for="Unidad" class="form-select">
             <option value="">Seleccioná una unidad</option>
-            <option value="@((int)UnidadMedida.Metro)">m</option>
-            <option value="@((int)UnidadMedida.MetroCuadrado)">m²</option>
-            <option value="@((int)UnidadMedida.MetroCubico)">m³</option>
-            <option value="@((int)UnidadMedida.Kilogramo)">kg</option>
-            <option value="@((int)UnidadMedida.Litro)">litro</option>
+            <optgroup label="Longitud">
+                <option value="@((int)UnidadMedida.Milimetro)">mm</option>
+                <option value="@((int)UnidadMedida.Centimetro)">cm</option>
+                <option value="@((int)UnidadMedida.Metro)">m</option>
+                <option value="@((int)UnidadMedida.Kilometro)">km</option>
+            </optgroup>
+            <optgroup label="Superficie">
+                <option value="@((int)UnidadMedida.CentimetroCuadrado)">cm²</option>
+                <option value="@((int)UnidadMedida.MetroCuadrado)">m²</option>
+            </optgroup>
+            <optgroup label="Volumen">
+                <option value="@((int)UnidadMedida.CentimetroCubico)">cm³</option>
+                <option value="@((int)UnidadMedida.MetroCubico)">m³</option>
+                <option value="@((int)UnidadMedida.Mililitro)">ml</option>
+                <option value="@((int)UnidadMedida.Litro)">litro</option>
+            </optgroup>
+            <optgroup label="Peso">
+                <option value="@((int)UnidadMedida.Gramo)">g</option>
+                <option value="@((int)UnidadMedida.Kilogramo)">kg</option>
+                <option value="@((int)UnidadMedida.Tonelada)">t</option>
+            </optgroup>
+            <optgroup label="Por pieza">
+                <option value="@((int)UnidadMedida.Unidad)">unidad</option>
+            </optgroup>
         </select>
         <span asp-validation-for="Unidad" class="text-danger"></span>
     </div>
