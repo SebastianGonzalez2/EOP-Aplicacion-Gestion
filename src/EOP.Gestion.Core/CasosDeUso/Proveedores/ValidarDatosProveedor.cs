@@ -16,6 +16,11 @@ public class ValidarDatosProveedor
 {
     private const string NombreDelNumero = "teléfono";
 
+    // Son públicos porque RegistrarProveedor muestra los mismos textos cuando el duplicado lo
+    // descubre la base y no esta validación. Así el usuario lee siempre el mismo mensaje.
+    public const string MensajeNombreDuplicado = "Ya existe un proveedor registrado con ese nombre.";
+    public const string MensajeRutDuplicado = "Ya existe un proveedor registrado con ese RUT.";
+
     // Para consultar si el nombre o el RUT ya están registrados.
     private readonly IRepositorioProveedores _repositorioProveedores;
 
@@ -75,7 +80,7 @@ public class ValidarDatosProveedor
         }
         else if (await _repositorioProveedores.ExistePorNombreNormalizadoAsync(proveedor.NombreNormalizado, cancellationToken))
         {
-            errores.Add("Ya existe un proveedor registrado con ese nombre.");
+            errores.Add(MensajeNombreDuplicado);
         }
     }
 
@@ -92,7 +97,7 @@ public class ValidarDatosProveedor
         }
         else if (await _repositorioProveedores.ExistePorRutAsync(rutNormalizado, cancellationToken))
         {
-            errores.Add("Ya existe un proveedor registrado con ese RUT.");
+            errores.Add(MensajeRutDuplicado);
         }
     }
 

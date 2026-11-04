@@ -5,12 +5,17 @@ using System.Text.Encodings.Web;
 using System.Text.RegularExpressions;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.Entidades.Proveedores;
+using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Tests.Compartido;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -18,13 +23,16 @@ namespace EOP.Gestion.Tests.Integracion;
 
 // Igual que en FormularioRegistrarClienteTests, levantamos la app entera en memoria y le pedimos
 // la pantalla por HTTP, como lo haría el navegador. Comprobamos lo que sale de verdad de la vista.
-// Lo único que reemplazamos es el login: acá elegimos el rol con un encabezado del pedido.
+// Reemplazamos dos cosas: el login, porque acá elegimos el rol con un encabezado del pedido, y SQL
+// Server, por un SQLite en memoria con las mismas tablas. El repositorio y el caso de uso son los reales.
 //
-// Los permisos con la sesión real están en ValidacionSesionIniciadaIntegracionTests.RegistrarProveedor.cs.
+// Los permisos con la sesión real están en ValidacionSesionIniciadaIntegracionTests.RegistrarProveedor.cs,
+// y lo que depende de SQL Server (duplicados y concurrencia) en RegistrarProveedorSqlServerTests.cs.
+// El POST del formulario está en FormularioRegistrarProveedorTests.Post.cs.
 //
 // Lo que estas pruebas NO cubren es el JavaScript, porque acá no hay un navegador que lo ejecute.
 // Sí comprobamos lo que el script necesita: los nombres de los campos, el botón y que el archivo exista.
-public class FormularioRegistrarProveedorTests : IClassFixture<FormularioRegistrarProveedorTests.FabricaDePrueba>
+public partial class FormularioRegistrarProveedorTests : IClassFixture<FormularioRegistrarProveedorTests.FabricaDePrueba>
 {
     private const string Ruta = "/Proveedores/Registrar";
     private const string RutaDeRecepcion = "/RecepcionDePruebaProveedores/Recibir";
@@ -34,6 +42,7 @@ public class FormularioRegistrarProveedorTests : IClassFixture<FormularioRegistr
     public FormularioRegistrarProveedorTests(FabricaDePrueba fabrica)
     {
         _fabrica = fabrica;
+        _fabrica.ReiniciarBase();
     }
 
     // ---------- Campos del formulario ----------
@@ -342,21 +351,35 @@ public class FormularioRegistrarProveedorTests : IClassFixture<FormularioRegistr
         Assert.NotEmpty(recibido.Errores);
     }
 
-    // ---------- Todavía no se guarda nada (S2-T13) ----------
+    // ---------- El envío del formulario ----------
 
     [Fact]
-    public async Task Formulario_AvisaQueNoGuardaYTieneElBotonDeshabilitado()
+    public async Task Formulario_YaNoAvisaQueNoGuardaYTieneElBotonHabilitado()
     {
         string html = await LeerFormularioAsync();
 
-        Assert.Contains("El guardado todavía no está disponible.", html);
+        Assert.DoesNotContain("El guardado todavía no está disponible.", html);
 
         string botonEnviar = Assert.Single(Regex.Matches(html, "<button[^>]*type=\"submit\"[^>]*>[^<]*Registrar proveedor")).Value;
-        Assert.Contains(" disabled", botonEnviar);
+        Assert.DoesNotContain("disabled", botonEnviar);
+    }
+
+    // RF-23 pide confirmación expresa. Acá no hay navegador para ver el cuadro, pero sí podemos
+    // comprobar que el script que se le entrega al usuario la pide.
+    [Fact]
+    public async Task Formulario_EntregaElScriptQuePideConfirmarElAlta()
+    {
+        HttpClient cliente = CrearCliente("Administrador");
+        string html = await LeerHtmlAsync(await cliente.GetAsync(Ruta));
+        string rutaDelScript = Regex.Match(html, "<script src=\"(/js/cuentas-bancarias-formulario\\.js[^\"]*)\"").Groups[1].Value;
+
+        string script = await cliente.GetStringAsync(rutaDelScript);
+
+        Assert.Contains("window.confirm(", script);
     }
 
     [Fact]
-    public async Task Formulario_YaIncluyeElTokenAntifalsificacionParaElFuturoPost()
+    public async Task Formulario_IncluyeElTokenAntifalsificacion()
     {
         string html = await LeerFormularioAsync();
 
@@ -365,28 +388,6 @@ public class FormularioRegistrarProveedorTests : IClassFixture<FormularioRegistr
         Assert.True(formulario.Success, "No se encontró el formulario de alta de proveedores.");
 
         Assert.Single(Regex.Matches(formulario.Value, "name=\"__RequestVerificationToken\""));
-    }
-
-    // Aunque alguien le saque el "disabled" al botón o arme el pedido a mano y mande el token
-    // correcto, en el servidor no hay nada que lo reciba: ni mensaje de éxito ni redirección.
-    // Cuando S2-T13 agregue el POST de verdad, esta prueba se va a tener que reemplazar.
-    [Fact]
-    public async Task Post_ConTokenValido_NoExisteYNoInformaNingunRegistro()
-    {
-        HttpClient cliente = CrearCliente("Administrador");
-        string html = await LeerHtmlAsync(await cliente.GetAsync(Ruta));
-        string token = Regex.Match(html, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
-
-        Dictionary<string, string> datos = DatosValidosDelProveedor();
-        AgregarCuentaConLosNombresDelFormulario(datos, html, 0, "1", "000111", "Primer titular", "1");
-        datos["__RequestVerificationToken"] = token;
-
-        HttpResponseMessage respuesta = await cliente.PostAsync(Ruta, new FormUrlEncodedContent(datos));
-        string cuerpo = await LeerHtmlAsync(respuesta);
-
-        Assert.Equal(HttpStatusCode.MethodNotAllowed, respuesta.StatusCode);
-        Assert.Null(respuesta.Headers.Location);
-        Assert.DoesNotContain("correctamente", cuerpo);
     }
 
     // ---------- Enlace en el menú ----------
@@ -510,6 +511,65 @@ public class FormularioRegistrarProveedorTests : IClassFixture<FormularioRegistr
 
     public sealed class FabricaDePrueba : WebApplicationFactory<Program>
     {
+        // Mientras la conexión siga abierta, la base en memoria existe. La comparten todos los
+        // pedidos, como una base real.
+        private readonly SqliteConnection _conexion = new("Data Source=:memory:");
+
+        public FabricaDePrueba()
+        {
+            _conexion.Open();
+        }
+
+        // La fábrica se comparte entre las pruebas de la clase, así que cada una empieza vaciando
+        // las tablas: si no, el proveedor de una chocaría por duplicado con el de la anterior.
+        public void ReiniciarBase()
+        {
+            using IServiceScope alcance = Services.CreateScope();
+            EopDbContext contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
+
+            contexto.Database.EnsureCreated();
+            contexto.CuentasBancarias.ExecuteDelete();
+            contexto.Proveedores.ExecuteDelete();
+        }
+
+        public async Task GuardarProveedorAsync(Proveedor proveedor)
+        {
+            using IServiceScope alcance = Services.CreateScope();
+            EopDbContext contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
+
+            contexto.Proveedores.Add(proveedor);
+            await contexto.SaveChangesAsync();
+        }
+
+        public async Task<List<Proveedor>> LeerProveedoresAsync()
+        {
+            using IServiceScope alcance = Services.CreateScope();
+            EopDbContext contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
+
+            return await contexto.Proveedores
+                .AsNoTracking()
+                .Include(proveedor => proveedor.CuentasBancarias)
+                .ToListAsync();
+        }
+
+        public async Task<int> ContarCuentasAsync()
+        {
+            using IServiceScope alcance = Services.CreateScope();
+            EopDbContext contexto = alcance.ServiceProvider.GetRequiredService<EopDbContext>();
+
+            return await contexto.CuentasBancarias.CountAsync();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+
+            if (disposing)
+            {
+                _conexion.Dispose();
+            }
+        }
+
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
             builder.UseSetting(
@@ -518,6 +578,12 @@ public class FormularioRegistrarProveedorTests : IClassFixture<FormularioRegistr
 
             builder.ConfigureTestServices(servicios =>
             {
+                // Sacamos la configuración de SQL Server y ponemos SQLite. Si no sacáramos las dos
+                // registraciones, EF Core vería dos proveedores de base y fallaría.
+                servicios.RemoveAll<DbContextOptions<EopDbContext>>();
+                servicios.RemoveAll<IDbContextOptionsConfiguration<EopDbContext>>();
+                servicios.AddDbContext<EopDbContext>(opciones => opciones.UseSqlite(_conexion));
+
                 // Le mostramos a MVC el Controller que solo existe en las pruebas.
                 servicios.AddControllersWithViews()
                     .AddApplicationPart(typeof(RecepcionDePruebaProveedoresController).Assembly);

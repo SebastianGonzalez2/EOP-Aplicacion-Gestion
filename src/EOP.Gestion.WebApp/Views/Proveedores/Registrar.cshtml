@@ -18,11 +18,13 @@
     Los campos marcados con <span class="text-danger">*</span> son obligatorios.
 </p>
 
-@* El aviso va arriba para que nadie complete todo el formulario y recién al final se entere. *@
-<div id="aviso-guardado-no-disponible" class="alert alert-warning" role="note">
-    <strong>El guardado todavía no está disponible.</strong>
-    Podés ver y completar el formulario, pero por ahora no se registra ningún proveedor.
-</div>
+@* Solo aparece después de guardar de verdad: el Controller lo carga antes de redirigir hasta acá. *@
+@if (TempData["MensajeExito"] is string mensaje)
+{
+    <div class="alert alert-success" role="alert">
+        @mensaje
+    </div>
+}
 
 @* Como es un POST con asp-action, el Tag Helper agrega solo el token antifalsificación. *@
 <form asp-controller="Proveedores" asp-action="Registrar" method="post">
@@ -151,9 +153,9 @@
         </button>
     </section>
 
-    @* Deshabilitado hasta S2-T13. Un botón deshabilitado tampoco deja enviar el formulario
-       apretando Enter en un campo. El control real es que en el servidor no exista el POST. *@
-    <button type="submit" class="btn btn-success" disabled aria-describedby="aviso-guardado-no-disponible">
+    @* RF-23 pide una acción explícita y confirmación del usuario: apretar este botón es la acción, y
+       cuentas-bancarias-formulario.js pide la confirmación antes de enviar. *@
+    <button type="submit" class="btn btn-success">
         Registrar proveedor
     </button>
 </form>

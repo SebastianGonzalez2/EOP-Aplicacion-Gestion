@@ -25,6 +25,37 @@ function iniciarCuentasBancarias() {
     });
 
     actualizarCuentas(listaDeCuentas);
+    iniciarConfirmacionDelAlta(listaDeCuentas.closest("form"));
+}
+
+// RF-23: el alta necesita la confirmación expresa del usuario. Usamos el cuadro de confirmación del
+// navegador porque no hace falta nada más elaborado.
+function iniciarConfirmacionDelAlta(formulario) {
+    const botonRegistrar = formulario.querySelector("button[type='submit']");
+    const textoOriginalDelBoton = botonRegistrar.textContent;
+
+    formulario.addEventListener("submit", function (evento) {
+        const confirmado = window.confirm("¿Confirmás el registro de este proveedor?");
+
+        if (!confirmado) {
+            // Cancela el envío: el formulario queda como estaba y no se guarda nada.
+            evento.preventDefault();
+            return;
+        }
+
+        // Le mostramos que se está procesando (RNF-19 y RNF-20) y evitamos un segundo envío por
+        // un doble clic. Ese segundo envío no podría duplicar nada, pero le mostraría
+        // "ya existe" a alguien cuyo proveedor se acaba de guardar bien.
+        botonRegistrar.disabled = true;
+        botonRegistrar.textContent = "Registrando...";
+    });
+
+    // Si el usuario vuelve con el botón Atrás, el navegador puede restaurar la página tal como
+    // quedó, con el botón deshabilitado. "pageshow" también corre en ese caso, así que lo reponemos.
+    window.addEventListener("pageshow", function () {
+        botonRegistrar.disabled = false;
+        botonRegistrar.textContent = textoOriginalDelBoton;
+    });
 }
 
 function agregarCuenta(listaDeCuentas) {

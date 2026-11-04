@@ -40,6 +40,10 @@ builder.Services.AddScoped<RegistrarCliente>();
 // Registramos el caso de uso que valida los datos del proveedor.
 builder.Services.AddScoped<ValidarDatosProveedor>();
 
+// Registramos el caso de uso que valida y guarda
+// los nuevos proveedores con sus cuentas bancarias.
+builder.Services.AddScoped<RegistrarProveedor>();
+
 // Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
 builder.Services.AddScoped<IdentificarOVincularUsuario>();
 

@@ -1,4 +1,6 @@
 using EOP.Gestion.Core.CasosDeUso.Proveedores;
+using EOP.Gestion.Core.Comun;
+using EOP.Gestion.Core.DTOs.Proveedores;
 using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
@@ -160,5 +162,70 @@ public class RepositorioProveedoresTests : IDisposable
         Assert.Equal("facturas@ejemplo.com", proveedorGuardado.CorreoFacturacion);
         Assert.Equal(2, proveedorGuardado.CuentasBancarias.Count);
         Assert.Equal(2, await contextoDeLectura.CuentasBancarias.CountAsync());
+    }
+
+    // ---------- Guardado (S2-T13) ----------
+
+    // Leemos con un contexto nuevo para que lo que comprobamos venga de la base y no de la memoria.
+    [Fact]
+    public async Task AgregarAsync_DebeGuardarElProveedorConTodasSusCuentasRelacionadas()
+    {
+        Proveedor proveedorNuevo = DatosDePruebaProveedores.CrearProveedor("Fivisa S.A.", "215521750017");
+        proveedorNuevo.CorreoFacturacion = "facturas@ejemplo.com";
+        proveedorNuevo.CuentasBancarias.Add(new CuentaBancaria
+        {
+            Banco = Banco.BancoSantander,
+            NumeroCuenta = "000222",
+            Titular = "Otro titular",
+            Moneda = Moneda.USD
+        });
+
+        ResultadoAgregarProveedor resultado;
+
+        using (EopDbContext contexto = CrearContexto())
+        {
+            resultado = await new RepositorioProveedores(contexto).AgregarAsync(proveedorNuevo);
+        }
+
+        Assert.Equal(ResultadoAgregarProveedor.Agregado, resultado);
+
+        using EopDbContext contextoDeLectura = CrearContexto();
+        Proveedor guardado = await contextoDeLectura.Proveedores
+            .Include(p => p.CuentasBancarias)
+            .SingleAsync();
+
+        Assert.Equal("Fivisa S.A.", guardado.Nombre);
+        Assert.Equal("FIVISA S.A.", guardado.NombreNormalizado);
+        Assert.Equal("215521750017", guardado.Rut);
+        Assert.Equal("+59899123456", guardado.Telefono);
+        Assert.Equal("contacto@ejemplo.com", guardado.CorreoContacto);
+        Assert.Equal("facturas@ejemplo.com", guardado.CorreoFacturacion);
+
+        Assert.Equal(2, guardado.CuentasBancarias.Count);
+        Assert.Equal(2, await contextoDeLectura.CuentasBancarias.CountAsync());
+        Assert.All(guardado.CuentasBancarias, cuenta => Assert.Equal(guardado.Id, cuenta.ProveedorId));
+
+        CuentaBancaria segundaCuenta = guardado.CuentasBancarias.Single(cuenta => cuenta.NumeroCuenta == "000222");
+        Assert.Equal(Banco.BancoSantander, segundaCuenta.Banco);
+        Assert.Equal("Otro titular", segundaCuenta.Titular);
+        Assert.Equal(Moneda.USD, segundaCuenta.Moneda);
+    }
+
+    // Reconocer un duplicado de SQL Server no puede volver el repositorio ciego a lo demás: en SQLite
+    // el error tiene otra forma, y lo correcto es que siga como excepción en vez de esconderlo.
+    [Fact]
+    public async Task AgregarAsync_ConUnErrorQueNoReconoce_DebeDejarPasarLaExcepcion()
+    {
+        Proveedor proveedor = DatosDePruebaProveedores.CrearProveedor();
+        proveedor.CuentasBancarias[0].Titular = "   ";
+
+        using EopDbContext contexto = CrearContexto();
+        var repositorio = new RepositorioProveedores(contexto);
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => repositorio.AgregarAsync(proveedor));
+
+        using EopDbContext contextoDeLectura = CrearContexto();
+        Assert.Equal(0, await contextoDeLectura.Proveedores.CountAsync());
+        Assert.Equal(0, await contextoDeLectura.CuentasBancarias.CountAsync());
     }
 }
