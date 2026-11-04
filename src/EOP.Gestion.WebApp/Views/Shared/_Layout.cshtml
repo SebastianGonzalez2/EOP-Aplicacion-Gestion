@@ -33,12 +33,20 @@
                         @* Por ahora la sección Proveedores solo tiene el alta, así que el enlace lleva ahí y solo lo ven
                            los roles que pueden usarla. Cuando llegue el listado (US-074), va a apuntar a él y lo van a
                            ver también los Operadores. Esto es solo por comodidad: el control real está en el Controller. *@
+                        
                         @if (User.IsInRole(nameof(RolUsuario.Administrador)) || User.IsInRole(nameof(RolUsuario.Supervisor)))
                         {
                             <li class="nav-item">
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Proveedores" asp-action="Registrar">Proveedores</a>
                             </li>
+
+                            @* S2-T15: acceso al formulario de materiales.
+                            El registro definitivo se implementará en S2-T16. *@
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Materiales" asp-action="Registrar">Registrar material</a>
+                            </li>
                         }
+
                     </ul>
                     <partial name="_EstadoSesionPartial" />
                 </div>

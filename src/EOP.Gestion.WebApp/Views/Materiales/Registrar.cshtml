@@ -1,0 +1,80 @@
+﻿@model EOP.Gestion.WebApp.ViewModels.Materiales.RegistrarMaterialViewModel
+@using EOP.Gestion.Core.Entidades.Catalogo
+
+@{
+    ViewData["Title"] = "Registrar material";
+}
+
+<h2>Registrar material</h2>
+
+<p>Ingresá los datos del nuevo material.</p>
+
+<form asp-controller="Materiales" asp-action="Registrar" method="post">
+
+    @Html.AntiForgeryToken()
+
+    <!-- Mostramos los errores generales del formulario. -->
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <!-- Nombre del material -->
+    <div class="mb-3">
+        <label asp-for="Nombre" class="form-label">Nombre</label>
+        <input asp-for="Nombre" class="form-control" />
+        <span asp-validation-for="Nombre" class="text-danger"></span>
+    </div>
+
+    <!-- Unidad de medida -->
+    <div class="mb-3">
+        <label asp-for="Unidad" class="form-label">Unidad de medida</label>
+        <select asp-for="Unidad" class="form-select">
+            <option value="">Seleccioná una unidad</option>
+            <option value="@((int)UnidadMedida.Metro)">m</option>
+            <option value="@((int)UnidadMedida.MetroCuadrado)">m²</option>
+            <option value="@((int)UnidadMedida.MetroCubico)">m³</option>
+            <option value="@((int)UnidadMedida.Kilogramo)">kg</option>
+            <option value="@((int)UnidadMedida.Litro)">litro</option>
+        </select>
+        <span asp-validation-for="Unidad" class="text-danger"></span>
+    </div>
+
+    <!-- Seleccionamos un proveedor que ya exista en el sistema. -->
+    <div class="mb-3">
+        <label asp-for="ProveedorId" class="form-label">Proveedor</label>
+        <select asp-for="ProveedorId"
+                asp-items="Model.Proveedores"
+                class="form-select">
+            <option value="">Seleccioná un proveedor</option>
+        </select>
+        <span asp-validation-for="ProveedorId" class="text-danger"></span>
+    </div>
+
+    <!-- Precio unitario -->
+    <div class="mb-3">
+        <label asp-for="PrecioUnitario" class="form-label">Precio unitario</label>
+        <input asp-for="PrecioUnitario"
+               type="number"
+               step="any"
+               class="form-control" />
+        <span asp-validation-for="PrecioUnitario" class="text-danger"></span>
+    </div>
+
+    <!-- Moneda -->
+    <div class="mb-3">
+        <label asp-for="Moneda" class="form-label">Moneda</label>
+        <select asp-for="Moneda" class="form-select">
+            <option value="">Seleccioná una moneda</option>
+            <option value="UYU">UYU - Pesos uruguayos</option>
+            <option value="USD">USD - Dólares estadounidenses</option>
+        </select>
+        <span asp-validation-for="Moneda" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">
+        Registrar material
+    </button>
+
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
