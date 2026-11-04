@@ -364,18 +364,39 @@ public partial class FormularioRegistrarProveedorTests : IClassFixture<Formulari
         Assert.DoesNotContain("disabled", botonEnviar);
     }
 
-    // RF-23 pide confirmación expresa. Acá no hay navegador para ver el cuadro, pero sí podemos
-    // comprobar que el script que se le entrega al usuario la pide.
+    // RF-23 pide confirmación expresa. Acá no hay navegador para abrir la ventana, pero sí podemos
+    // comprobar lo que el script necesita: que la ventana exista con sus botones y que el script los use.
     [Fact]
-    public async Task Formulario_EntregaElScriptQuePideConfirmarElAlta()
+    public async Task Formulario_TieneLaVentanaDeConfirmacionQueUsaElScript()
     {
         HttpClient cliente = CrearCliente("Administrador");
         string html = await LeerHtmlAsync(await cliente.GetAsync(Ruta));
-        string rutaDelScript = Regex.Match(html, "<script src=\"(/js/cuentas-bancarias-formulario\\.js[^\"]*)\"").Groups[1].Value;
 
+        Assert.Contains("id=\"modal-confirmar-alta\"", html);
+        Assert.Contains("¿Confirmás el registro de este proveedor?", html);
+
+        // Tiene que ser type="button": el formulario solo se envía desde el script, al confirmar.
+        Assert.Matches("<button type=\"button\" id=\"boton-confirmar-alta\"[^>]*>Confirmar registro</button>", html);
+        Assert.Matches("<button type=\"button\"[^>]*data-bs-dismiss=\"modal\"[^>]*>Cancelar</button>", html);
+
+        string rutaDelScript = Regex.Match(html, "<script src=\"(/js/cuentas-bancarias-formulario\\.js[^\"]*)\"").Groups[1].Value;
         string script = await cliente.GetStringAsync(rutaDelScript);
 
-        Assert.Contains("window.confirm(", script);
+        Assert.Contains("getElementById(\"modal-confirmar-alta\")", script);
+        Assert.Contains("getElementById(\"boton-confirmar-alta\")", script);
+    }
+
+    // La ventana va afuera del formulario, y dentro de él sigue habiendo un solo botón que envía.
+    [Fact]
+    public async Task Formulario_NoIncluyeLaVentanaDeConfirmacionAdentro()
+    {
+        string html = await LeerFormularioAsync();
+
+        Match formulario = Regex.Match(html, "<form method=\"post\" action=\"/Proveedores/Registrar\">.*?</form>", RegexOptions.Singleline);
+        Assert.True(formulario.Success, "No se encontró el formulario de alta de proveedores.");
+
+        Assert.DoesNotContain("modal-confirmar-alta", formulario.Value);
+        Assert.Single(Regex.Matches(formulario.Value, "type=\"submit\""));
     }
 
     [Fact]
