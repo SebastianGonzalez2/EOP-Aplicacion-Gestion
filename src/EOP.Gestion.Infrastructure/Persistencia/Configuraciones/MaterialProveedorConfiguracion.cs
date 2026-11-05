@@ -34,7 +34,9 @@ public class MaterialProveedorConfiguracion: IEntityTypeConfiguration<MaterialPr
         builder.HasIndex(mp => new{mp.MaterialId,mp.ProveedorId}).IsUnique();
 
         // El precio debe estar informado.
-        builder.Property(mp => mp.PrecioUnitario).IsRequired();
+        // Definimos explícitamente su precisión para evitar
+        // que SQL Server use dos decimales por defecto.
+        builder.Property(mp => mp.PrecioUnitario).HasPrecision(28, 10).IsRequired();
 
         // Guardamos la moneda como número entero.
         builder.Property(mp => mp.Moneda).HasConversion<int>().IsRequired();

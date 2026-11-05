@@ -4,6 +4,9 @@ using EOP.Gestion.WebApp.ViewModels.Materiales;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using EOP.Gestion.Core.CasosDeUso.Materiales;
+using EOP.Gestion.Core.Comun;
+
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -12,11 +15,13 @@ namespace EOP.Gestion.WebApp.Controllers
     public class MaterialesController : Controller
     {
         private readonly ConsultarProveedoresParaSeleccion _consultarProveedores;
+        private readonly RegistrarMaterial _registrarMaterial;
 
         // Recibimos el servicio que consulta los proveedores existentes.
-        public MaterialesController(ConsultarProveedoresParaSeleccion consultarProveedores)
+        public MaterialesController(ConsultarProveedoresParaSeleccion consultarProveedores, RegistrarMaterial registrarMaterial)
         {
             _consultarProveedores = consultarProveedores;
+            _registrarMaterial = registrarMaterial;
         }
 
         // GET: muestra el formulario de registro de materiales.
@@ -73,14 +78,43 @@ namespace EOP.Gestion.WebApp.Controllers
                 return View(modelo);
             }
 
-            // Todavía falta la relación MaterialProveedor y el caso de uso
-            // que guardará ambos registros juntos. No guardamos solamente
-            // el Material porque incumpliríamos la US-041.
-            ModelState.AddModelError(
-                string.Empty,
-                "El registro todavía no está disponible. Falta implementar el guardado conjunto del material y su primera relación con un proveedor.");
+            // Comprobamos que la moneda recibida sea válida.
+            if (modelo.Moneda != "UYU" && modelo.Moneda != "USD")
+            {
+                ModelState.AddModelError(nameof(modelo.Moneda),"La moneda debe ser UYU o USD.");
 
-            return View(modelo);
+                return View(modelo);
+            }
+
+            // Convertimos el texto del formulario al enum Moneda.
+            Moneda moneda = Enum.Parse<Moneda>(modelo.Moneda);
+
+            // Ejecutamos el caso de uso que valida y guarda el material
+            // junto con su primera relación material-proveedor.
+            List<string> errores = await _registrarMaterial.EjecutarAsync(
+                modelo.Nombre,
+                modelo.Unidad,
+                modelo.ProveedorId,
+                modelo.PrecioUnitario,
+                moneda,
+                HttpContext.RequestAborted);
+
+            // Si encontramos errores, los mostramos en el formulario.
+            if (errores.Count > 0)
+            {
+                foreach (string error in errores)
+                {
+                    ModelState.AddModelError(string.Empty, error);
+                }
+
+                return View(modelo);
+            }
+
+            // El registro fue correcto.
+            TempData["MensajeExito"] = "Material registrado correctamente.";
+
+            // Redirigimos para evitar repetir el registro al actualizar.
+            return RedirectToAction(nameof(Registrar));
         }
 
 

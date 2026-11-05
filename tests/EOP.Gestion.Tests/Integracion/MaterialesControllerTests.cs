@@ -6,11 +6,16 @@ using EOP.Gestion.WebApp.Controllers;
 using EOP.Gestion.WebApp.ViewModels.Materiales;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Usuarios;
+using EOP.Gestion.Core.Comun;
 using Microsoft.AspNetCore.Authorization;
+using EOP.Gestion.Core.CasosDeUso.Materiales;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
 
 namespace EOP.Gestion.Tests.Integracion
 {
@@ -44,7 +49,15 @@ namespace EOP.Gestion.Tests.Integracion
             // Preparamos el Controller con su servicio de consulta.
             var consulta = new ConsultarProveedoresParaSeleccion(contexto);
 
-            var controller = new MaterialesController(consulta)
+            // El controlador ahora también necesita el caso de uso
+            // que se encarga de registrar materiales.
+            var registrarMaterial = new RegistrarMaterial(
+                new RepositorioMateriales(contexto),
+                new RepositorioProveedores(contexto));
+
+            var controller = new MaterialesController(
+                consulta,
+                registrarMaterial)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -101,7 +114,13 @@ namespace EOP.Gestion.Tests.Integracion
             // Preparamos el Controller con su servicio de consulta.
             var consulta = new ConsultarProveedoresParaSeleccion(contexto);
 
-            var controller = new MaterialesController(consulta)
+            var registrarMaterial = new RegistrarMaterial(
+                new RepositorioMateriales(contexto),
+                new RepositorioProveedores(contexto));
+
+            var controller = new MaterialesController(
+                consulta,
+                registrarMaterial)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -151,7 +170,13 @@ namespace EOP.Gestion.Tests.Integracion
             // Preparamos el Controller.
             var consulta = new ConsultarProveedoresParaSeleccion(contexto);
 
-            var controller = new MaterialesController(consulta)
+            var registrarMaterial = new RegistrarMaterial(
+                new RepositorioMateriales(contexto),
+                new RepositorioProveedores(contexto));
+
+            var controller = new MaterialesController(
+                consulta,
+                registrarMaterial)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -189,6 +214,169 @@ namespace EOP.Gestion.Tests.Integracion
 
 
 
+        // Esta prueba comprueba que el formulario realmente guarde
+        // el material y su primera relación con el proveedor.
+        [Fact]
+        public async Task RegistrarPost_DatosValidos_GuardaMaterialYPrimeraRelacion()
+        {
+            // Creamos una base SQLite temporal.
+            using var conexion = new SqliteConnection("Data Source=:memory:");
+            await conexion.OpenAsync();
+
+            var opciones = new DbContextOptionsBuilder<EopDbContext>()
+                .UseSqlite(conexion)
+                .Options;
+
+            using var contexto = new EopDbContext(opciones);
+            await contexto.Database.EnsureCreatedAsync();
+
+            // Registramos el proveedor que seleccionaremos.
+            var proveedor = DatosDePruebaProveedores.CrearProveedor();
+
+            contexto.Proveedores.Add(proveedor);
+            await contexto.SaveChangesAsync();
+
+            // Preparamos las dependencias del controlador.
+            var consulta = new ConsultarProveedoresParaSeleccion(contexto);
+
+            var registrarMaterial = new RegistrarMaterial(
+                new RepositorioMateriales(contexto),
+                new RepositorioProveedores(contexto));
+
+            var httpContext = new DefaultHttpContext();
+
+            var controller = new MaterialesController(
+                consulta,
+                registrarMaterial)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = httpContext
+                },
+
+                // TempData es necesario porque el controlador guarda
+                // el mensaje que se mostrará después de redirigir.
+                TempData = new TempDataDictionary(
+                    httpContext,
+                    new ProveedorTempDataDePrueba())
+            };
+
+            var modelo = new RegistrarMaterialViewModel
+            {
+                Nombre = "Cable de cobre",
+                Unidad = UnidadMedida.Metro,
+                ProveedorId = proveedor.Id,
+                PrecioUnitario = 150,
+                Moneda = "UYU"
+            };
+
+            // Ejecutamos el registro.
+            IActionResult resultado = await controller.Registrar(modelo);
+
+            // Si todo salió bien, debe redirigir al formulario.
+            RedirectToActionResult redireccion =
+                Assert.IsType<RedirectToActionResult>(resultado);
+
+            Assert.Equal("Registrar", redireccion.ActionName);
+
+            // Comprobamos que guardó un solo material.
+            Material material = Assert.Single(
+                await contexto.Materiales.ToListAsync());
+
+            Assert.Equal("Cable de cobre", material.Nombre);
+            Assert.Equal(UnidadMedida.Metro, material.Unidad);
+
+            // También debe haberse guardado la primera relación
+            // con el proveedor, su precio, moneda y fecha.
+            MaterialProveedor relacion = Assert.Single(
+                await contexto.MaterialProveedores.ToListAsync());
+
+            Assert.Equal(material.Id, relacion.MaterialId);
+            Assert.Equal(proveedor.Id, relacion.ProveedorId);
+            Assert.Equal(150m, relacion.PrecioUnitario);
+            Assert.Equal(Moneda.UYU, relacion.Moneda);
+            Assert.NotEqual(default(DateTime), relacion.FechaUltimaActualizacion);
+
+            // El usuario debe recibir la confirmación del registro.
+            Assert.Equal(
+                "Material registrado correctamente.",
+                controller.TempData["MensajeExito"]);
+        }
+
+
+
+        // Un material con el mismo nombre normalizado
+        // no debe volver a registrarse.
+        [Fact]
+        public async Task RegistrarPost_NombreDuplicado_NoGuardaOtroMaterial()
+        {
+            using var conexion = new SqliteConnection("Data Source=:memory:");
+            await conexion.OpenAsync();
+
+            var opciones = new DbContextOptionsBuilder<EopDbContext>()
+                .UseSqlite(conexion)
+                .Options;
+
+            using var contexto = new EopDbContext(opciones);
+            await contexto.Database.EnsureCreatedAsync();
+
+            var proveedor = DatosDePruebaProveedores.CrearProveedor();
+
+            contexto.Proveedores.Add(proveedor);
+
+            // Ya existe este material en el catálogo.
+            contexto.Materiales.Add(new Material
+            {
+                Nombre = "Cable de cobre",
+                Unidad = UnidadMedida.Metro
+            });
+
+            await contexto.SaveChangesAsync();
+
+            var consulta = new ConsultarProveedoresParaSeleccion(contexto);
+
+            var registrarMaterial = new RegistrarMaterial(
+                new RepositorioMateriales(contexto),
+                new RepositorioProveedores(contexto));
+
+            var controller = new MaterialesController(
+                consulta,
+                registrarMaterial)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext()
+                }
+            };
+
+            // El nombre es el mismo, aunque cambien
+            // las mayúsculas y los espacios.
+            var modelo = new RegistrarMaterialViewModel
+            {
+                Nombre = "  CABLE   DE   COBRE  ",
+                Unidad = UnidadMedida.Metro,
+                ProveedorId = proveedor.Id,
+                PrecioUnitario = 150,
+                Moneda = "UYU"
+            };
+
+            IActionResult resultado = await controller.Registrar(modelo);
+
+            // Debe volver al formulario con un error.
+            ViewResult vista = Assert.IsType<ViewResult>(resultado);
+
+            Assert.Same(modelo, vista.Model);
+            Assert.False(controller.ModelState.IsValid);
+
+            // No puede haber registrado un segundo material.
+            Assert.Equal(1, await contexto.Materiales.CountAsync());
+
+            // Tampoco puede haber guardado una relación nueva.
+            Assert.Empty(await contexto.MaterialProveedores.ToListAsync());
+        }
+
+
+
         [Fact]
         public void MaterialesController_TieneLosPermisosCorrectos()
         {
@@ -213,6 +401,7 @@ namespace EOP.Gestion.Tests.Integracion
             // Deben estar habilitados únicamente esos dos roles.
             Assert.Equal(2, rolesPermitidos.Length);
         }
+
 
 
         [Fact]
@@ -241,5 +430,23 @@ namespace EOP.Gestion.Tests.Integracion
         }
 
 
+
+        // Implementación sencilla de TempData para las pruebas.
+        // No necesitamos una sesión real del navegador.
+        private sealed class ProveedorTempDataDePrueba : ITempDataProvider
+        {
+            public IDictionary<string, object> LoadTempData(HttpContext context)
+            {
+                return new Dictionary<string, object>();
+            }
+
+            public void SaveTempData(
+                HttpContext context,
+                IDictionary<string, object> values)
+            {
+                // No necesitamos guardar datos entre solicitudes
+                // porque esta prueba ejecuta una sola acción.
+            }
+        }
     }
 }

@@ -7,6 +7,15 @@
 
 <h2>Registrar material</h2>
 
+@* Mostramos un mensaje cuando el material se registra correctamente. *@
+@if (TempData["MensajeExito"] != null)
+{
+    <div class="alert alert-success" role="alert">
+        @TempData["MensajeExito"]
+    </div>
+}
+
+
 <p>Ingresá los datos del nuevo material.</p>
 
 <form asp-controller="Materiales" asp-action="Registrar" method="post">
