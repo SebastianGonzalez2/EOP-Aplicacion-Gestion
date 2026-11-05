@@ -2,14 +2,17 @@ using EOP.Gestion.Infrastructure.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-
 using EOP.Gestion.Core.Interfaces.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
-
 using EOP.Gestion.Core.Interfaces.Clientes;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Clientes;
 using EOP.Gestion.Infrastructure.Telefonia;
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
+using EOP.Gestion.Core.Interfaces.Materiales;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales;
+using EOP.Gestion.Core.Interfaces.Proveedores;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
+
 
 namespace EOP.Gestion.Infrastructure;
 
@@ -22,9 +25,7 @@ public static class InyeccionDeDependencias
 {
     public const string NombreCadenaConexion = "EopDb";
 
-    public static IServiceCollection AgregarInfraestructura(
-        this IServiceCollection services,
-        IConfiguration configuration)
+    public static IServiceCollection AgregarInfraestructura(this IServiceCollection services,IConfiguration configuration)
     {
         // La cadena nunca se versiona (RNF-2 / RNF-11): en desarrollo viene de
         // User Secrets y en Azure de la configuración del App Service.
@@ -59,6 +60,17 @@ public static class InyeccionDeDependencias
 
         services.AddScoped<IRepositorioUsuarios, RepositorioUsuarios>();
         //Cuando alguna clase necesite un IRepositorioUsuarios, creá y proporcionale una instancia de RepositorioUsuarios.
+
+
+        // Registramos el repositorio de materiales.
+        // Cuando una clase necesite IRepositorioMateriales,
+        // ASP.NET Core le proporcionará RepositorioMateriales.
+        services.AddScoped<IRepositorioMateriales, RepositorioMateriales>();
+
+        // Registramos el repositorio de proveedores.
+        // Lo utilizaremos para comprobar que el proveedor
+        // seleccionado al registrar un material exista.
+        services.AddScoped<IRepositorioProveedores, RepositorioProveedores>();
 
         return services;
     }
