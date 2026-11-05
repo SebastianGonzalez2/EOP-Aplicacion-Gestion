@@ -49,6 +49,9 @@ builder.Services.AddScoped<VerificarUsuarioHabilitado>();
 // Registramos el caso de uso con el que el Administrador le cambia el rol a un usuario.
 builder.Services.AddScoped<ModificarRolUsuario>();
 
+// Registramos el caso de uso con el que el Administrador da de alta un usuario.
+builder.Services.AddScoped<RegistrarUsuario>();
+
 
 
 // ================================

@@ -9,6 +9,8 @@ namespace EOP.Gestion.Tests.Compartido;
 //
 // También anota cada paso que le piden, para poder comprobar el ORDEN: por ejemplo,
 // que el caso de uso espere su turno antes de leer los datos.
+//
+// También lo usan las pruebas del alta de usuarios (S1-T17).
 internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuarios
 {
     public const string PasoBloquear = "Bloquear";
@@ -17,6 +19,8 @@ internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuario
     public const string PasoActualizar = "Actualizar";
     public const string PasoConfirmar = "Confirmar";
     public const string PasoLiberar = "Liberar";
+    public const string PasoObtenerPorCorreo = "ObtenerPorCorreo";
+    public const string PasoAgregar = "Agregar";
 
     private readonly Dictionary<int, RolUsuario> _rolesSinConfirmar = [];
 
@@ -26,6 +30,36 @@ internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuario
 
     // Si no es null, guardar el rol lanza esta excepción (por ejemplo, se cayó la base).
     public Exception? ErrorAlActualizar { get; set; }
+
+    // Si no es null, guardar un usuario nuevo lanza esta excepción.
+    public Exception? ErrorAlAgregar { get; set; }
+
+    // Simula que otra solicitud registró el mismo correo entre la consulta previa y el guardado.
+    public bool OtraSolicitudGanaLaCarrera { get; set; }
+
+    public Task<Usuario?> ObtenerPorCorreoCorporativoAsync(string correoCorporativo, CancellationToken cancellationToken = default)
+    {
+        Pasos.Add(PasoObtenerPorCorreo);
+        return Task.FromResult(Usuarios.SingleOrDefault(u => u.CorreoCorporativo == correoCorporativo));
+    }
+
+    public Task<bool> AgregarSiCorreoDisponibleAsync(Usuario usuario, CancellationToken cancellationToken = default)
+    {
+        Pasos.Add(PasoAgregar);
+
+        if (ErrorAlAgregar != null)
+        {
+            throw ErrorAlAgregar;
+        }
+
+        if (OtraSolicitudGanaLaCarrera)
+        {
+            return Task.FromResult(false);
+        }
+
+        Usuarios.Add(usuario);
+        return Task.FromResult(true);
+    }
 
     public Task<IBloqueoAdministradores> BloquearAdministradoresAsync(CancellationToken cancellationToken = default)
     {
@@ -61,8 +95,6 @@ internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuario
 
     // La vinculación con Entra ID (T10) no se usa en estas pruebas.
     public Task<Usuario?> ObtenerPorIdentidadExternaAsync(string entraObjectId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-
-    public Task<Usuario?> ObtenerPorCorreoCorporativoAsync(string correoCorporativo, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
     public Task<bool> VincularIdentidadSiNoVinculadaAsync(int usuarioId, string entraObjectId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
