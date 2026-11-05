@@ -24,7 +24,7 @@ public class UsuariosControllerTests
     {
         var contextoHttp = new DefaultHttpContext();
 
-        _controller = new UsuariosController(new ModificarRolUsuario(_repositorio))
+        _controller = new UsuariosController(new ModificarRolUsuario(_repositorio), new RegistrarUsuario(_repositorio))
         {
             ControllerContext = new ControllerContext { HttpContext = contextoHttp },
             TempData = new TempDataDictionary(contextoHttp, new ProveedorTempDataSinGuardar())
@@ -106,6 +106,87 @@ public class UsuariosControllerTests
         AssertVuelveAlListado(respuesta);
         Assert.Equal("No se pudo modificar el rol: los datos enviados no son válidos.", _controller.TempData[MensajeError]);
         Assert.Empty(_repositorio.Pasos);
+    }
+
+    // ---------- Alta de usuarios (S1-T17) ----------
+
+    private static RegistrarUsuarioViewModel DatosDeAltaValidos() => new()
+    {
+        NombreCompleto = "Ana Pérez",
+        CorreoCorporativo = "ana.perez@eop.com.uy",
+        Rol = "Supervisor"
+    };
+
+    private void AssertVuelveAMostrarElFormulario(IActionResult respuesta, RegistrarUsuarioViewModel modelo)
+    {
+        ViewResult vista = Assert.IsType<ViewResult>(respuesta);
+        Assert.Same(modelo, vista.Model);
+        Assert.Null(_controller.TempData[MensajeExito]);
+    }
+
+    [Fact]
+    public void Registrar_Get_MuestraElFormularioVacioSinConsultarLaBase()
+    {
+        ViewResult vista = Assert.IsType<ViewResult>(_controller.Registrar());
+
+        RegistrarUsuarioViewModel modelo = Assert.IsType<RegistrarUsuarioViewModel>(vista.Model);
+        Assert.Empty(modelo.NombreCompleto);
+        Assert.Empty(modelo.CorreoCorporativo);
+        Assert.Null(modelo.Rol);
+        Assert.Empty(_repositorio.Pasos);
+    }
+
+    [Fact]
+    public async Task Registrar_DatosValidos_InformaElExitoYRedirigeAlFormulario()
+    {
+        IActionResult respuesta = await _controller.Registrar(DatosDeAltaValidos());
+
+        RedirectToActionResult redireccion = Assert.IsType<RedirectToActionResult>(respuesta);
+        Assert.Equal(nameof(UsuariosController.Registrar), redireccion.ActionName);
+        Assert.StartsWith("El usuario se registró correctamente.", (string?)_controller.TempData[MensajeExito]);
+
+        Usuario guardado = Assert.Single(_repositorio.Usuarios);
+        Assert.Equal(RolUsuario.Supervisor, guardado.Rol);
+    }
+
+    [Fact]
+    public async Task Registrar_ModeloInvalido_NoLlamaAlCasoDeUso()
+    {
+        RegistrarUsuarioViewModel modelo = new();
+        _controller.ModelState.AddModelError(nameof(RegistrarUsuarioViewModel.Rol), "Seleccioná un rol.");
+
+        IActionResult respuesta = await _controller.Registrar(modelo);
+
+        AssertVuelveAMostrarElFormulario(respuesta, modelo);
+        Assert.Empty(_repositorio.Pasos);
+    }
+
+    [Fact]
+    public async Task Registrar_CorreoDuplicado_MuestraElMotivoEnElFormulario()
+    {
+        AgregarUsuario(1, RolUsuario.Operador);
+        RegistrarUsuarioViewModel modelo = DatosDeAltaValidos();
+        modelo.CorreoCorporativo = "usuario1@eop.com.uy";
+
+        IActionResult respuesta = await _controller.Registrar(modelo);
+
+        AssertVuelveAMostrarElFormulario(respuesta, modelo);
+        Assert.Contains(
+            _controller.ModelState[string.Empty]!.Errors,
+            error => error.ErrorMessage == "El correo corporativo ya se encuentra registrado.");
+        Assert.Single(_repositorio.Usuarios);
+    }
+
+    [Fact]
+    public async Task Registrar_RolQueSuperoLaValidacionDelFormularioPeroNoExiste_LoFrenaElCasoDeUso()
+    {
+        RegistrarUsuarioViewModel modelo = DatosDeAltaValidos();
+        modelo.Rol = "99";
+
+        IActionResult respuesta = await _controller.Registrar(modelo);
+
+        AssertVuelveAMostrarElFormulario(respuesta, modelo);
+        Assert.Empty(_repositorio.Usuarios);
     }
 
     // TempData necesita un lugar donde guardarse entre pedidos. En estas pruebas

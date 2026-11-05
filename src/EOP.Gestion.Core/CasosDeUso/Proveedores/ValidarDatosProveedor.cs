@@ -3,6 +3,7 @@ using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Interfaces.Clientes;
 using EOP.Gestion.Core.Interfaces.Proveedores;
 using EOP.Gestion.Core.ServiciosDominio.Clientes;
+using EOP.Gestion.Core.ServiciosDominio.Compartidos;
 using EOP.Gestion.Core.ServiciosDominio.Proveedores;
 
 namespace EOP.Gestion.Core.CasosDeUso.Proveedores;
@@ -101,22 +102,22 @@ public class ValidarDatosProveedor
         }
     }
 
-    // Reutilizamos el validador de Clientes porque la regla es la misma: al menos un correo, y
+    // Reutilizamos el validador compartido porque la regla es la misma: al menos un correo, y
     // el que esté informado tiene que ser válido. Un correo vacío se da por "no informado", así
     // que con uno solo alcanza, y si vienen los dos se revisan los dos.
     private static void ValidarCorreos(Proveedor proveedor, List<string> errores)
     {
-        if (!ValidadorCorreosCliente.TieneAlMenosUnCorreo(proveedor.CorreoContacto, proveedor.CorreoFacturacion))
+        if (!ValidadorCorreos.TieneAlMenosUnCorreo(proveedor.CorreoContacto, proveedor.CorreoFacturacion))
         {
             errores.Add("Debe informar al menos un correo electrónico.");
         }
 
-        if (!ValidadorCorreosCliente.TieneFormatoValido(proveedor.CorreoContacto))
+        if (!ValidadorCorreos.TieneFormatoValido(proveedor.CorreoContacto))
         {
             errores.Add("El correo de contacto no tiene un formato válido.");
         }
 
-        if (!ValidadorCorreosCliente.TieneFormatoValido(proveedor.CorreoFacturacion))
+        if (!ValidadorCorreos.TieneFormatoValido(proveedor.CorreoFacturacion))
         {
             errores.Add("El correo de facturación no tiene un formato válido.");
         }

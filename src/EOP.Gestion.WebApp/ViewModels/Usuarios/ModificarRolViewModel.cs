@@ -7,7 +7,8 @@ namespace EOP.Gestion.WebApp.ViewModels.Usuarios
     public class ModificarRolViewModel
     {
         // Los únicos textos que se aceptan como rol: el nombre exacto de cada uno de los tres.
-        private const string RolesPermitidos =
+        // Es internal porque el formulario de alta (RegistrarUsuarioViewModel) aplica esta misma regla.
+        internal const string RolesPermitidos =
             $"^({nameof(RolUsuario.Administrador)}|{nameof(RolUsuario.Supervisor)}|{nameof(RolUsuario.Operador)})$";
 
         // Si el formulario no manda el Id, un int queda en 0, que no es el Id de nadie.

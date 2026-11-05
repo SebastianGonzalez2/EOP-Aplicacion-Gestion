@@ -1,11 +1,11 @@
-﻿using EOP.Gestion.Core.ServiciosDominio.Clientes;
+﻿using EOP.Gestion.Core.ServiciosDominio.Compartidos;
 
-public class ValidadorCorreosClienteTests
+public class ValidadorCorreosTests
 {
     [Fact]
     public void TieneAlMenosUnCorreo_DebeRechazarAmbosVacios() //no le ponemos ningun correo, ambos son nulos 
     {
-        bool resultado = ValidadorCorreosCliente.TieneAlMenosUnCorreo(null,null);
+        bool resultado = ValidadorCorreos.TieneAlMenosUnCorreo(null,null);
 
         Assert.False(resultado);
     }
@@ -17,7 +17,7 @@ public class ValidadorCorreosClienteTests
         string correoContacto = "cliente@gmail.com";
         string? correoFacturacion = null;
 
-        bool resultado = ValidadorCorreosCliente.TieneAlMenosUnCorreo(correoContacto,correoFacturacion);
+        bool resultado = ValidadorCorreos.TieneAlMenosUnCorreo(correoContacto,correoFacturacion);
 
         Assert.True(resultado);
     }
@@ -28,7 +28,7 @@ public class ValidadorCorreosClienteTests
         string? correoContacto = null;
         string correoFacturacion = "facturacion@gmail.com";
 
-        bool resultado = ValidadorCorreosCliente.TieneAlMenosUnCorreo(correoContacto,correoFacturacion);
+        bool resultado = ValidadorCorreos.TieneAlMenosUnCorreo(correoContacto,correoFacturacion);
 
         Assert.True(resultado);
     }
@@ -40,7 +40,7 @@ public class ValidadorCorreosClienteTests
         string correoContacto = "cliente@gmail.com";
         string correoFacturacion = "facturacion@gmail.com";
 
-        bool resultado = ValidadorCorreosCliente.TieneAlMenosUnCorreo(correoContacto,correoFacturacion);
+        bool resultado = ValidadorCorreos.TieneAlMenosUnCorreo(correoContacto,correoFacturacion);
 
         Assert.True(resultado);
     }
@@ -50,7 +50,7 @@ public class ValidadorCorreosClienteTests
     public void TieneFormatoValido_DebeRechazarCorreoSinArroba() //Probamos formato invalido
     {
         string correo = "cliente.gmail.com";
-        bool resultado = ValidadorCorreosCliente.TieneFormatoValido(correo);
+        bool resultado = ValidadorCorreos.TieneFormatoValido(correo);
 
         Assert.False(resultado);
     }
@@ -59,7 +59,7 @@ public class ValidadorCorreosClienteTests
     public void TieneFormatoValido_DebeAceptarCorreoCorrecto() //Probamos formato valido
     {
         string correo = "cliente@gmail.com";
-        bool resultado = ValidadorCorreosCliente.TieneFormatoValido(correo);
+        bool resultado = ValidadorCorreos.TieneFormatoValido(correo);
 
         Assert.True(resultado);
     }

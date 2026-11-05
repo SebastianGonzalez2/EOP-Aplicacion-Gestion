@@ -4,6 +4,7 @@ namespace EOP.Gestion.Core.CasosDeUso.Clientes;
 
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.ServiciosDominio.Clientes;
+using EOP.Gestion.Core.ServiciosDominio.Compartidos;
 public class ValidarDatosCliente
 {
     // Repositorio que permite comprobar si un RUT ya está registrado.
@@ -50,19 +51,19 @@ public class ValidarDatosCliente
             errores.Add("Ya existe un cliente registrado con ese RUT.");
         }
 
-        if (!ValidadorCorreosCliente.TieneAlMenosUnCorreo(cliente.CorreoContacto,cliente.CorreoFacturacion))
+        if (!ValidadorCorreos.TieneAlMenosUnCorreo(cliente.CorreoContacto,cliente.CorreoFacturacion))
         {
             errores.Add("Debe informar al menos un correo electrónico.");
         }
 
         // Comprobamos que el correo de contacto tenga un formato válido.
-        if (!ValidadorCorreosCliente.TieneFormatoValido(cliente.CorreoContacto))
+        if (!ValidadorCorreos.TieneFormatoValido(cliente.CorreoContacto))
         {
             errores.Add("El correo de contacto no tiene un formato válido.");
         }
 
         // Comprobamos que el correo de facturación tenga un formato válido.
-        if (!ValidadorCorreosCliente.TieneFormatoValido(cliente.CorreoFacturacion))
+        if (!ValidadorCorreos.TieneFormatoValido(cliente.CorreoFacturacion))
         {
             errores.Add("El correo de facturación no tiene un formato válido.");
         }
