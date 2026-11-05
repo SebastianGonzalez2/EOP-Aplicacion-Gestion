@@ -5,9 +5,10 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 namespace EOP.Gestion.Tests.Compartido;
 
 // Controller que existe SOLO en el proyecto de pruebas, igual que AccionesDePruebaPorRolController.
-// La app real todavía no tiene el POST de proveedores (llega con S2-T13), pero queremos comprobar
-// desde ahora que el formulario está bien armado para el model binding. Esta acción recibe
-// el ViewModel real, pasa por el binding real y devuelve lo que entendió. No guarda nada.
+// Sirve para comprobar que el formulario está bien armado para el model binding, mirando qué
+// entendió ASP.NET Core sin mezclarlo con las validaciones de Core ni con la base. Esta acción
+// recibe el ViewModel real, pasa por el binding real y devuelve lo que entendió. No guarda nada:
+// el POST real de proveedores se prueba en FormularioRegistrarProveedorTests.Post.cs.
 public sealed class RecepcionDePruebaProveedoresController : Controller
 {
     [HttpPost]

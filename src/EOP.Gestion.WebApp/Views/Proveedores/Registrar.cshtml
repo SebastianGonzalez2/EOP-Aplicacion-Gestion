@@ -18,11 +18,13 @@
     Los campos marcados con <span class="text-danger">*</span> son obligatorios.
 </p>
 
-@* El aviso va arriba para que nadie complete todo el formulario y recién al final se entere. *@
-<div id="aviso-guardado-no-disponible" class="alert alert-warning" role="note">
-    <strong>El guardado todavía no está disponible.</strong>
-    Podés ver y completar el formulario, pero por ahora no se registra ningún proveedor.
-</div>
+@* Solo aparece después de guardar de verdad: el Controller lo carga antes de redirigir hasta acá. *@
+@if (TempData["MensajeExito"] is string mensaje)
+{
+    <div class="alert alert-success" role="alert">
+        @mensaje
+    </div>
+}
 
 @* Como es un POST con asp-action, el Tag Helper agrega solo el token antifalsificación. *@
 <form asp-controller="Proveedores" asp-action="Registrar" method="post">
@@ -151,12 +153,32 @@
         </button>
     </section>
 
-    @* Deshabilitado hasta S2-T13. Un botón deshabilitado tampoco deja enviar el formulario
-       apretando Enter en un campo. El control real es que en el servidor no exista el POST. *@
-    <button type="submit" class="btn btn-success" disabled aria-describedby="aviso-guardado-no-disponible">
+    @* RF-23 pide una acción explícita y confirmación del usuario: apretar este botón es la acción, y
+       cuentas-bancarias-formulario.js abre la ventana de abajo para pedir la confirmación antes de enviar. *@
+    <button type="submit" class="btn btn-success">
         Registrar proveedor
     </button>
 </form>
+
+@* Es un modal de Bootstrap, que ya está en el proyecto. Va afuera del formulario y sus botones son
+   type="button": el único que envía es el script, cuando el usuario confirma. *@
+<div id="modal-confirmar-alta" class="modal fade" tabindex="-1" aria-labelledby="titulo-confirmar-alta" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="titulo-confirmar-alta" class="modal-title h5">Confirmar registro</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                ¿Confirmás el registro de este proveedor?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="boton-confirmar-alta" class="btn btn-success">Confirmar registro</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <script src="~/js/cuentas-bancarias-formulario.js" asp-append-version="true"></script>

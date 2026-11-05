@@ -56,7 +56,8 @@ public static class InyeccionDeDependencias
         // para mostrarlos en el selector del formulario de materiales.
         services.AddScoped<ConsultarProveedoresParaSeleccion>();
 
-        // Registramos el repositorio de proveedores para comprobar duplicados de nombre y RUT.
+        // Registramos el repositorio de proveedores para comprobar duplicados de nombre y RUT
+        // y para guardar los proveedores nuevos.
         services.AddScoped<IRepositorioProveedores, RepositorioProveedores>();
 
         // Singleton: arma la lista de países una sola vez y no guarda nada de cada pedido,

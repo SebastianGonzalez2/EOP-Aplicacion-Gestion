@@ -1,5 +1,6 @@
 using EOP.Gestion.Core.CasosDeUso.Proveedores;
 using EOP.Gestion.Core.Comun;
+using EOP.Gestion.Core.DTOs.Proveedores;
 using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Interfaces.Proveedores;
 using EOP.Gestion.Infrastructure.Telefonia;
@@ -31,6 +32,12 @@ public class ValidarDatosProveedorTests
         {
             RutConsultado = rutNormalizado;
             return Task.FromResult(RutsRegistrados.Contains(rutNormalizado));
+        }
+
+        // Validar nunca guarda. Si alguien lo cambiara, esta excepción haría fallar las pruebas.
+        public Task<ResultadoAgregarProveedor> AgregarAsync(Proveedor proveedor, CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("ValidarDatosProveedor no debería guardar nada.");
         }
     }
 

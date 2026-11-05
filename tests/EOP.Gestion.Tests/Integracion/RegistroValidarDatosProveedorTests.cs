@@ -3,8 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace EOP.Gestion.Tests.Integracion;
 
-// Todavía ningún Controller pide ValidarDatosProveedor: lo va a hacer S2-T13. Sin esta prueba, un
-// error al registrarlo o a alguna de sus dependencias recién se vería cuando llegue esa tarea.
+// Comprueba que los casos de uso de proveedores estén bien registrados, con todas sus dependencias.
+// Un error acá recién se vería al pedir la pantalla, y con un mensaje poco claro.
 public class RegistroValidarDatosProveedorTests : IClassFixture<FormularioRegistrarProveedorTests.FabricaDePrueba>
 {
     private readonly FormularioRegistrarProveedorTests.FabricaDePrueba _fabrica;
@@ -23,5 +23,15 @@ public class RegistroValidarDatosProveedorTests : IClassFixture<FormularioRegist
         ValidarDatosProveedor? validador = alcance.ServiceProvider.GetService<ValidarDatosProveedor>();
 
         Assert.NotNull(validador);
+    }
+
+    [Fact]
+    public void RegistrarProveedor_DebePoderCrearseConLosServiciosDeLaAplicacion()
+    {
+        using IServiceScope alcance = _fabrica.Services.CreateScope();
+
+        RegistrarProveedor? casoDeUso = alcance.ServiceProvider.GetService<RegistrarProveedor>();
+
+        Assert.NotNull(casoDeUso);
     }
 }
