@@ -214,7 +214,7 @@ S1-T03: configurar DbContext y migración inicial
 
 ### Estilo de código: claridad y facilidad de comprensión
 
-Estas reglas son obligatorias para toda implementación futura, tanto de Claude Code como de Codex.
+Estas convenciones de estilo didáctico se aplican al código de producción de `src/EOP.Gestion.Core/`, `src/EOP.Gestion.Infrastructure/` y `src/EOP.Gestion.WebApp/`, tanto para Claude Code como para Codex. Para el proyecto de pruebas se aplica la excepción indicada al final de esta sección. Las reglas de seguridad, autorización y arquitectura siguen vigentes en todo el repositorio.
 
 **1. Priorizar claridad sobre brevedad**
 
@@ -290,6 +290,45 @@ Al finalizar una tarea, explicar en términos sencillos:
 - Cuál es el recorrido de una operación.
 - Qué validaciones se realizan.
 - Qué pruebas se ejecutaron.
+
+**8. Escribir directamente los roles en los atributos de autorización**
+
+Cuando un Controller o una acción necesite restringir el acceso por rol, escribir los nombres
+de los roles permitidos directamente en el atributo `[Authorize]`, sin crear una
+constante auxiliar para agruparlos ni armar la cadena con `nameof`.
+
+Ejemplo para una acción disponible para Administrador o Supervisor:
+
+```csharp
+[Authorize(Roles = "Administrador,Supervisor")]
+```
+
+- Usar exactamente los nombres definidos en `RolUsuario`: `Administrador`, `Supervisor`
+  y `Operador`. Si se cambia el nombre de un rol, revisar también los atributos
+  que lo mencionen, porque las cadenas de texto no se actualizan automáticamente.
+- Separar los roles con comas significa que alcanza con tener **uno** de ellos.
+- Para acciones que solo requieren una sesión iniciada, utilizar `[Authorize]`
+  sin especificar `Roles`.
+- Aplicar las restricciones correspondientes **en cada acción**, incluidos los métodos
+  `GET` que muestran formularios restringidos y los métodos `POST` que procesan datos.
+  Restringir la pantalla no sustituye la autorización de la operación en el servidor.
+- Esta regla es una convención de legibilidad: nunca debe ampliar los permisos
+  establecidos por los requerimientos ni sustituir las verificaciones de seguridad.
+
+### Excepción de estilo para `tests/EOP.Gestion.Tests/`
+
+El proyecto de pruebas unitarias y de integración queda exceptuado **únicamente de las convenciones de estilo didáctico** de los apartados 1 a 7 anteriores. Esta excepción también se aplica a los archivos auxiliares de pruebas dentro de esa carpeta. No se extiende al código de producción ni a otros proyectos.
+
+En las pruebas:
+
+- Priorizar buenas prácticas profesionales de testing en C#, .NET y xUnit. Elegir soluciones idiomáticas, concisas y mantenibles, sin adaptar artificialmente cada prueba a un formato de explicación para principiantes.
+- Usar cuando corresponda pruebas parametrizadas (`[Theory]`, `[InlineData]`), expresiones lambda, LINQ, helpers, fixtures y sintaxis compacta; no exigir `if/else` verbosos ni nombres de variables deliberadamente extensos por motivos didácticos.
+- Los nombres de las pruebas deben comunicar el comportamiento verificado. No es obligatorio escribir comentarios explicativos en español ni agregar comentarios que repitan el código; comentar solo cuando aporte contexto relevante.
+- Reutilizar los patrones, herramientas e infraestructura de pruebas existentes y evitar duplicación, complejidad o abstracciones innecesarias.
+- **Conservar los comentarios explicativos existentes del estudiante**. No eliminarlos, abreviarlos ni reescribirlos solo para compactar el código; si un comentario contiene un error conceptual, señalarlo y explicarlo antes de proponer su corrección.
+- Al finalizar tareas exclusivamente de testing, informar de forma concisa qué escenarios se cubrieron, qué archivos cambiaron y qué pruebas se ejecutaron o fallaron. Si el usuario solicita una explicación pedagógica, brindarla.
+
+**Esta excepción no relaja la corrección, calidad, cobertura, independencia o aislamiento de las pruebas.** Tampoco modifica las reglas de seguridad, arquitectura, trazabilidad, alcance, integración continua ni el flujo de Git y Pull Requests. Todo el código de producción sigue sujeto a las convenciones didácticas anteriores.
 
 ---
 

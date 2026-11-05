@@ -14,6 +14,9 @@ using EOP.Gestion.Core.Interfaces.Proveedores;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
 
 
+using EOP.Gestion.Core.Interfaces.Proveedores;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
+
 namespace EOP.Gestion.Infrastructure;
 
 using EOP.Gestion.Infrastructure.Consultas.Clientes;
@@ -53,6 +56,10 @@ public static class InyeccionDeDependencias
         // Registramos el servicio que consulta los proveedores existentes
         // para mostrarlos en el selector del formulario de materiales.
         services.AddScoped<ConsultarProveedoresParaSeleccion>();
+
+        // Registramos el repositorio de proveedores para comprobar duplicados de nombre y RUT
+        // y para guardar los proveedores nuevos.
+        services.AddScoped<IRepositorioProveedores, RepositorioProveedores>();
 
         // Singleton: arma la lista de países una sola vez y no guarda nada de cada pedido,
         // así que todos los pedidos pueden compartir la misma instancia sin pisarse.

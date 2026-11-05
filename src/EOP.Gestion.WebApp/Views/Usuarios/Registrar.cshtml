@@ -1,0 +1,65 @@
+@using EOP.Gestion.Core.Entidades.Usuarios
+@model EOP.Gestion.WebApp.ViewModels.Usuarios.RegistrarUsuarioViewModel
+
+@{
+    ViewData["Title"] = "Registrar usuario";
+}
+
+<h2>Registrar usuario</h2>
+
+<p>
+    Ingresá los datos del nuevo usuario de EOP.
+    Los campos marcados con <span class="text-danger">*</span> son obligatorios.
+</p>
+
+@* Mostramos un mensaje cuando el usuario se registra correctamente. *@
+@if (TempData["MensajeExito"] is string mensaje)
+{
+    <div class="alert alert-success" role="alert">
+        @mensaje
+    </div>
+}
+
+@* Como es un POST con asp-action, el Tag Helper agrega solo el token antifalsificación.
+   El Estado no aparece porque no se elige: todo usuario nuevo queda Activo (RF-70). *@
+<form id="formulario-registrar-usuario" asp-controller="Usuarios" asp-action="Registrar" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <label asp-for="NombreCompleto" class="form-label">Nombre completo <span class="text-danger">*</span></label>
+            <input asp-for="NombreCompleto" class="form-control" aria-required="true" />
+            <span asp-validation-for="NombreCompleto" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="CorreoCorporativo" class="form-label">Correo corporativo <span class="text-danger">*</span></label>
+            <input asp-for="CorreoCorporativo" type="email" class="form-control" aria-required="true" aria-describedby="ayuda-correo-corporativo" />
+            <div id="ayuda-correo-corporativo" class="form-text">
+                Tiene que ser el correo de su cuenta de Microsoft, que debe existir antes de este registro.
+            </div>
+            <span asp-validation-for="CorreoCorporativo" class="text-danger"></span>
+        </div>
+
+        <div class="col-12 col-md-6">
+            <label asp-for="Rol" class="form-label">Rol <span class="text-danger">*</span></label>
+            @* El value es el nombre del rol y no su número: es lo que espera la validación del servidor. *@
+            <select asp-for="Rol" class="form-select" aria-required="true">
+                <option value="">Seleccioná un rol</option>
+                <option value="@nameof(RolUsuario.Administrador)">Administrador</option>
+                <option value="@nameof(RolUsuario.Supervisor)">Supervisor</option>
+                <option value="@nameof(RolUsuario.Operador)">Operador</option>
+            </select>
+            <span asp-validation-for="Rol" class="text-danger"></span>
+        </div>
+    </div>
+
+    <button id="boton-registrar-usuario" type="submit" class="btn btn-success">
+        Registrar usuario
+    </button>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script src="~/js/registrar-usuario-formulario.js" asp-append-version="true"></script>
+}

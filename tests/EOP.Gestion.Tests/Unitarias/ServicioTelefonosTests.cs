@@ -135,6 +135,19 @@ public class ServicioTelefonosTests
             resultado.Error);
     }
 
+    // Proveedores usa el mismo servicio, y sus mensajes tienen que hablar de su teléfono.
+    [Theory]
+    [InlineData("ZZ", "099123456", "Seleccioná un país válido para el número de teléfono.")]
+    [InlineData("UY", "", "Ingresá el número de teléfono.")]
+    [InlineData("UY", "099123", "El número de teléfono no es válido para Uruguay (+598). Revisá el número y el país seleccionado.")]
+    public void ConvertirAInternacional_ConNombreDelNumero_DebeUsarloEnElMensaje(string pais, string numero, string errorEsperado)
+    {
+        ResultadoNumeroInternacional resultado = _servicio.ConvertirAInternacional(pais, numero, "teléfono");
+
+        Assert.Null(resultado.NumeroInternacional);
+        Assert.Equal(errorEsperado, resultado.Error);
+    }
+
     // Para no conformarnos con los países que se nos ocurrieron: le pedimos a la biblioteca
     // un número de ejemplo de CADA país, escrito como se usa ahí, y comprobamos que se convierta bien.
     [Fact]

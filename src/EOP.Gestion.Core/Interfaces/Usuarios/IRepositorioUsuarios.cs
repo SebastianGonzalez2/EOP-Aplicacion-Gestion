@@ -29,5 +29,10 @@ public interface IRepositorioUsuarios
 
     Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default);
 
+    // Guarda un usuario nuevo y devuelve true. Si el correo ya lo tiene otro usuario, no guarda
+    // nada y devuelve false: que dos solicitudes pidan el mismo correo a la vez es algo esperable
+    // del negocio, no un error del sistema. Cualquier otro problema de la base sí es una excepción.
+    Task<bool> AgregarSiCorreoDisponibleAsync(Usuario usuario, CancellationToken cancellationToken = default);
+
 }
 

@@ -25,6 +25,57 @@ function iniciarCuentasBancarias() {
     });
 
     actualizarCuentas(listaDeCuentas);
+    iniciarConfirmacionDelAlta(listaDeCuentas.closest("form"));
+}
+
+// RF-23: el alta necesita la confirmación expresa del usuario. Para eso abrimos la ventana de
+// confirmación que está en la vista (un modal de Bootstrap).
+function iniciarConfirmacionDelAlta(formulario) {
+    const botonRegistrar = formulario.querySelector("button[type='submit']");
+    const textoOriginalDelBoton = botonRegistrar.textContent;
+    const ventanaDeConfirmacion = document.getElementById("modal-confirmar-alta");
+    const botonConfirmar = document.getElementById("boton-confirmar-alta");
+    const modal = bootstrap.Modal.getOrCreateInstance(ventanaDeConfirmacion);
+
+    // A diferencia del cuadro del navegador, el modal no deja el código esperando la respuesta.
+    // Por eso frenamos siempre este envío, y el formulario sale recién si el usuario confirma.
+    // Si cancela no hay nada más que hacer: queda como estaba y no se guarda nada.
+    formulario.addEventListener("submit", function (evento) {
+        evento.preventDefault();
+        modal.show();
+    });
+
+    // El foco acompaña a quien usa el teclado o un lector de pantalla: entra a la
+    // ventana cuando se abre y vuelve al formulario cuando se cierra.
+    ventanaDeConfirmacion.addEventListener("shown.bs.modal", function () {
+        botonConfirmar.focus();
+    });
+
+    ventanaDeConfirmacion.addEventListener("hidden.bs.modal", function () {
+        botonRegistrar.focus();
+    });
+
+    botonConfirmar.addEventListener("click", function () {
+        // Le mostramos que se está procesando (RNF-19 y RNF-20) y evitamos un segundo envío por
+        // un doble clic. Ese segundo envío no podría duplicar nada, pero le mostraría
+        // "ya existe" a alguien cuyo proveedor se acaba de guardar bien.
+        botonConfirmar.disabled = true;
+        botonRegistrar.disabled = true;
+        botonRegistrar.textContent = "Registrando...";
+        modal.hide();
+
+        // submit() envía sin volver a disparar el evento "submit" de arriba.
+        // Si lo disparara, se abriría de nuevo la ventana en vez de enviar.
+        formulario.submit();
+    });
+
+    // Si el usuario vuelve con el botón Atrás, el navegador puede restaurar la página tal como
+    // quedó, con los botones deshabilitados. "pageshow" también corre en ese caso, así que los reponemos.
+    window.addEventListener("pageshow", function () {
+        botonConfirmar.disabled = false;
+        botonRegistrar.disabled = false;
+        botonRegistrar.textContent = textoOriginalDelBoton;
+    });
 }
 
 function agregarCuenta(listaDeCuentas) {

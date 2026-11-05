@@ -140,4 +140,45 @@ public class RepositorioUsuarios : IRepositorioUsuarios
                 cambios => cambios.SetProperty(u => u.Rol, nuevoRol),
                 cancellationToken);
     }
+
+    // Este método es el que evita los correos repetidos cuando llegan dos altas al mismo tiempo.
+    //
+    // El problema: las dos solicitudes preguntan "¿este correo está libre?", las dos reciben
+    // que sí y las dos intentan guardar. Esa consulta previa no alcanza para frenarlas.
+    //
+    // La solución: dejamos que decida el índice único de CorreoCorporativo. SQL Server garantiza
+    // que solo una de las dos pueda insertar; la otra recibe un error y acá lo convertimos en
+    // la respuesta "ese correo ya está registrado".
+    public async Task<bool> AgregarSiCorreoDisponibleAsync(Usuario usuario, CancellationToken cancellationToken = default)
+    {
+        _contexto.Usuarios.Add(usuario);
+
+        try
+        {
+            await _contexto.SaveChangesAsync(cancellationToken);
+
+            return true;
+        }
+        catch (DbUpdateException)
+        {
+            // EF Core sigue recordando que tiene este usuario pendiente de guardar. Lo sacamos
+            // para que un guardado posterior con este mismo contexto no lo vuelva a intentar.
+            _contexto.Entry(usuario).State = EntityState.Detached;
+
+            // DbUpdateException no significa solamente "correo repetido": también aparece, por
+            // ejemplo, si no se cumple la restricción del rol. Para distinguirlos le preguntamos
+            // a la base si el correo existe, en vez de interpretar el código de error de cada motor.
+            // Si existe, otra solicitud nos ganó de mano. Si no, el problema es otro y no lo ocultamos.
+            bool correoYaRegistrado = await _contexto.Usuarios.AnyAsync(
+                u => u.CorreoCorporativo == usuario.CorreoCorporativo,
+                cancellationToken);
+
+            if (correoYaRegistrado)
+            {
+                return false;
+            }
+
+            throw;
+        }
+    }
 }

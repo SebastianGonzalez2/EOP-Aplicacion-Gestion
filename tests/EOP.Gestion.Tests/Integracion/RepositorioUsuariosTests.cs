@@ -310,6 +310,74 @@ public class RepositorioUsuariosTests : IDisposable
         Assert.Equal(RolUsuario.Operador, await LeerRolGuardadoAsync(juan.Id));
     }
 
+    // ---------- Alta de usuarios (S1-T17) ----------
+
+    private static Usuario CrearUsuarioNuevo(string correo, RolUsuario rol = RolUsuario.Operador) => new()
+    {
+        NombreCompleto = "Usuario nuevo",
+        CorreoCorporativo = correo,
+        Rol = rol,
+        Activo = true
+    };
+
+    [Fact]
+    public async Task AgregarSiCorreoDisponibleAsync_ConCorreoLibre_GuardaElUsuario()
+    {
+        Usuario nuevo = CrearUsuarioNuevo("juan@eop.com.uy", RolUsuario.Supervisor);
+
+        bool resultado = await _repositorio.AgregarSiCorreoDisponibleAsync(nuevo);
+
+        Assert.True(resultado);
+
+        using var contexto = CrearContexto();
+        Usuario guardado = await contexto.Usuarios.SingleAsync();
+        Assert.Equal(nuevo.Id, guardado.Id);
+        Assert.Equal("juan@eop.com.uy", guardado.CorreoCorporativo);
+        Assert.Equal(RolUsuario.Supervisor, guardado.Rol);
+        Assert.True(guardado.Activo);
+        Assert.Null(guardado.EntraObjectId);
+    }
+
+    [Fact]
+    public async Task AgregarSiCorreoDisponibleAsync_ConCorreoOcupado_DevuelveFalseSinGuardarNiPisarAlOtro()
+    {
+        var original = await GuardarUsuarioAsync("juan@eop.com.uy", rol: RolUsuario.Administrador);
+
+        bool resultado = await _repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuarioNuevo("juan@eop.com.uy"));
+
+        Assert.False(resultado);
+
+        using var contexto = CrearContexto();
+        Usuario unico = await contexto.Usuarios.SingleAsync();
+        Assert.Equal(original.Id, unico.Id);
+        Assert.Equal(RolUsuario.Administrador, unico.Rol);
+    }
+
+    [Fact]
+    public async Task AgregarSiCorreoDisponibleAsync_DespuesDeUnRechazo_ElMismoContextoSigueSirviendo()
+    {
+        // Sin sacar del contexto al usuario rechazado, el guardado siguiente lo volvería a intentar y fallaría.
+        await GuardarUsuarioAsync("juan@eop.com.uy");
+        await _repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuarioNuevo("juan@eop.com.uy"));
+
+        bool resultado = await _repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuarioNuevo("ana@eop.com.uy"));
+
+        Assert.True(resultado);
+
+        using var contexto = CrearContexto();
+        Assert.Equal(2, await contexto.Usuarios.CountAsync());
+    }
+
+    [Fact]
+    public async Task AgregarSiCorreoDisponibleAsync_ConUnErrorQueNoEsElCorreo_NoLoDisimulaComoDuplicado()
+    {
+        await Assert.ThrowsAsync<DbUpdateException>(() =>
+            _repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuarioNuevo("juan@eop.com.uy", (RolUsuario)99)));
+
+        using var contexto = CrearContexto();
+        Assert.Equal(0, await contexto.Usuarios.CountAsync());
+    }
+
     // ---------- Índice único de EntraObjectId ----------
 
     [Fact]
