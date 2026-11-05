@@ -85,6 +85,20 @@ namespace EOP.Gestion.Tests.Unitarias
         }
 
         [Fact]
+        public void TodasLasUnidadesDelEnum_SonValidas()
+        {
+            foreach (UnidadMedida unidad in Enum.GetValues<UnidadMedida>())
+            {
+                var modelo = CrearModeloValido();
+                modelo.Unidad = unidad;
+
+                var errores = Validar(modelo);
+
+                Assert.Empty(errores);
+            }
+        }
+
+        [Fact]
         public void ProveedorIdInvalido_GeneraError()
         {
             var modelo = CrearModeloValido();

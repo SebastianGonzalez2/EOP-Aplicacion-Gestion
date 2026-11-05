@@ -40,7 +40,7 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
                     b.ToTable("Materiales", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Materiales_UnidadValida", "[Unidad] IN (1, 2, 3, 4, 5)");
+                            t.HasCheckConstraint("CK_Materiales_UnidadValida", "[Unidad] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)");
                         });
                 });
 
