@@ -12,9 +12,22 @@ public class UsuarioConfiguracion : IEntityTypeConfiguration<Usuario>
         // Nombre de la tabla en SQL Server.
         // Se restringen los roles a los tres definidos por EOP.
         builder.ToTable("Usuarios", tabla =>
+        {
             tabla.HasCheckConstraint(
                 "CK_Usuarios_RolValido", /*Esto impide guardar roles fuera de los 3 permitidos*/
-                "[Rol] IN (1, 2, 3)"));
+                "[Rol] IN (1, 2, 3)");
+
+            // S1-T27: IsRequired solo prohíbe NULL, así que un texto vacío entraba igual. Un
+            // correo vacío es peor de lo que parece: el índice único dejaría guardar uno solo,
+            // y nunca coincidiría con ninguna identidad de Entra ID en el primer acceso.
+            tabla.HasCheckConstraint(
+                "CK_Usuarios_NombreCompletoNoVacio",
+                "TRIM([NombreCompleto]) <> ''");
+
+            tabla.HasCheckConstraint(
+                "CK_Usuarios_CorreoCorporativoNoVacio",
+                "TRIM([CorreoCorporativo]) <> ''");
+        });
 
         // Clave primaria: identifica de forma única cada usuario.
         builder.HasKey(u => u.Id);

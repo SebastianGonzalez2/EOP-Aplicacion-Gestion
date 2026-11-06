@@ -22,7 +22,7 @@ public class ValidarDatosClienteTests
             return Task.FromResult(RutExiste);
         }
 
-        public Task AgregarAsync(Cliente cliente, CancellationToken cancellationToken = default)
+        public Task<bool> AgregarSiRutDisponibleAsync(Cliente cliente, CancellationToken cancellationToken = default)
         {
             // Este repositorio falso se utiliza únicamente para probar
             // las validaciones de clientes, no para guardar información.
@@ -288,6 +288,73 @@ public class ValidarDatosClienteTests
 
         // Comprobamos que se muestre únicamente el motivo concreto.
         Assert.Equal(["El número no es válido para Uruguay."], errores);
+    }
+
+    private static Cliente CrearClienteValido(string nombre) => new()
+    {
+        Nombre = nombre,
+        Rut = "215521750017",
+        CorreoContacto = "cliente@ejemplo.com",
+        NumeroWhatsApp = "+59899123456"
+    };
+
+    [Theory]
+    [InlineData("   ")]
+    [InlineData("\t\n")]
+    public async Task ValidarAsync_ConNombreSoloDeEspacios_LoRechazaComoObligatorio(string nombre)
+    {
+        var validador = new ValidarDatosCliente(new RepositorioClientesFalso { RutExiste = false });
+
+        List<string> errores = await validador.ValidarAsync(CrearClienteValido(nombre));
+
+        Assert.Equal(["El nombre del cliente es obligatorio."], errores);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_ConNombreDelLargoMaximo_LoAcepta()
+    {
+        var validador = new ValidarDatosCliente(new RepositorioClientesFalso { RutExiste = false });
+
+        List<string> errores = await validador.ValidarAsync(CrearClienteValido(new string('a', ValidarDatosCliente.LargoMaximoNombre)));
+
+        Assert.Empty(errores);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_ConNombreMasLargoQueLaColumna_LoRechazaSinGuardarlo()
+    {
+        var validador = new ValidarDatosCliente(new RepositorioClientesFalso { RutExiste = false });
+        Cliente cliente = CrearClienteValido(new string('a', ValidarDatosCliente.LargoMaximoNombre + 1));
+
+        List<string> errores = await validador.ValidarAsync(cliente);
+
+        Assert.Equal(["El nombre del cliente no puede superar los 200 caracteres."], errores);
+    }
+
+    // Los espacios de los extremos no cuentan para el largo y no se guardan.
+    [Fact]
+    public async Task ValidarAsync_QuitaLosEspaciosDeLosExtremosDelNombre_AntesDeMedirlo()
+    {
+        var validador = new ValidarDatosCliente(new RepositorioClientesFalso { RutExiste = false });
+        string nombreDelLargoMaximo = new('a', ValidarDatosCliente.LargoMaximoNombre);
+        Cliente cliente = CrearClienteValido($"  {nombreDelLargoMaximo}  ");
+
+        List<string> errores = await validador.ValidarAsync(cliente);
+
+        Assert.Empty(errores);
+        Assert.Equal(nombreDelLargoMaximo, cliente.Nombre);
+    }
+
+    [Fact]
+    public async Task ValidarAsync_ConErrores_NoModificaElNombreRecibido()
+    {
+        var validador = new ValidarDatosCliente(new RepositorioClientesFalso { RutExiste = false });
+        Cliente cliente = CrearClienteValido("  Empresa  ");
+        cliente.Rut = "215521750018";
+
+        await validador.ValidarAsync(cliente);
+
+        Assert.Equal("  Empresa  ", cliente.Nombre);
     }
 
 

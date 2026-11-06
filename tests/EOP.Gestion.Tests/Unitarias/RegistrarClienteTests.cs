@@ -12,15 +12,22 @@ public class RegistrarClienteTests
     {
         public Cliente? ClienteGuardado { get; private set; }
 
+        // En false simula que otra solicitud registró el mismo RUT entre la validación y el guardado.
+        public bool RutDisponibleAlGuardar { get; set; } = true;
+
         public Task<bool> ExistePorRutAsync(string rutNormalizado, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(false);
         }
 
-        public Task AgregarAsync(Cliente cliente, CancellationToken cancellationToken = default)
+        public Task<bool> AgregarSiRutDisponibleAsync(Cliente cliente, CancellationToken cancellationToken = default)
         {
-            ClienteGuardado = cliente;
-            return Task.CompletedTask;
+            if (RutDisponibleAlGuardar)
+            {
+                ClienteGuardado = cliente;
+            }
+
+            return Task.FromResult(RutDisponibleAlGuardar);
         }
     }
 
@@ -99,6 +106,17 @@ public class RegistrarClienteTests
         List<string> errores = await _registrarCliente.EjecutarAsync(cliente, "UY", "099123456");
 
         Assert.Contains("El correo de contacto no tiene un formato válido.", errores);
+        Assert.Null(_repositorio.ClienteGuardado);
+    }
+
+    [Fact]
+    public async Task EjecutarAsync_SiOtroGuardoElMismoRutAntes_InformaElDuplicadoYNoGuarda()
+    {
+        _repositorio.RutDisponibleAlGuardar = false;
+
+        List<string> errores = await _registrarCliente.EjecutarAsync(CrearClienteValido(), "UY", "099123456");
+
+        Assert.Equal([ValidarDatosCliente.MensajeRutDuplicado], errores);
         Assert.Null(_repositorio.ClienteGuardado);
     }
 }

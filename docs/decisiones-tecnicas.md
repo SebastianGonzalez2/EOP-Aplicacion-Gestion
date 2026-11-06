@@ -95,6 +95,33 @@ Las reglas se probaron contra 203 RUT de la lista y los ejemplos de esa bibliote
 
 ---
 
+## DT-05 — Largo máximo de 200 caracteres para los nombres
+
+**Fecha:** 06/11/2026 · **Sprint:** 1
+
+**Decisión.** El nombre de Cliente y el de Material admiten como máximo 200 caracteres, igual que el de Proveedor, que ya tenía ese largo desde S2-T10. El límite se aplica en tres lugares que usan el mismo valor:
+
+- la columna de la base (`HasMaxLength(200)`, migraciones `S1_T27_*`);
+- el caso de uso (`ValidarDatosCliente.LargoMaximoNombre` y `RegistrarMaterial.LargoMaximoNombre`), que es el control definitivo del servidor;
+- el `ViewModel` (`[StringLength]`), que solo sirve para avisar en el formulario.
+
+Los espacios del principio y del final se quitan antes de medir y no se guardan.
+
+**Motivo.** Los requerimientos (RF-89, RF-108 y US-041) piden que el nombre sea obligatorio, pero no fijan un largo: esto es una decisión técnica, no una regla de negocio. La revisión del modelo de S1-T27 encontró dos problemas con las columnas sin límite (`nvarchar(max)`):
+
+- En Material, el nombre no tenía límite, pero `NombreNormalizado` sí (450). Un nombre muy largo pasaba la validación y SQL Server lo rechazaba con un error de truncado, que el usuario veía como una página de error genérica.
+- Una columna `nvarchar(max)` acepta textos de cualquier tamaño y no se puede indexar, lo que complicaría una búsqueda por nombre más eficiente en el futuro.
+
+Se eligió 200 para que los tres módulos que registran organizaciones o materiales se comporten igual. Alcanza de sobra para razones sociales y denominaciones de materiales reales.
+
+**Alternativas descartadas.**
+
+- *Dejar `nvarchar(max)`.* Mantiene el error de truncado en Material y no protege la base de textos desmedidos.
+- *Usar 450 en Material para igualarlo con `NombreNormalizado`.* Arregla el error, pero deja tres módulos con largos distintos sin ningún motivo de negocio.
+- *Validar el largo solo en el formulario.* No es control: un POST armado a mano lo saltea (RNF-10 y RNF-18).
+
+---
+
 <!--
 Formato para las próximas:
 

@@ -50,9 +50,17 @@ public class RegistrarCliente
         cliente.Activo = true;
 
         // Guardamos el cliente utilizando el repositorio.
-        await _repositorioClientes.AgregarAsync(cliente, cancellationToken);
+        // ValidarDatosCliente ya comprobó que el RUT estuviera libre, pero entre esa consulta y
+        // este guardado otra solicitud pudo haber registrado el mismo RUT. La respuesta
+        // definitiva la da el índice único de la base, a través del repositorio.
+        bool clienteGuardado = await _repositorioClientes.AgregarSiRutDisponibleAsync(cliente, cancellationToken);
 
-        // Devolvemos la lista vacía porque no hubo errores de validación.
+        if (!clienteGuardado)
+        {
+            errores.Add(ValidarDatosCliente.MensajeRutDuplicado);
+        }
+
+        // Si se guardó, la lista sigue vacía porque no hubo errores.
         return errores;
     }
 }

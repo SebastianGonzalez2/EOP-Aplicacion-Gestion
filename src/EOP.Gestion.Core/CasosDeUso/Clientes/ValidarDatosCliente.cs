@@ -7,6 +7,14 @@ using EOP.Gestion.Core.ServiciosDominio.Clientes;
 using EOP.Gestion.Core.ServiciosDominio.Compartidos;
 public class ValidarDatosCliente
 {
+    // El mismo largo que tiene la columna en ClienteConfiguracion. Si lo dejáramos pasar,
+    // SQL Server rechazaría el INSERT y el usuario vería un error genérico en vez de este mensaje.
+    public const int LargoMaximoNombre = 200;
+
+    // Es público porque RegistrarCliente lo vuelve a usar cuando el RUT se repite en el momento
+    // de guardar: el usuario tiene que ver el mismo mensaje en los dos casos.
+    public const string MensajeRutDuplicado = "Ya existe un cliente registrado con ese RUT.";
+
     // Repositorio que permite comprobar si un RUT ya está registrado.
     private readonly IRepositorioClientes _repositorioClientes;
 
@@ -31,10 +39,19 @@ public class ValidarDatosCliente
         // Guardamos los mensajes de los errores encontrados.
         List<string> errores = new();
 
+        // Sacamos los espacios del principio y del final antes de medir el nombre: "  Acme  " es
+        // el mismo cliente que "Acme", y no queremos que esos espacios cuenten para el largo
+        // ni que queden guardados (después estorbarían en las búsquedas por nombre).
+        string nombreSinEspaciosEnLosExtremos = QuitarEspaciosDeLosExtremos(cliente.Nombre);
+
         // Comprobamos que el nombre sea obligatorio.
-        if (string.IsNullOrWhiteSpace(cliente.Nombre))
+        if (nombreSinEspaciosEnLosExtremos.Length == 0)
         {
             errores.Add("El nombre del cliente es obligatorio.");
+        }
+        else if (nombreSinEspaciosEnLosExtremos.Length > LargoMaximoNombre)
+        {
+            errores.Add($"El nombre del cliente no puede superar los {LargoMaximoNombre} caracteres.");
         }
 
         // Normalizamos el RUT para compararlo sin separadores.
@@ -48,7 +65,7 @@ public class ValidarDatosCliente
         else if (await _repositorioClientes.ExistePorRutAsync(rutNormalizado, cancellationToken))
         {
             // Si el RUT es válido, consultamos si ya existe.
-            errores.Add("Ya existe un cliente registrado con ese RUT.");
+            errores.Add(MensajeRutDuplicado);
         }
 
         if (!ValidadorCorreos.TieneAlMenosUnCorreo(cliente.CorreoContacto,cliente.CorreoFacturacion))
@@ -82,6 +99,7 @@ public class ValidarDatosCliente
         // en el objeto Cliente para que puedan persistirse correctamente.
         if (errores.Count == 0)
         {
+            cliente.Nombre = nombreSinEspaciosEnLosExtremos;
             cliente.Rut = rutNormalizado;
             cliente.NumeroWhatsApp = ValidadorWhatsApp.Normalizar(cliente.NumeroWhatsApp);
         }
@@ -90,7 +108,17 @@ public class ValidarDatosCliente
         return errores;
     }
 
+    // Aunque Nombre se declara como string no nulo, el formulario podría no mandarlo.
+    // Tratamos ese caso como un nombre vacío, así lo frena la validación de obligatorio.
+    private static string QuitarEspaciosDeLosExtremos(string? texto)
+    {
+        if (texto == null)
+        {
+            return string.Empty;
+        }
 
+        return texto.Trim();
+    }
 
 
 }

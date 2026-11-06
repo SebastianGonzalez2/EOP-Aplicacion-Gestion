@@ -30,8 +30,14 @@ public class MaterialConfiguracion : IEntityTypeConfiguration<Material>
         builder.HasKey(m => m.Id);
 
         // Todos los materiales deben tener un nombre.
+        //
+        // S1-T27: el largo de 200 es el mismo que el de Proveedor y Cliente. Antes era
+        // nvarchar(max) mientras NombreNormalizado admitía 450, así que un nombre muy largo
+        // pasaba la validación y SQL Server lo rechazaba con un error de truncado. Como la
+        // normalización nunca alarga el texto, con 200 acá NombreNormalizado siempre entra.
         builder.Property(m => m.Nombre)
-            .IsRequired();
+            .IsRequired()
+            .HasMaxLength(200);
 
         // Guardamos el nombre normalizado para detectar duplicados.
         builder.Property(m => m.NombreNormalizado)

@@ -16,7 +16,11 @@ namespace EOP.Gestion.Core.Interfaces.Clientes
 
         // Registra un nuevo cliente en la base de datos.
         // Recibe el cliente validado y permite cancelar la operación.
-        Task AgregarAsync(Cliente cliente, CancellationToken cancellationToken = default);
+        //
+        // S1-T27: devuelve false si no se guardó porque otro cliente con el mismo RUT se registró
+        // justo antes (entre la consulta de ExistePorRutAsync y este guardado). Cualquier otro
+        // problema no se disimula: sigue saliendo como excepción.
+        Task<bool> AgregarSiRutDisponibleAsync(Cliente cliente, CancellationToken cancellationToken = default);
 
 
     }
