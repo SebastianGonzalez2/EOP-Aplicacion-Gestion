@@ -1,3 +1,4 @@
+@using EOP.Gestion.Core.Entidades.Usuarios
 @*
     Este pedacito de vista va en la barra de arriba y muestra el estado de la sesión:
     - Si el usuario inició sesión, muestra su nombre y el botón "Cerrar sesión".
@@ -7,6 +8,9 @@
 
     Ojo: esto es solo para mostrar. Lo que realmente protege las pantallas es la
     política de respaldo de Program.cs, que se controla en el servidor.
+
+    Con el diseño de la guía (sección 8), el nombre va junto a un círculo con las
+    iniciales y el rol, y "Cerrar sesión" queda dentro de un menú desplegable de Bootstrap.
 *@
 
 @if (User.Identity?.IsAuthenticated == true)
@@ -14,28 +18,59 @@
     // "name" es el claim con el nombre completo que manda Microsoft en el token.
     // Si por algún motivo no viene, usamos el nombre de usuario (el correo).
     // Razor escapa el texto al mostrarlo, así que un nombre raro no puede romper la página.
-    var nombreVisible = User.FindFirst("name")?.Value ?? User.Identity.Name;
+    var nombreVisible = User.FindFirst("name")?.Value ?? User.Identity.Name ?? "";
 
-    <ul class="navbar-nav">
-        <li class="nav-item">
-            <span class="navbar-text text-dark">@nombreVisible</span>
-        </li>
-        <li class="nav-item">
-            @* Cerrar sesión es un formulario POST y no un enlace, para que otra
-               página no pueda cerrarte la sesión (ver CuentaController.CerrarSesion).
-               El tag helper <form asp-action> agrega solo el token antifalsificación
-               como un campo oculto: no hace falta escribirlo a mano. *@
-            <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post" class="d-inline">
-                <button type="submit" class="nav-link btn btn-link text-dark">Cerrar sesión</button>
-            </form>
-        </li>
-    </ul>
+    // Las iniciales del círculo: la primera letra de las dos primeras palabras del nombre.
+    string[] palabrasDelNombre = nombreVisible.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    string iniciales = "";
+    for (int i = 0; i < palabrasDelNombre.Length && i < 2; i++)
+    {
+        iniciales += char.ToUpperInvariant(palabrasDelNombre[i][0]);
+    }
+
+    // El rol solo se muestra como texto: no decide nada (eso lo hace el servidor en cada pantalla).
+    string rolVisible = "";
+    if (User.IsInRole(nameof(RolUsuario.Administrador)))
+    {
+        rolVisible = "Administrador";
+    }
+    else if (User.IsInRole(nameof(RolUsuario.Supervisor)))
+    {
+        rolVisible = "Supervisor";
+    }
+    else if (User.IsInRole(nameof(RolUsuario.Operador)))
+    {
+        rolVisible = "Operador";
+    }
+
+    <div class="dropdown">
+        <button class="usuario-boton" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <span class="avatar" aria-hidden="true">@iniciales</span>
+            @* En celulares queda solo el círculo; el nombre sigue disponible para lectores de pantalla. *@
+            <span class="d-none d-sm-block">
+                <span class="usuario-nombre d-block">@nombreVisible</span>
+                <span class="usuario-rol d-block">@rolVisible</span>
+            </span>
+            <span class="visually-hidden d-sm-none">@nombreVisible</span>
+            <i class="bi bi-chevron-down small text-body-secondary" aria-hidden="true"></i>
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li>
+                @* Cerrar sesión es un formulario POST y no un enlace, para que otra
+                   página no pueda cerrarte la sesión (ver CuentaController.CerrarSesion).
+                   El tag helper <form asp-action> agrega solo el token antifalsificación
+                   como un campo oculto: no hace falta escribirlo a mano. *@
+                <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post">
+                    <button type="submit" class="dropdown-item">
+                        <i class="bi bi-box-arrow-right me-2" aria-hidden="true"></i>Cerrar sesión
+                    </button>
+                </form>
+            </li>
+        </ul>
+    </div>
 }
 else
 {
-    <ul class="navbar-nav">
-        <li class="nav-item">
-            <a class="nav-link text-dark" asp-controller="Cuenta" asp-action="IniciarSesion">Iniciar sesión</a>
-        </li>
-    </ul>
+    <a class="btn btn-outline-secondary" asp-controller="Cuenta" asp-action="IniciarSesion">Iniciar sesión</a>
 }

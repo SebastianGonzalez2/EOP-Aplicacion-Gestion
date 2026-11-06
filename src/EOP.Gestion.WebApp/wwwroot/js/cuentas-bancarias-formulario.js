@@ -59,9 +59,9 @@ function iniciarConfirmacionDelAlta(formulario) {
         // Le mostramos que se está procesando (RNF-19 y RNF-20) y evitamos un segundo envío por
         // un doble clic. Ese segundo envío no podría duplicar nada, pero le mostraría
         // "ya existe" a alguien cuyo proveedor se acaba de guardar bien.
+        // mostrarProcesando está en site.js: deshabilita el botón y le agrega el indicador de la guía.
         botonConfirmar.disabled = true;
-        botonRegistrar.disabled = true;
-        botonRegistrar.textContent = "Registrando...";
+        mostrarProcesando(botonRegistrar, "Registrando...");
         modal.hide();
 
         // submit() envía sin volver a disparar el evento "submit" de arriba.
@@ -73,8 +73,7 @@ function iniciarConfirmacionDelAlta(formulario) {
     // quedó, con los botones deshabilitados. "pageshow" también corre en ese caso, así que los reponemos.
     window.addEventListener("pageshow", function () {
         botonConfirmar.disabled = false;
-        botonRegistrar.disabled = false;
-        botonRegistrar.textContent = textoOriginalDelBoton;
+        quitarProcesando(botonRegistrar, textoOriginalDelBoton);
     });
 }
 

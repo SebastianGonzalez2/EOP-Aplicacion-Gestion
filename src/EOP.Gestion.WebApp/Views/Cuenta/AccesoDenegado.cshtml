@@ -5,14 +5,17 @@
 @* Pantalla que aparece cuando un usuario con sesión intenta hacer algo que su
    rol no permite. El control ya lo hizo el servidor: esto solo se lo explica. *@
 
-<div class="row justify-content-center">
-    <div class="col-12 col-md-8 col-lg-6">
-        <div class="card text-center mt-4">
-            <div class="card-body">
-                <h1 class="h4 card-title">Acceso denegado</h1>
-                <p class="card-text">No tenés permiso para realizar esta operación.</p>
-                <a class="btn btn-primary" asp-controller="Home" asp-action="Index">Volver al inicio</a>
-            </div>
-        </div>
+@* Según la guía (Parte D), las pantallas de error se arman con el layout, un encabezado
+   y un mensaje de error, sin un diseño propio. *@
+<div class="encabezado">
+    <div>
+        <h1>Acceso denegado</h1>
     </div>
 </div>
+
+<div class="mensaje mensaje-error" role="alert">
+    <i class="bi bi-x-octagon" aria-hidden="true"></i>
+    <div class="mensaje-cuerpo">No tenés permiso para realizar esta operación.</div>
+</div>
+
+<a class="btn btn-primary" asp-controller="Home" asp-action="Index">Volver al inicio</a>

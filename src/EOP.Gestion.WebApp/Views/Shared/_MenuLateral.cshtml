@@ -1,0 +1,111 @@
+@using EOP.Gestion.Core.Entidades.Usuarios
+@*
+    Menú lateral de EOP (sección 7 de docs/diseno-visual.md).
+
+    Reglas que sigue:
+    - Solo tiene enlaces a pantallas que ya existen. Cuando se implemente un módulo nuevo
+      (Presupuestos, Proyectos, Estadísticas...), se agrega su enlace en el grupo que le
+      corresponde según la tabla de la sección 7.2 de la guía.
+    - Cada enlace se muestra solo a los roles que pueden usar esa pantalla (RF-73).
+      Ocultarlo es solo comodidad: el control real está en cada Controller.
+    - El enlace de la sección que se está viendo queda marcado (fondo blanco) y lleva
+      aria-current="page", para que también lo anuncie un lector de pantalla.
+
+    En pantallas grandes el menú queda fijo a la izquierda. En celulares y tablets
+    Bootstrap lo convierte en un panel que se abre con el botón de la barra de arriba
+    (la clase offcanvas-lg hace ese cambio sola, sin JavaScript propio).
+*@
+@{
+    bool esAdministrador = User.IsInRole(nameof(RolUsuario.Administrador));
+    bool esSupervisor = User.IsInRole(nameof(RolUsuario.Supervisor));
+    bool puedeVerAbastecimiento = esAdministrador || esSupervisor;
+}
+
+@functions {
+    // Devuelve "page" si el enlace pertenece a la sección que se está mostrando, y null si no.
+    // Cuando un atributo vale null, Razor directamente no lo escribe: así solo el enlace
+    // actual termina con aria-current="page".
+    private string? MarcaDeSeccionActual(string controlador)
+    {
+        string? controladorActual = ViewContext.RouteData.Values["controller"] as string;
+
+        if (string.Equals(controladorActual, controlador, StringComparison.OrdinalIgnoreCase))
+        {
+            return "page";
+        }
+
+        return null;
+    }
+
+    private string ClaseDelEnlace(string controlador)
+    {
+        if (MarcaDeSeccionActual(controlador) != null)
+        {
+            return "nav-enlace activo";
+        }
+
+        return "nav-enlace";
+    }
+}
+
+<aside class="barra">
+    <div class="offcanvas-lg offcanvas-start barra-panel" tabindex="-1" id="menuLateral" aria-label="Menú principal">
+        @* Solo se ve en celulares y tablets, cuando el menú está abierto como panel. *@
+        <div class="offcanvas-header justify-content-end pb-0">
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#menuLateral" aria-label="Cerrar menú"></button>
+        </div>
+
+        <div class="offcanvas-body">
+            <a class="marca" asp-controller="Home" asp-action="Index">
+                <span class="marca-logo">EOP</span>
+                <span class="marca-sub">Sistema de<br />gestión</span>
+            </a>
+
+            <nav aria-label="Menú principal">
+                <div class="nav-grupo">
+                    <a class="@ClaseDelEnlace("Home")" aria-current="@MarcaDeSeccionActual("Home")" asp-controller="Home" asp-action="Index">
+                        <i class="bi bi-house" aria-hidden="true"></i>Inicio
+                    </a>
+                </div>
+
+                <div class="nav-grupo">
+                    <div class="nav-grupo-titulo">Comercial</div>
+                    <a class="@ClaseDelEnlace("Clientes")" aria-current="@MarcaDeSeccionActual("Clientes")" asp-controller="Clientes" asp-action="Index">
+                        <i class="bi bi-people" aria-hidden="true"></i>Clientes
+                    </a>
+                </div>
+
+                @* Por ahora la sección Proveedores solo tiene el alta, así que el enlace lleva ahí y solo lo ven
+                   los roles que pueden usarla. Cuando llegue el listado (US-074), va a apuntar a él y lo van a
+                   ver también los Operadores. Esto es solo por comodidad: el control real está en el Controller. *@
+                @if (puedeVerAbastecimiento)
+                {
+                    <div class="nav-grupo">
+                        <div class="nav-grupo-titulo">Abastecimiento</div>
+                        <a class="@ClaseDelEnlace("Proveedores")" aria-current="@MarcaDeSeccionActual("Proveedores")" asp-controller="Proveedores" asp-action="Registrar">
+                            <i class="bi bi-truck" aria-hidden="true"></i>Proveedores
+                        </a>
+
+                        @* S2-T15: acceso al formulario de materiales.
+                        El registro definitivo se implementará en S2-T16. *@
+                        <a class="@ClaseDelEnlace("Materiales")" aria-current="@MarcaDeSeccionActual("Materiales")" asp-controller="Materiales" asp-action="Registrar">
+                            <i class="bi bi-box-seam" aria-hidden="true"></i>Materiales
+                        </a>
+                    </div>
+                }
+
+                @* US-043: acceso al alta de usuarios. Cuando llegue el listado (US-045), este enlace va a
+                   apuntar a él. Es solo comodidad: el control real está en UsuariosController. *@
+                @if (esAdministrador)
+                {
+                    <div class="nav-grupo">
+                        <div class="nav-grupo-titulo">Administración</div>
+                        <a class="@ClaseDelEnlace("Usuarios")" aria-current="@MarcaDeSeccionActual("Usuarios")" asp-controller="Usuarios" asp-action="Registrar">
+                            <i class="bi bi-person-gear" aria-hidden="true"></i>Usuarios
+                        </a>
+                    </div>
+                }
+            </nav>
+        </div>
+    </div>
+</aside>

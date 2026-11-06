@@ -1,31 +1,293 @@
-html {
-  font-size: 14px;
+/* ============================================================
+   EOP — Hoja de estilos propia (alternativa A aprobada)
+
+   Es la hoja del Apéndice de docs/diseno-visual.md, más lo que necesita la aplicación
+   real (fuentes locales, mensajes de validación de ASP.NET y pantallas sin sesión).
+   Se carga DESPUÉS de bootstrap.min.css y bootstrap-icons.min.css: Bootstrap pone la
+   base y acá solo cambiamos colores, tipografías y algunos componentes propios.
+
+   Regla de oro: en las vistas no se escriben colores sueltos. Si hace falta un color,
+   se usa una de las variables de abajo (sección 3 de la guía).
+   ============================================================ */
+
+/* ---------- Fuentes locales (sección 21.2 de la guía) ----------
+   Son fuentes "variables": un solo archivo trae todos los pesos (del 300 al 900), así no
+   hay que bajar un archivo por cada grosor. El subconjunto "latin" incluye acentos, ñ, ¿ y ¡.
+   Licencia: SIL Open Font License 1.1 (ver wwwroot/lib/red-hat-fonts/OFL-*.txt). */
+@font-face {
+  font-family: "Red Hat Display";
+  src: url("../lib/red-hat-fonts/red-hat-display-latin-wght-normal.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
 }
 
-@media (min-width: 768px) {
-  html {
-    font-size: 16px;
-  }
+@font-face {
+  font-family: "Red Hat Text";
+  src: url("../lib/red-hat-fonts/red-hat-text-latin-wght-normal.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+/* ---------- Tokens de color (sección 3) ---------- */
+:root {
+  --eop-bosque: #0f3b2d;
+  --eop-bosque-2: #174b3a;
+  --eop-verde: #1a7a4c;
+  --eop-verde-hover: #146140;
+  --eop-brote: #9bd7a8;
+  --eop-hoja: #e9f4ee;
+  --eop-fondo: #f4f7f5;
+  --eop-borde: #dde5e0;
+  --eop-borde-campo: #869790;
+  --eop-texto: #1c2824;
+  --eop-texto-2: #5b6b64;
+  --eop-error: #b42318;
+  --eop-error-hover: #912018;
+
+  --tono-exito-fondo: #e3f3e9;     --tono-exito-texto: #146140;
+  --tono-atencion-fondo: #fdf2dc;  --tono-atencion-texto: #8a5a00;
+  --tono-neutro-fondo: #e9eef3;    --tono-neutro-texto: #3f5468;
+  --tono-cerrado-fondo: #e8ecea;   --tono-cerrado-texto: #2f3d37;
+  --tono-negativo-fondo: #fbe9e7;  --tono-negativo-texto: #a3321f;
+
+  /* Se le pasan los tokens a Bootstrap para que sus componentes ya salgan con la paleta de EOP. */
+  --bs-body-font-family: "Red Hat Text", system-ui, sans-serif;
+  --bs-body-color: var(--eop-texto);
+  --bs-body-bg: var(--eop-fondo);
+  --bs-border-color: var(--eop-borde);
+  --bs-link-color: #1a7a4c;
+  --bs-link-hover-color: #146140;
+  --bs-link-color-rgb: 26, 122, 76;
+  --bs-link-hover-color-rgb: 20, 97, 64;
+  --bs-focus-ring-color: rgba(26, 122, 76, .3);
+  --bs-border-radius: .5rem;
 }
 
-html {
-  position: relative;
-  min-height: 100%;
+h1, h2, h3, .titulo { font-family: "Red Hat Display", system-ui, sans-serif; letter-spacing: -.01em; }
+
+/* ---------- Estructura (sección 6) ---------- */
+.app { display: flex; min-height: 100vh; }
+.principal { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+@media (min-width: 992px) {
+  .barra { width: 248px; flex-shrink: 0; background: var(--eop-bosque); position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+}
+.barra-panel { background: var(--eop-bosque); color: #fff; --bs-offcanvas-width: 264px; }
+.barra-panel .offcanvas-body { display: flex; flex-direction: column; padding: 0; width: 100%; }
+.contenido { padding: 1.75rem 1.5rem 3rem; max-width: 1440px; width: 100%; }
+@media (min-width: 1200px) { .contenido { padding: 2rem 2.25rem 3rem; } }
+
+/* Pantallas sin sesión (cierre de sesión, error al iniciar sesión): sin menú, con la
+   marca arriba y un panel centrado. */
+.pagina-publica { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
+.pagina-publica .marca-publica { font-family: "Red Hat Display", system-ui, sans-serif; font-weight: 800; font-size: 2rem; letter-spacing: .02em; color: var(--eop-bosque); margin-bottom: 1.25rem; }
+.pagina-publica main { width: 100%; max-width: 560px; }
+
+/* ---------- Menú lateral (sección 7) ---------- */
+.marca { display: flex; align-items: center; gap: .75rem; padding: 1.4rem 1.4rem 1.25rem; color: #fff; text-decoration: none; }
+.marca:hover { color: #fff; }
+.marca-logo { font-family: "Red Hat Display", system-ui, sans-serif; font-weight: 800; font-size: 1.6rem; letter-spacing: .02em; line-height: 1; }
+.marca-sub { font-size: .78rem; line-height: 1.2; color: #b9d3c6; border-left: 1px solid #3c6656; padding-left: .75rem; }
+.marca:focus-visible { outline: 2px solid var(--eop-brote); outline-offset: -2px; }
+.nav-grupo { padding: .25rem .75rem .75rem; }
+.nav-grupo-titulo { font-size: .78rem; color: #8fb3a3; padding: .75rem .75rem .35rem; }
+.nav-enlace { display: flex; align-items: center; gap: .75rem; padding: .55rem .75rem; border-radius: .4rem; color: #dbe9e2; text-decoration: none; font-size: .95rem; }
+.nav-enlace i { font-size: 1.05rem; opacity: .85; }
+.nav-enlace:hover { background: var(--eop-bosque-2); color: #fff; }
+.nav-enlace.activo { background: #fff; color: var(--eop-bosque); font-weight: 600; }
+.nav-enlace.activo i { color: var(--eop-verde); opacity: 1; }
+.nav-enlace:focus-visible { outline: 2px solid var(--eop-brote); outline-offset: 2px; }
+.barra-panel .btn-close { filter: invert(1) grayscale(1) brightness(2); }
+
+/* ---------- Barra superior (sección 8) ---------- */
+.superior { height: 64px; background: #fff; border-bottom: 1px solid var(--eop-borde); display: flex; align-items: center; gap: 1rem; padding: 0 1.5rem; position: sticky; top: 0; z-index: 10; }
+.usuario-boton { display: flex; align-items: center; gap: .65rem; background: none; border: 0; padding: .25rem .5rem; border-radius: .5rem; color: inherit; text-align: left; }
+.usuario-boton:hover { background: var(--eop-fondo); }
+.usuario-nombre { font-weight: 600; line-height: 1.1; }
+.usuario-rol { font-size: .8rem; color: var(--eop-texto-2); }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--eop-verde); color: #fff; display: grid; place-items: center; font-weight: 700; font-size: .85rem; flex-shrink: 0; }
+.avatar-sm { width: 28px; height: 28px; font-size: .72rem; background: var(--eop-hoja); color: var(--eop-verde-hover); }
+.dropdown-menu { --bs-dropdown-border-color: var(--eop-borde); --bs-dropdown-link-active-bg: var(--eop-verde); }
+
+/* ---------- Encabezado de página (sección 9) ---------- */
+.encabezado { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
+.encabezado h1 { font-size: 1.85rem; font-weight: 700; margin: 0; color: var(--eop-bosque); }
+.encabezado p { margin: .25rem 0 0; color: var(--eop-texto-2); }
+.breadcrumb { font-size: .875rem; margin-bottom: .5rem; --bs-breadcrumb-divider-color: var(--eop-texto-2); }
+.breadcrumb a { text-decoration: none; }
+
+/* ---------- Botones (sección 10) ---------- */
+.btn { font-weight: 600; padding: .55rem 1rem; }
+.btn-primary {
+  --bs-btn-bg: var(--eop-verde); --bs-btn-border-color: var(--eop-verde);
+  --bs-btn-hover-bg: var(--eop-verde-hover); --bs-btn-hover-border-color: var(--eop-verde-hover);
+  --bs-btn-active-bg: var(--eop-bosque); --bs-btn-active-border-color: var(--eop-bosque);
+  --bs-btn-disabled-bg: var(--eop-verde); --bs-btn-disabled-border-color: var(--eop-verde); --bs-btn-disabled-color: #fff;
+  --bs-btn-focus-shadow-rgb: 26, 122, 76;
+}
+.btn-outline-secondary {
+  --bs-btn-color: var(--eop-texto); --bs-btn-border-color: #c9d4ce; --bs-btn-bg: #fff;
+  --bs-btn-hover-bg: var(--eop-hoja); --bs-btn-hover-color: var(--eop-bosque); --bs-btn-hover-border-color: #b7c8bf;
+  --bs-btn-active-bg: var(--eop-hoja); --bs-btn-active-color: var(--eop-bosque); --bs-btn-active-border-color: #b7c8bf;
+  --bs-btn-disabled-color: var(--eop-texto-2); --bs-btn-disabled-bg: #fff; --bs-btn-disabled-border-color: #c9d4ce;
+}
+.btn-danger {
+  --bs-btn-bg: var(--eop-error); --bs-btn-border-color: var(--eop-error);
+  --bs-btn-hover-bg: var(--eop-error-hover); --bs-btn-hover-border-color: var(--eop-error-hover);
+  --bs-btn-active-bg: var(--eop-error-hover); --bs-btn-active-border-color: var(--eop-error-hover);
+  --bs-btn-focus-shadow-rgb: 180, 35, 24;
+}
+.btn-outline-danger {
+  --bs-btn-color: var(--eop-error); --bs-btn-border-color: var(--eop-error); --bs-btn-bg: #fff;
+  --bs-btn-hover-bg: var(--tono-negativo-fondo); --bs-btn-hover-color: var(--eop-error-hover); --bs-btn-hover-border-color: var(--eop-error-hover);
+  --bs-btn-active-bg: var(--tono-negativo-fondo); --bs-btn-active-color: var(--eop-error-hover);
 }
 
-body {
-  margin-bottom: 60px;
+/* ---------- Paneles (sección 11) ---------- */
+.panel { background: #fff; border: 1px solid var(--eop-borde); border-radius: .6rem; }
+.panel-cuerpo { padding: 1.25rem; }
+.panel-pie { border-top: 1px solid var(--eop-borde); padding: .85rem 1.25rem; }
+
+/* ---------- Formularios (sección 14) ---------- */
+.form-label { font-weight: 600; font-size: .9rem; margin-bottom: .35rem; }
+.form-control, .form-select { padding: .55rem .8rem; border-color: var(--eop-borde-campo); background-color: #fff; }
+.input-group-text { border-color: var(--eop-borde-campo); background-color: #fff; }
+.form-control:focus, .form-select:focus { border-color: var(--eop-verde); box-shadow: 0 0 0 .2rem rgba(26, 122, 76, .18); }
+.form-text { color: var(--eop-texto-2); }
+.obligatorio { color: var(--eop-error); margin-left: .15rem; }
+.seccion-form { padding: 1.5rem; }
+.seccion-form + .seccion-form { border-top: 1px solid var(--eop-borde); }
+.seccion-form h2, .seccion-form .titulo-seccion { font-family: "Red Hat Display", system-ui, sans-serif; font-size: 1.1rem; font-weight: 700; margin-bottom: .2rem; letter-spacing: -.01em; }
+.seccion-form .descripcion { color: var(--eop-texto-2); font-size: .9rem; margin-bottom: 1.1rem; }
+/* Un fieldset con su legend se ve igual que una sección con título. Bootstrap ya le pone a legend
+   float y ancho completo, que es lo que lo deja dentro del padding como un título común. */
+fieldset.seccion-form { min-width: 0; margin: 0; }
+fieldset.seccion-form > legend.titulo-seccion { padding: 0; line-height: 1.5; }
+.form-control.is-invalid, .form-select.is-invalid { border-color: var(--eop-error); }
+.invalid-feedback { color: var(--eop-error); }
+
+/* Errores que genera ASP.NET Core (tag helpers asp-validation-for y asp-validation-summary).
+   El servidor y jQuery Validation ponen estas clases solos: acá solo les damos el estilo de la guía. */
+.error-campo { display: block; margin-top: .25rem; font-size: .875em; color: var(--eop-error); }
+.error-campo.field-validation-valid { display: none; }
+.form-control.input-validation-error, .form-select.input-validation-error { border-color: var(--eop-error); }
+.form-control.input-validation-error:focus, .form-select.input-validation-error:focus { box-shadow: 0 0 0 .2rem rgba(180, 35, 24, .18); }
+/* El resumen se dibuja siempre; mientras no hay errores generales queda oculto. */
+.resumen-errores.validation-summary-valid { display: none; }
+.resumen-errores.validation-summary-errors { background: var(--tono-negativo-fondo); color: var(--tono-negativo-texto); border-radius: .5rem; padding: .9rem 1rem; font-size: .9rem; margin-bottom: 1.25rem; }
+.resumen-errores ul { margin: 0; padding-left: 1.1rem; }
+
+/* ---------- Tablas (sección 13) ---------- */
+.tabla { margin: 0; --bs-table-bg: #fff; --bs-table-hover-bg: #f6faf8; }
+.tabla thead th { background: #f0f5f2; color: var(--eop-texto-2); font-weight: 600; font-size: .85rem; border-bottom: 1px solid var(--eop-borde); padding: .7rem .8rem; white-space: nowrap; }
+.tabla tbody td { padding: .85rem .8rem; vertical-align: middle; border-color: #edf1ee; white-space: nowrap; }
+.tabla tbody tr:last-child td { border-bottom: 0; }
+.tabla td.col-principal { white-space: normal; min-width: 220px; max-width: 240px; }
+.tabla td.col-texto { white-space: normal; min-width: 140px; }
+.tabla .col-acciones { width: 1%; white-space: nowrap; text-align: right; position: sticky; right: 0; background-color: var(--bs-table-bg); border-left: 1px solid #edf1ee; z-index: 1; }
+.tabla thead th.col-acciones { background: #f0f5f2; border-left-color: var(--eop-borde); }
+.tabla .nombre { font-weight: 600; color: var(--eop-texto); text-decoration: none; }
+.tabla .nombre:hover { color: var(--eop-verde); text-decoration: underline; }
+.tabla .codigo { display: block; font-size: .78rem; color: var(--eop-texto-2); margin-top: .1rem; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px; }
+.num { font-variant-numeric: tabular-nums; }
+.responsable { display: flex; align-items: center; gap: .5rem; white-space: nowrap; }
+.pagination { --bs-pagination-active-bg: var(--eop-verde); --bs-pagination-active-border-color: var(--eop-verde); --bs-pagination-color: var(--eop-texto); --bs-pagination-focus-box-shadow: 0 0 0 .2rem rgba(26,122,76,.25); margin: 0; }
+
+/* ---------- Estados por tono (sección 15) ---------- */
+.estado { display: inline-flex; align-items: center; gap: .4rem; padding: .25rem .65rem; border-radius: 999px; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+.estado::before { content: ""; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+.estado-exito    { background: var(--tono-exito-fondo);    color: var(--tono-exito-texto); }
+.estado-atencion { background: var(--tono-atencion-fondo); color: var(--tono-atencion-texto); }
+.estado-neutro   { background: var(--tono-neutro-fondo);   color: var(--tono-neutro-texto); }
+.estado-cerrado  { background: var(--tono-cerrado-fondo);  color: var(--tono-cerrado-texto); }
+.estado-negativo { background: var(--tono-negativo-fondo); color: var(--tono-negativo-texto); }
+
+/* ---------- Mensajes (sección 16) ---------- */
+.aviso, .mensaje { display: flex; gap: .75rem; align-items: flex-start; border: 0; border-radius: .5rem; padding: .9rem 1rem; font-size: .9rem; }
+.aviso { background: var(--eop-hoja); color: var(--eop-bosque); }
+.mensaje { margin-bottom: 1.25rem; }
+.mensaje > .bi { font-size: 1.15rem; line-height: 1.3; flex-shrink: 0; }
+.mensaje-cuerpo { flex: 1; }
+.mensaje-cuerpo strong { display: block; font-weight: 700; }
+.mensaje-cuerpo ul { margin: .35rem 0 0; padding-left: 1.1rem; }
+.mensaje-cuerpo a { color: inherit; font-weight: 600; }
+.mensaje.alert-dismissible { padding-right: 1rem; }
+.mensaje .btn-close { position: static; padding: .35rem; margin: -.15rem -.25rem 0 0; flex-shrink: 0; }
+.mensaje-exito       { background: var(--tono-exito-fondo);    color: var(--tono-exito-texto); }
+.mensaje-advertencia { background: var(--tono-atencion-fondo); color: var(--tono-atencion-texto); }
+.mensaje-error       { background: var(--tono-negativo-fondo); color: var(--tono-negativo-texto); }
+.mensaje-info        { background: var(--eop-hoja);            color: var(--eop-bosque); }
+
+/* ---------- Sin resultados y sin dato (sección 17) ---------- */
+.sin-resultados { text-align: center; padding: 3rem 1.25rem; }
+.sin-resultados > .bi { font-size: 2rem; color: var(--eop-texto-2); display: block; margin-bottom: .75rem; }
+.sin-resultados h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
+.sin-resultados p { color: var(--eop-texto-2); max-width: 48ch; margin: 0 auto 1.25rem; }
+.sin-dato { color: var(--eop-texto-2); font-weight: 400; }
+
+/* ---------- Confirmación (sección 18.1) ---------- */
+.modal { --bs-modal-border-color: var(--eop-borde); --bs-modal-border-radius: .6rem; --bs-modal-box-shadow: none; --bs-modal-header-border-color: var(--eop-borde); --bs-modal-footer-border-color: var(--eop-borde); }
+.modal-title { font-family: "Red Hat Display", system-ui, sans-serif; font-size: 1.15rem; font-weight: 700; }
+.modal-backdrop { --bs-backdrop-bg: #0f3b2d; --bs-backdrop-opacity: .45; }
+
+/* ---------- Procesamiento (sección 18.2) ---------- */
+.btn .spinner-border-sm { --bs-spinner-width: .9rem; --bs-spinner-height: .9rem; --bs-spinner-border-width: .15em; vertical-align: -.1em; }
+.procesando { display: flex; gap: .75rem; align-items: center; background: var(--eop-hoja); color: var(--eop-bosque); border-radius: .5rem; padding: .9rem 1rem; font-size: .9rem; }
+.procesando .spinner-border { --bs-spinner-width: 1.25rem; --bs-spinner-height: 1.25rem; --bs-spinner-border-width: .18em; color: var(--eop-verde); flex-shrink: 0; }
+
+/* ---------- Ficha de un registro (sección 16 de la Parte A: datos, pestañas y contadores) ---------- */
+.datos-generales { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+.dato { padding: 1rem 1.25rem; border-right: 1px solid var(--eop-borde); }
+.dato:last-child { border-right: 0; }
+.dato dt { font-size: .82rem; font-weight: 500; color: var(--eop-texto-2); margin-bottom: .2rem; }
+.dato dd { margin: 0; font-weight: 600; }
+.dato .detalle { display: block; font-size: .8rem; color: var(--eop-texto-2); font-weight: 400; }
+.pestanas { display: flex; overflow-x: auto; border-bottom: 1px solid var(--eop-borde); padding: 0 .5rem; scrollbar-width: thin; }
+.pestana { display: flex; align-items: center; gap: .5rem; padding: .9rem .8rem; color: var(--eop-texto-2); text-decoration: none; white-space: nowrap; border-bottom: 3px solid transparent; margin-bottom: -1px; font-weight: 500; font-size: .93rem; }
+.pestana i { display: none; }
+@media (min-width: 1600px) { .pestana i { display: inline; } }
+.pestana:hover { color: var(--eop-bosque); }
+.pestana.activa { color: var(--eop-bosque); border-bottom-color: var(--eop-verde); font-weight: 700; }
+.contadores { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--eop-borde); border-radius: .6rem; overflow: hidden; }
+.contador { display: block; padding: 1.1rem 1.25rem; text-decoration: none; color: inherit; border-right: 1px solid var(--eop-borde); }
+.contador:last-child { border-right: 0; }
+.contador:hover { background: var(--eop-hoja); }
+.contador-etiqueta { display: flex; align-items: center; gap: .45rem; color: var(--eop-texto-2); font-size: .9rem; }
+.contador-valor { font-family: "Red Hat Display", system-ui, sans-serif; font-size: 2rem; font-weight: 700; color: var(--eop-bosque); line-height: 1.2; font-variant-numeric: tabular-nums; }
+.contador-pie { font-size: .82rem; color: var(--eop-verde); font-weight: 600; }
+@media (max-width: 767.98px) {
+  .contadores { grid-template-columns: repeat(2, 1fr); }
+  .contador:nth-child(2) { border-right: 0; }
+  .contador:nth-child(-n+2) { border-bottom: 1px solid var(--eop-borde); }
+}
+.plazo-barra { height: 8px; border-radius: 99px; background: #e4ebe7; position: relative; margin: 1rem 0 .5rem; }
+.plazo-avance { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: var(--eop-verde); }
+.plazo-hoy { position: absolute; top: -5px; width: 2px; height: 18px; background: var(--eop-bosque); }
+
+/* ---------- Etapas del presupuesto (sección 19, RNF-19) ---------- */
+.etapas { display: flex; list-style: none; margin: 0; padding: 1.1rem 1.25rem; }
+.etapa { flex: 1; position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: .45rem; color: var(--eop-texto-2); font-size: .9rem; }
+.etapa::before { content: ""; position: absolute; top: 15px; right: 50%; width: 100%; height: 2px; background: var(--eop-borde); z-index: 0; }
+.etapa:first-child::before { display: none; }
+.etapa-marca { position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: .9rem; background: #fff; border: 2px solid var(--eop-borde-campo); color: var(--eop-texto-2); font-variant-numeric: tabular-nums; }
+.etapa-estado { display: block; font-size: .78rem; font-weight: 400; color: var(--eop-texto-2); }
+.etapa-completada { color: var(--eop-texto); }
+.etapa-completada .etapa-marca { background: var(--eop-verde); border-color: var(--eop-verde); color: #fff; }
+.etapa-completada::before, .etapa-actual::before { background: var(--eop-verde); }
+.etapa-actual { color: var(--eop-bosque); font-weight: 700; }
+.etapa-actual .etapa-marca { border: 3px solid var(--eop-verde); color: var(--eop-bosque); box-shadow: 0 0 0 4px var(--eop-hoja); }
+@media (max-width: 575.98px) {
+  .etapa:not(.etapa-actual) .etapa-nombre { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
-}
+/* ---------- Pantalla de inicio (Parte C) ---------- */
+.contenido-centrado { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 64px); max-width: none; }
+.bienvenida { max-width: 520px; width: 100%; text-align: center; padding: 3rem 2rem; }
+.bienvenida-marca { font-family: "Red Hat Display", system-ui, sans-serif; font-weight: 800; font-size: 2.6rem; letter-spacing: .02em; color: var(--eop-bosque); line-height: 1; }
+.bienvenida-sub { color: var(--eop-texto-2); font-size: .9rem; margin: .5rem 0 0; }
+.bienvenida hr { width: 48px; margin: 1.75rem auto; border-top: 2px solid var(--eop-verde); opacity: 1; }
+.bienvenida h1 { font-size: 1.6rem; font-weight: 700; color: var(--eop-texto); margin: 0; }
+.bienvenida-ayuda { color: var(--eop-texto-2); margin: .5rem 0 0; }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
-}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

@@ -9,22 +9,18 @@
    El mensaje es el mismo para todos a propósito: no le contamos a quien intenta
    entrar si la cuenta existe o está inactiva. El motivo real queda en el log. *@
 
-<div class="row justify-content-center">
-    <div class="col-12 col-md-8 col-lg-6">
-        <div class="card text-center mt-4">
-            <div class="card-body">
-                <h1 class="h4 card-title">No se pudo iniciar sesión</h1>
-                <p class="card-text">
-                    No pudimos completar tu inicio de sesión en EOP. Puede deberse a que el
-                    proceso se interrumpió, a que tu cuenta no tiene acceso habilitado a esta
-                    aplicación o a un problema temporal.
-                </p>
-                <p class="card-text">
-                    Podés volver a intentarlo. Si el problema continúa, comunicate con el
-                    administrador de EOP.
-                </p>
-                <a class="btn btn-primary" asp-controller="Cuenta" asp-action="IniciarSesion">Intentar de nuevo</a>
-            </div>
-        </div>
-    </div>
-</div>
+@* Quien llega acá no tiene sesión, así que el layout la muestra sin menú, con la marca
+   arriba y este panel centrado. *@
+<section class="panel panel-cuerpo p-4">
+    <h1 class="h4 fw-bold">No se pudo iniciar sesión</h1>
+    <p>
+        No pudimos completar tu inicio de sesión en EOP. Puede deberse a que el
+        proceso se interrumpió, a que tu cuenta no tiene acceso habilitado a esta
+        aplicación o a un problema temporal.
+    </p>
+    <p class="text-body-secondary">
+        Podés volver a intentarlo. Si el problema continúa, comunicate con el
+        administrador de EOP.
+    </p>
+    <a class="btn btn-primary" asp-controller="Cuenta" asp-action="IniciarSesion">Intentar de nuevo</a>
+</section>

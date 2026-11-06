@@ -11,16 +11,15 @@ function iniciarFormularioRegistrarUsuario() {
 
     formulario.addEventListener("submit", function () {
         // Si hay errores, jQuery Validation frena el envío y el botón tiene que seguir disponible.
+        // mostrarProcesando está en site.js: deshabilita el botón y le agrega el indicador de la guía.
         if ($(formulario).valid()) {
-            boton.disabled = true;
-            boton.textContent = "Registrando...";
+            mostrarProcesando(boton, "Registrando...");
         }
     });
 
     // Al volver con el botón "Atrás", el navegador puede restaurar la página tal como quedó,
     // con el botón deshabilitado. Por eso lo dejamos disponible cada vez que se muestra.
     window.addEventListener("pageshow", function () {
-        boton.disabled = false;
-        boton.textContent = textoOriginalDelBoton;
+        quitarProcesando(boton, textoOriginalDelBoton);
     });
 }
