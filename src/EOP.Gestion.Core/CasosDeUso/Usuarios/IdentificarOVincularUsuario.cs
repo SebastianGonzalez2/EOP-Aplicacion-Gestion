@@ -52,6 +52,14 @@ public class IdentificarOVincularUsuario
 
         usuario = await _repositorioUsuarios.ObtenerPorCorreoCorporativoAsync(correoCorporativo.Trim(), cancellationToken);
 
+        // Caso de las dos pestañas: la primera búsqueda (por Object ID) no lo encontró, pero justo
+        // después otra pestaña de la MISMA persona lo vinculó. Si ya está vinculado con este mismo
+        // identificador, es la misma persona: la dejamos pasar en vez de rechazarla.
+        if (usuario != null && usuario.Activo && usuario.EntraObjectId == entraObjectId)
+        {
+            return usuario;
+        }
+
         // No vinculamos usuarios inexistentes, inactivos
         // ni usuarios vinculados con otra identidad.
         if (usuario == null || !usuario.Activo || usuario.EntraObjectId != null)

@@ -144,6 +144,11 @@ public partial class ValidacionSesionIniciadaIntegracionTests
     [InlineData("1,2")]
     // El número de un rol tampoco se acepta: solo el nombre.
     [InlineData("2")]
+    // Variantes de escritura de un rol válido: se comparan exactas, sin normalizar.
+    [InlineData("administrador")]
+    [InlineData("ADMINISTRADOR")]
+    [InlineData(" Supervisor")]
+    [InlineData("Operador\n")]
     public async Task RolQueNoEsElNombreDeUnoDeLosTresFijos_SeRechazaYElRolNoCambia(string rolEnviado)
     {
         using var fabrica = new FabricaConSesionReal();

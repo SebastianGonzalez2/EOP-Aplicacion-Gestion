@@ -513,6 +513,7 @@ public partial class ValidacionSesionIniciadaIntegracionTests
     private static async Task AssertAccesoDenegadoPorRolAsync(HttpResponseMessage respuesta)
     {
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Equal("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.AbsolutePath);
         Assert.DoesNotContain(AccionesDePruebaPorRolController.TextoDeAccionEjecutada, await respuesta.Content.ReadAsStringAsync());
         Assert.False(BorraLaCookieDeSesion(respuesta), "La app borró la cookie de un usuario que solo no tenía permiso.");
     }
