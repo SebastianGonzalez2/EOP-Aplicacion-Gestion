@@ -1,3 +1,4 @@
+
 using EOP.Gestion.Core.CasosDeUso.Proveedores;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Proveedores;
@@ -32,6 +33,14 @@ public class RegistrarProveedorTests
         public Task<bool> ExistePorRutAsync(string rutNormalizado, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(RutsRegistrados.Contains(rutNormalizado));
+        }
+
+        // Método agregado en S2-T16: consulta los proveedores guardados por este repositorio falso.
+        // No accede a SQL Server, porque estas son pruebas unitarias.
+        public Task<bool> ExistePorIdAsync(int proveedorId, CancellationToken cancellationToken = default)
+        {
+            bool existe = ProveedoresGuardados.Any(proveedor => proveedor.Id == proveedorId);
+            return Task.FromResult(existe);
         }
 
         public Task<ResultadoAgregarProveedor> AgregarAsync(Proveedor proveedor, CancellationToken cancellationToken = default)

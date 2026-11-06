@@ -1,3 +1,4 @@
+
 using EOP.Gestion.Core.CasosDeUso.Proveedores;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Proveedores;
@@ -32,6 +33,13 @@ public class ValidarDatosProveedorTests
         {
             RutConsultado = rutNormalizado;
             return Task.FromResult(RutsRegistrados.Contains(rutNormalizado));
+        }
+
+        // Este validador no necesita buscar proveedores por Id.
+        // Si empieza a hacerlo, preferimos que la prueba falle para revisar ese cambio.
+        public Task<bool> ExistePorIdAsync(int proveedorId, CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("ValidarDatosProveedor no debería consultar proveedores por Id.");
         }
 
         // Validar nunca guarda. Si alguien lo cambiara, esta excepción haría fallar las pruebas.

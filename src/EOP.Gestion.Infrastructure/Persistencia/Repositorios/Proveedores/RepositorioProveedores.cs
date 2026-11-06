@@ -1,3 +1,4 @@
+
 using EOP.Gestion.Core.DTOs.Proveedores;
 using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Interfaces.Proveedores;
@@ -20,6 +21,8 @@ public class RepositorioProveedores : IRepositorioProveedores
 
     private readonly EopDbContext _context;
 
+    // Recibimos el contexto para poder consultar los
+    // proveedores registrados en la base de datos.
     public RepositorioProveedores(EopDbContext context)
     {
         _context = context;
@@ -27,17 +30,25 @@ public class RepositorioProveedores : IRepositorioProveedores
 
     // AnyAsync le pregunta a la base "¿hay al menos uno?" y corta en cuanto encuentra el primero.
     // No trae ningún proveedor a memoria, así que tampoco hay nada que se pueda modificar sin querer.
-    public Task<bool> ExistePorNombreNormalizadoAsync(string nombreNormalizado, CancellationToken cancellationToken = default)
+    public Task<bool> ExistePorNombreNormalizadoAsync(string nombreNormalizado,CancellationToken cancellationToken = default)
     {
-        return _context.Proveedores.AnyAsync(proveedor => proveedor.NombreNormalizado == nombreNormalizado, cancellationToken);
+        return _context.Proveedores.AnyAsync(proveedor => proveedor.NombreNormalizado == nombreNormalizado,cancellationToken);
     }
 
-    public Task<bool> ExistePorRutAsync(string rutNormalizado, CancellationToken cancellationToken = default)
+    // Comprueba si ya existe un proveedor con el RUT normalizado.
+    public Task<bool> ExistePorRutAsync(string rutNormalizado,CancellationToken cancellationToken = default)
     {
-        return _context.Proveedores.AnyAsync(proveedor => proveedor.Rut == rutNormalizado, cancellationToken);
+        return _context.Proveedores.AnyAsync(proveedor => proveedor.Rut == rutNormalizado,cancellationToken);
     }
 
-    public async Task<ResultadoAgregarProveedor> AgregarAsync(Proveedor proveedor, CancellationToken cancellationToken = default)
+    // Comprueba si existe un proveedor con el Id recibido.
+    // Devuelve true si existe y false si no existe.
+    public async Task<bool> ExistePorIdAsync(int proveedorId,CancellationToken cancellationToken = default)
+    {
+        return await _context.Proveedores.AnyAsync(proveedor => proveedor.Id == proveedorId,cancellationToken);
+    }
+
+    public async Task<ResultadoAgregarProveedor> AgregarAsync(Proveedor proveedor,CancellationToken cancellationToken = default)
     {
         // Add no marca solo al Proveedor: también marca las cuentas de Proveedor.CuentasBancarias.
         // Al guardar, EF inserta primero el Proveedor, obtiene su Id y se lo pone a cada cuenta.
@@ -86,7 +97,8 @@ public class RepositorioProveedores : IRepositorioProveedores
             return false;
         }
 
-        if (errorDeSqlServer.Number != ErrorIndiceUnicoRepetido && errorDeSqlServer.Number != ErrorRestriccionUnicaRepetida)
+        if (errorDeSqlServer.Number != ErrorIndiceUnicoRepetido &&
+            errorDeSqlServer.Number != ErrorRestriccionUnicaRepetida)
         {
             return false;
         }

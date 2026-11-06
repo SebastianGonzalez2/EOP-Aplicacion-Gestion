@@ -32,6 +32,11 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
     public DbSet<Material> Materiales => Set<Material>();
 
 
+    // Representa las relaciones entre materiales y proveedores.
+    // Cada relación guarda el precio, la moneda y la fecha de actualización.
+    public DbSet<MaterialProveedor> MaterialProveedores => Set<MaterialProveedor>();
+
+
     // Se ejecuta cuando Entity Framework construye el modelo
     // de datos de la aplicación.
     protected override void OnModelCreating(ModelBuilder modelBuilder)

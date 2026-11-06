@@ -9,6 +9,7 @@ using EOP.Gestion.Core.CasosDeUso.Clientes;
 using EOP.Gestion.Core.CasosDeUso.Proveedores;
 using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using System.Security.Claims;
+using EOP.Gestion.Core.CasosDeUso.Materiales;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +44,10 @@ builder.Services.AddScoped<ValidarDatosProveedor>();
 // Registramos el caso de uso que valida y guarda
 // los nuevos proveedores con sus cuentas bancarias.
 builder.Services.AddScoped<RegistrarProveedor>();
+
+// Registramos el caso de uso que valida y guarda
+// los materiales con su primera relación material-proveedor.
+builder.Services.AddScoped<RegistrarMaterial>();
 
 // Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
 builder.Services.AddScoped<IdentificarOVincularUsuario>();

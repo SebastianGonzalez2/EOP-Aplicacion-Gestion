@@ -1,3 +1,4 @@
+
 using EOP.Gestion.Core.CasosDeUso.Proveedores;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Proveedores;
@@ -275,6 +276,13 @@ public class RegistrarProveedorSqlServerTests : IAsyncLifetime
         public Task<bool> ExistePorRutAsync(string rutNormalizado, CancellationToken cancellationToken = default)
         {
             return _repositorioReal.ExistePorRutAsync(rutNormalizado, cancellationToken);
+        }
+
+        // Método agregado en S2-T16: verificamos si el proveedor existe por Id.
+        // Delegamos la consulta al repositorio real, sin modificar los demás métodos de prueba.
+        public Task<bool> ExistePorIdAsync(int proveedorId, CancellationToken cancellationToken = default)
+        {
+            return _repositorioReal.ExistePorIdAsync(proveedorId, cancellationToken);
         }
 
         public async Task<ResultadoAgregarProveedor> AgregarAsync(Proveedor proveedor, CancellationToken cancellationToken = default)
