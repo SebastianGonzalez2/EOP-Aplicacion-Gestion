@@ -190,6 +190,18 @@ Editables: Borrador, Para revisión interna, Solicitud de modificación del clie
 
 ---
 
+## Diseño visual
+
+Toda vista, componente o estilo nuevo o modificado sigue la guía aprobada en
+[`docs/diseno-visual.md`](./docs/diseno-visual.md) (alternativa A — Corporativa moderna).
+Antes de tocar la interfaz, leé las secciones de los componentes que vas a usar y
+reutilizá sus tokens, clases y patrones; no inventes colores, tipografías ni componentes
+que la guía ya resuelve. Si algo no está cubierto, resolvelo con los tokens existentes y
+proponé el agregado a la guía. La Skill `frontend-design` puede usarse como apoyo, pero
+ante cualquier diferencia prevalece `docs/diseno-visual.md`.
+
+---
+
 ## Convenciones
 
 **Código** — Convenciones estándar de C# y .NET. Nombres descriptivos en clases, métodos y variables. Comentarios solo donde el código no se explica solo.
