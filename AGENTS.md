@@ -121,6 +121,18 @@ volverlos inmanejables.
 El contexto de EF Core es `EopDbContext` (`Infrastructure/Persistencia`). Cada entidad tiene
 su `DbSet` ahí y su mapeo en una clase propia dentro de `Persistencia/Configuraciones`.
 
+**Duplicados al guardar.** Cuando un dato debe ser único, el caso de uso consulta antes si ya
+existe (para dar el mensaje), pero la respuesta definitiva la da el índice único de la base,
+porque dos solicitudes simultáneas pueden pasar las dos la consulta previa. Todos los
+repositorios lo resuelven de la misma forma:
+
+- Se atrapa el error solo con `catch (DbUpdateException excepcion) when (IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.<Índice>))`
+  y se devuelve un resultado de duplicado (por ejemplo `false`) para que el caso de uso muestre el
+  mismo mensaje que en el caso normal.
+- No se atrapa cualquier `DbUpdateException` ni se vuelve a consultar la base para deducir si era
+  un duplicado: cualquier otro error sigue de largo hasta el manejo de errores de la aplicación.
+- Cada índice nuevo que se use así se agrega a `IndicesUnicos` y a `IndicesUnicosTests`.
+
 ---
 
 ## Reglas que todo código debe cumplir

@@ -2,23 +2,12 @@
 using EOP.Gestion.Core.DTOs.Proveedores;
 using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Interfaces.Proveedores;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
 
 public class RepositorioProveedores : IRepositorioProveedores
 {
-    // Los códigos con los que SQL Server avisa que se repitió un valor único: 2601 si lo que frenó
-    // el dato es un índice único y 2627 si es una restricción UNIQUE. Hoy tenemos índices, pero
-    // miramos los dos porque para nosotros significan exactamente lo mismo.
-    private const int ErrorIndiceUnicoRepetido = 2601;
-    private const int ErrorRestriccionUnicaRepetida = 2627;
-
-    // Los nombres de los índices que creó la migración de S2-T10.
-    private const string IndiceNombreNormalizado = "IX_Proveedores_NombreNormalizado";
-    private const string IndiceRut = "IX_Proveedores_Rut";
-
     private readonly EopDbContext _context;
 
     // Recibimos el contexto para poder consultar los
@@ -62,48 +51,28 @@ public class RepositorioProveedores : IRepositorioProveedores
         // excepción sigue su camino intacta y termina en el manejo de errores de la aplicación,
         // que la registra y muestra una pantalla segura (RNF-12). Así una base caída o una
         // restricción violada nunca se le informan al usuario como si fueran un duplicado.
+        // Cómo se reconoce el índice repetido está explicado en IndicesUnicos.
+        //
+        // Si se repiten el nombre y el RUT a la vez, SQL Server avisa solo del primero que encuentra.
+        // Da igual: el alta se rechaza y el mensaje que recibe el usuario sigue siendo cierto.
         try
         {
             await _context.SaveChangesAsync(cancellationToken);
 
             return ResultadoAgregarProveedor.Agregado;
         }
-        catch (DbUpdateException excepcion) when (RepitioElIndice(excepcion, IndiceNombreNormalizado))
+        catch (DbUpdateException excepcion) when (IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ProveedoresNombreNormalizado))
         {
             OlvidarElProveedorRechazado();
 
             return ResultadoAgregarProveedor.NombreDuplicado;
         }
-        catch (DbUpdateException excepcion) when (RepitioElIndice(excepcion, IndiceRut))
+        catch (DbUpdateException excepcion) when (IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ProveedoresRut))
         {
             OlvidarElProveedorRechazado();
 
             return ResultadoAgregarProveedor.RutDuplicado;
         }
-    }
-
-    // Miramos el código y el índice en vez de asumir que todo DbUpdateException es un duplicado.
-    //
-    // El nombre del índice solo se puede sacar del texto del mensaje, porque SQL Server no lo da
-    // aparte. Lo usamos únicamente para esta comparación: ese mensaje trae el valor repetido, así
-    // que no se muestra ni se registra en ningún lado.
-    //
-    // Si se repiten el nombre y el RUT a la vez, SQL Server avisa solo del primero que encuentra.
-    // Da igual: el alta se rechaza y el mensaje que recibe el usuario sigue siendo cierto.
-    private static bool RepitioElIndice(DbUpdateException excepcion, string nombreDelIndice)
-    {
-        if (excepcion.InnerException is not SqlException errorDeSqlServer)
-        {
-            return false;
-        }
-
-        if (errorDeSqlServer.Number != ErrorIndiceUnicoRepetido &&
-            errorDeSqlServer.Number != ErrorRestriccionUnicaRepetida)
-        {
-            return false;
-        }
-
-        return errorDeSqlServer.Message.Contains(nombreDelIndice, StringComparison.Ordinal);
     }
 
     // Después del rechazo, EF sigue teniendo anotado el Proveedor y sus cuentas como "pendientes

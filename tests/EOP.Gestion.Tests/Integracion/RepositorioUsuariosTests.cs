@@ -338,35 +338,8 @@ public class RepositorioUsuariosTests : IDisposable
         Assert.Null(guardado.EntraObjectId);
     }
 
-    [Fact]
-    public async Task AgregarSiCorreoDisponibleAsync_ConCorreoOcupado_DevuelveFalseSinGuardarNiPisarAlOtro()
-    {
-        var original = await GuardarUsuarioAsync("juan@eop.com.uy", rol: RolUsuario.Administrador);
-
-        bool resultado = await _repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuarioNuevo("juan@eop.com.uy"));
-
-        Assert.False(resultado);
-
-        using var contexto = CrearContexto();
-        Usuario unico = await contexto.Usuarios.SingleAsync();
-        Assert.Equal(original.Id, unico.Id);
-        Assert.Equal(RolUsuario.Administrador, unico.Rol);
-    }
-
-    [Fact]
-    public async Task AgregarSiCorreoDisponibleAsync_DespuesDeUnRechazo_ElMismoContextoSigueSirviendo()
-    {
-        // Sin sacar del contexto al usuario rechazado, el guardado siguiente lo volvería a intentar y fallaría.
-        await GuardarUsuarioAsync("juan@eop.com.uy");
-        await _repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuarioNuevo("juan@eop.com.uy"));
-
-        bool resultado = await _repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuarioNuevo("ana@eop.com.uy"));
-
-        Assert.True(resultado);
-
-        using var contexto = CrearContexto();
-        Assert.Equal(2, await contexto.Usuarios.CountAsync());
-    }
+    // S1-T34: el correo repetido se reconoce por el error de SQL Server (ver IndicesUnicos), así que
+    // esos casos se prueban contra SQL Server real en RegistrarUsuarioSqlServerTests.
 
     [Fact]
     public async Task AgregarSiCorreoDisponibleAsync_ConUnErrorQueNoEsElCorreo_NoLoDisimulaComoDuplicado()

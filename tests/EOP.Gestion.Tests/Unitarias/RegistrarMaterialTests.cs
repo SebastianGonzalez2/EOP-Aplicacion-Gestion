@@ -18,10 +18,10 @@ public class RegistrarMaterialTests
         public Task<bool> ExistePorNombreNormalizadoAsync(string nombreNormalizado, CancellationToken cancellationToken = default) =>
             Task.FromResult(false);
 
-        public Task AgregarConPrimeraRelacionAsync(Material material, MaterialProveedor primeraRelacion, CancellationToken cancellationToken = default)
+        public Task<bool> AgregarSiNombreDisponibleAsync(Material material, MaterialProveedor primeraRelacion, CancellationToken cancellationToken = default)
         {
             MaterialGuardado = material;
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
     }
 
