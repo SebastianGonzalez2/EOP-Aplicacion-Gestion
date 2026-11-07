@@ -8,18 +8,17 @@ Las reglas vigentes que se derivan de estas decisiones están en [`AGENTS.md`](.
 
 ---
 
-## DT-01 — Tres proyectos en la solución
+## DT-01 — Organización del proyecto en capas
 
 **Fecha:** 26/10/2026 · **Sprint:** 1
 
-**Decisión.** La solución se divide en `Core`, `Infrastructure` y `WebApp`, más un proyecto de pruebas. `Core` no referencia a ningún otro proyecto.
+**Decisión:** Dividimos la aplicación en tres proyectos principales: `Core`, `Infrastructure` y `WebApp`, además de un proyecto separado para las pruebas.
 
-**Motivo.** La arquitectura documentada define cuatro responsabilidades separadas: presentación, lógica de negocio, persistencia e integraciones externas. Un proyecto por responsabilidad convierte esa separación en una restricción del compilador en lugar de una convención que se respeta por disciplina.
+**Justificación:** Elegimos esta organización para separar las responsabilidades del sistema. En `Core` tenemos las reglas de negocio, en `Infrastructure` el acceso a datos y las integraciones, y en `WebApp` los controladores y las pantallas.
 
-**Alternativas descartadas.**
+De esta manera, evitamos mezclar todo el código en un mismo lugar. También podemos probar la lógica de negocio sin depender directamente de la base de datos o de la interfaz.
 
-- *Un único proyecto con carpetas.* Más simple al principio, pero nada impide que un Controller consulte la base directamente, y con 58 historias de usuario eso termina pasando.
-- *Clean Architecture completa con capa de aplicación separada, CQRS y mediador.* Resuelve problemas de escala que este sistema no tiene, contradice la arquitectura documentada como monolito modular y no entra en las horas estimadas.
+La desventaja es que necesitamos más archivos y algunas configuraciones adicionales, pero consideramos que vale la pena para mantener el proyecto ordenado a medida que crece.
 
 ---
 
@@ -27,32 +26,31 @@ Las reglas vigentes que se derivan de estas decisiones están en [`AGENTS.md`](.
 
 **Fecha:** 26/10/2026 · **Sprint:** 1
 
-**Decisión.** Dentro de `Core`, las reglas de negocio puras viven en `ServiciosDominio/` y la orquestación de operaciones completas del usuario en `CasosDeUso/`.
+**Decisión:** Dentro de `Core`, separamos las reglas de negocio reutilizables de las operaciones completas que realiza el usuario.
 
-**Motivo.** Sin una regla escrita, con dos personas trabajando en paralelo y con dos asistentes de IA distintos, la misma validación termina implementada en varios lugares. La regla práctica: si una regla sirve para más de un caso de uso, es servicio de dominio; si describe un flujo que el usuario reconoce como una acción, es caso de uso.
+**Justificación:** Nos pareció importante distinguir entre una regla que puede utilizarse en diferentes funcionalidades y una operación concreta del sistema.
 
-**Alternativas descartadas.**
+Por ejemplo, validar un RUT es una regla que pueden necesitar tanto Clientes como Proveedores. En cambio, registrar un cliente es una operación que reúne varias validaciones y finalmente guarda la información.
 
-- *Un único `Servicios/`.* Menos carpetas, pero mezcla reglas reutilizables con orquestación, y las primeras dejan de ser testeables de forma aislada.
+Esta separación evita repetir código y facilita las pruebas. También nos ayuda a mantener un criterio común cuando trabajamos los dos integrantes del equipo.
 
 ---
 
-## DT-03 — Patrón Repositorio sobre Entity Framework Core
+## DT-03 — Uso del patrón Repositorio para acceder a los datos
 
 **Fecha:** 26/10/2026 · **Sprint:** 1
 
-**Decisión.** El acceso a datos desde `Core` pasa por interfaces de repositorio definidas en `Core/Interfaces` e implementadas en `Infrastructure/Persistencia/Repositorios`. Un repositorio por agregado, nunca genérico, sin exponer `IQueryable`.
+**Decisión:** Los casos de uso acceden a los datos mediante interfaces de repositorio. Las implementaciones que utilizan Entity Framework Core quedan en `Infrastructure`.
 
-**Motivo.** Mantiene `Core` sin ninguna dependencia de Entity Framework Core, lo que hace que la regla de dependencias sea imposible de romper y permite probar los casos de uso sin base de datos.
+Para los listados con filtros combinables utilizamos servicios de consulta específicos, también ubicados en `Infrastructure`.
 
-**Costo asumido.** `DbContext` ya cumple el rol de Unit of Work y `DbSet<T>` el de repositorio, así que esta capa agrega archivos que en parte delegan. Se acepta a cambio del desacoplamiento y de la testeabilidad.
+**Justificación:** Queríamos que las reglas de negocio no dependieran directamente de cómo guardamos los datos.
 
-**Excepción.** Los listados con filtros combinables y los indicadores económicos no pasan por repositorios: van por servicios de consulta en `Infrastructure` que usan EF Core directamente y devuelven DTOs. Incluirlos haría crecer los repositorios con métodos de un solo uso.
+Esto nos permite, por ejemplo, probar un caso de uso utilizando un repositorio de prueba, sin tener que conectarnos a SQL Server.
 
-**Alternativas descartadas.**
+Para los listados elegimos un enfoque más directo porque suelen necesitar consultas y filtros particulares. Si agregáramos todos esos métodos a los repositorios, terminarían teniendo demasiadas responsabilidades.
 
-- *Usar `DbContext` directamente desde los casos de uso.* Menos código, pero ata `Core` a EF Core y obliga a una base real para probar.
-- *Repositorio genérico `IRepositorio<T>`.* Termina necesitando métodos específicos igual, o devolviendo `IQueryable`, que filtra EF Core al dominio.
+Sabemos que esta organización requiere escribir algo más de código, pero nos permite mantener mejor separadas las capas.
 
 ---
 
@@ -95,30 +93,101 @@ Las reglas se probaron contra 203 RUT de la lista y los ejemplos de esa bibliote
 
 ---
 
-## DT-05 — Largo máximo de 200 caracteres para los nombres
+## DT-05 — Autenticación mediante Microsoft Entra ID
 
-**Fecha:** 06/11/2026 · **Sprint:** 1
+**Sprint:** 1
 
-**Decisión.** El nombre de Cliente y el de Material admiten como máximo 200 caracteres, igual que el de Proveedor, que ya tenía ese largo desde S2-T10. El límite se aplica en tres lugares que usan el mismo valor:
+**Decisión:** Utilizamos Microsoft Entra ID para autenticar a los usuarios, integrándolo mediante `Microsoft.Identity.Web` y OpenID Connect. Microsoft se encarga de la autenticación y del segundo factor, mientras que EOP administra los usuarios habilitados y sus roles.
 
-- la columna de la base (`HasMaxLength(200)`, migraciones `S1_T27_*`);
-- el caso de uso (`ValidarDatosCliente.LargoMaximoNombre` y `RegistrarMaterial.LargoMaximoNombre`), que es el control definitivo del servidor;
-- el `ViewModel` (`[StringLength]`), que solo sirve para avisar en el formulario.
+**Justificación:** El uso de Entra ID ya estaba establecido en los requerimientos. Nuestra decisión fue cómo integrarlo con la aplicación y cómo relacionar las cuentas de Microsoft con los usuarios de EOP.
 
-Los espacios del principio y del final se quitan antes de medir y no se guardan.
+No desarrollamos un sistema propio de contraseñas, porque Microsoft ya proporciona los mecanismos necesarios para comprobar la identidad.
 
-**Motivo.** Los requerimientos (RF-89, RF-108 y US-041) piden que el nombre sea obligatorio, pero no fijan un largo: esto es una decisión técnica, no una regla de negocio. La revisión del modelo de S1-T27 encontró dos problemas con las columnas sin límite (`nvarchar(max)`):
+Cuando una persona ingresa por primera vez, EOP vincula su cuenta de Microsoft con el usuario que el Administrador registró previamente. Después, utiliza el identificador de Microsoft para reconocerlo, en lugar de depender de un correo electrónico que podría cambiar.
 
-- En Material, el nombre no tenía límite, pero `NombreNormalizado` sí (450). Un nombre muy largo pasaba la validación y SQL Server lo rechazaba con un error de truncado, que el usuario veía como una página de error genérica.
-- Una columna `nvarchar(max)` acepta textos de cualquier tamaño y no se puede indexar, lo que complicaría una búsqueda por nombre más eficiente en el futuro.
+Así mantenemos separadas dos responsabilidades: Microsoft comprueba quién es la persona y EOP determina si puede acceder al sistema.
 
-Se eligió 200 para que los tres módulos que registran organizaciones o materiales se comporten igual. Alcanza de sobra para razones sociales y denominaciones de materiales reales.
+---
 
-**Alternativas descartadas.**
+## DT-06 — Control de permisos desde el servidor
 
-- *Dejar `nvarchar(max)`.* Mantiene el error de truncado en Material y no protege la base de textos desmedidos.
-- *Usar 450 en Material para igualarlo con `NombreNormalizado`.* Arregla el error, pero deja tres módulos con largos distintos sin ningún motivo de negocio.
-- *Validar el largo solo en el formulario.* No es control: un POST armado a mano lo saltea (RNF-10 y RNF-18).
+**Sprint:** 1
+
+**Decisión:** Los permisos se controlan desde el servidor utilizando los tres roles fijos del sistema: Administrador, Supervisor y Operador.
+
+Además, el sistema vuelve a comprobar el estado y el rol del usuario en cada solicitud autenticada.
+
+**Justificación:** No alcanza con ocultar botones o restringir opciones en la interfaz, porque un usuario podría intentar acceder directamente a una dirección o enviar una solicitud al servidor.
+
+Por eso, las acciones protegidas comprueban los permisos antes de ejecutarse.
+
+También decidimos consultar el rol actual del usuario en cada solicitud. De esta manera, si un Administrador cambia el rol de alguien o desactiva su cuenta, el cambio se aplica sin depender de que esa persona cierre sesión y vuelva a entrar.
+
+Esto implica realizar consultas adicionales a la base de datos, pero lo consideramos adecuado para mantener actualizados los permisos.
+
+---
+
+## DT-07 — Persistencia con Entity Framework Core, SQL Server y migraciones
+
+**Sprint:** 1
+
+**Decisión:** Utilizamos Entity Framework Core con el enfoque *Code First*, SQL Server como base de datos y migraciones para administrar los cambios del esquema.
+
+**Justificación:** Estas tecnologías forman parte del stack definido para el proyecto. Optamos por organizar las entidades y sus configuraciones en código, y utilizar migraciones para mantener actualizada la estructura de la base de datos.
+
+Esto permite que los cambios de las tablas queden registrados junto con el código y puedan revisarse antes de incorporarlos.
+
+También facilita que los dos integrantes trabajemos sobre una misma estructura y podamos identificar qué cambios se hicieron.
+
+La principal precaución es revisar correctamente las migraciones, especialmente cuando modifican tablas que ya contienen información.
+
+---
+
+## DT-08 — Validaciones en la aplicación y restricciones en la base de datos
+
+**Sprint:** 1
+
+**Decisión:** Además de validar los datos desde la aplicación, utilizamos restricciones de SQL Server para proteger la integridad de la información.
+
+**Justificación:** Aunque los casos de uso validen los datos antes de guardarlos, también queremos evitar que la base acepte información incorrecta si alguna validación se omite o aparece un error en el código.
+
+Por eso utilizamos restricciones para cuestiones importantes, como evitar valores duplicados, impedir roles inválidos y exigir determinados datos obligatorios.
+
+Esto también ayuda cuando dos solicitudes intentan registrar el mismo dato simultáneamente: la base de datos es la que garantiza que no se guarden duplicados.
+
+La desventaja es que algunas reglas deben mantenerse tanto en el código como en la base, por lo que tenemos que asegurarnos de que sean coherentes.
+
+---
+
+## DT-09 — Protección del último Administrador activo ante operaciones simultáneas
+
+**Sprint:** 1
+
+**Decisión:** Utilizamos transacciones y mecanismos de bloqueo de SQL Server para evitar que el sistema quede sin administradores activos, incluso cuando se intentan realizar varios cambios de rol simultáneamente.
+
+**Justificación:** No alcanza con comprobar que exista más de un Administrador antes de modificar un rol.
+
+Por ejemplo, si existen dos administradores y ambos intentan cambiar su rol al mismo tiempo, las dos solicitudes podrían comprobar que hay otro Administrador disponible y permitir los cambios. El resultado sería un sistema sin administradores.
+
+Para evitarlo, hacemos que estas operaciones se coordinen desde la base de datos. Así, una solicitud espera a que termine la otra y puede comprobar la situación actual antes de continuar.
+
+Es una solución más compleja que hacer una consulta normal, pero protege una regla importante del sistema.
+
+---
+
+## DT-10 — Pruebas con bases de datos de prueba y SQL Server real
+
+**Sprint:** 1
+
+**Decisión:** Para probar la persistencia utilizamos SQLite en memoria en muchas de las pruebas de integración, y SQL Server real en las pruebas que dependen de comportamientos específicos de ese motor.
+
+**Justificación:** No todas las pruebas necesitan levantar una base de datos SQL Server completa. Para comprobar operaciones comunes, una base SQLite en memoria nos permite ejecutar pruebas de forma más sencilla y aislada.
+
+Sin embargo, SQLite no se comporta exactamente igual que SQL Server. Por ejemplo, existen diferencias en los bloqueos, ciertas restricciones y las migraciones.
+
+Por eso, cuando necesitamos comprobar esos comportamientos, ejecutamos pruebas contra SQL Server.
+
+De esta manera combinamos pruebas prácticas para el desarrollo cotidiano con otras que verifican cómo funcionará realmente la persistencia del sistema.
 
 ---
 

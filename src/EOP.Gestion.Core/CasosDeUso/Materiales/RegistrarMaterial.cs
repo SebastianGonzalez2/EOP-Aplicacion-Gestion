@@ -12,6 +12,10 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
         // SQL Server rechazaría el INSERT y el usuario vería un error genérico en vez de este mensaje.
         public const int LargoMaximoNombre = 200;
 
+        // Lo usamos en dos lugares: cuando la consulta previa encuentra el nombre y cuando el
+        // índice único lo frena al guardar. Así el usuario ve siempre el mismo mensaje.
+        public const string MensajeNombreDuplicado = "Ya existe un material con ese nombre.";
+
         private readonly IRepositorioMateriales _repositorioMateriales;
         private readonly IRepositorioProveedores _repositorioProveedores;
 
@@ -94,7 +98,7 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
 
             if (nombreExiste)
             {
-                errores.Add("Ya existe un material con ese nombre.");
+                errores.Add(MensajeNombreDuplicado);
             }
 
             // Verificamos que el proveedor realmente
@@ -124,7 +128,17 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
             };
 
             // Guardamos ambos registros mediante el repositorio.
-            await _repositorioMateriales.AgregarConPrimeraRelacionAsync(material,primeraRelacion,cancellationToken);
+            //
+            // La consulta de más arriba ya comprobó que el nombre estuviera libre, pero entre esa
+            // consulta y este guardado otra persona pudo haber registrado el mismo material. La
+            // respuesta definitiva la da el índice único de la base: si devuelve false, le
+            // mostramos el mismo mensaje que en el caso normal.
+            bool materialGuardado = await _repositorioMateriales.AgregarSiNombreDisponibleAsync(material,primeraRelacion,cancellationToken);
+
+            if (!materialGuardado)
+            {
+                errores.Add(MensajeNombreDuplicado);
+            }
 
             // Si todo salió bien, devolvemos la lista vacía.
             return errores;

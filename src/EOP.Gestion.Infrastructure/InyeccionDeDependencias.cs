@@ -12,14 +12,9 @@ using EOP.Gestion.Core.Interfaces.Materiales;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales;
 using EOP.Gestion.Core.Interfaces.Proveedores;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
-
-
-using EOP.Gestion.Core.Interfaces.Proveedores;
-using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
+using EOP.Gestion.Infrastructure.Consultas.Clientes;
 
 namespace EOP.Gestion.Infrastructure;
-
-using EOP.Gestion.Infrastructure.Consultas.Clientes;
 
 /// <summary>
 /// Punto único de registro de los servicios de Infrastructure en el contenedor.
@@ -59,6 +54,8 @@ public static class InyeccionDeDependencias
 
         // Registramos el repositorio de proveedores para comprobar duplicados de nombre y RUT
         // y para guardar los proveedores nuevos.
+        // También lo utilizaremos para comprobar que el proveedor
+        // seleccionado al registrar un material exista.
         services.AddScoped<IRepositorioProveedores, RepositorioProveedores>();
 
         // Singleton: arma la lista de países una sola vez y no guarda nada de cada pedido,
@@ -73,11 +70,6 @@ public static class InyeccionDeDependencias
         // Cuando una clase necesite IRepositorioMateriales,
         // ASP.NET Core le proporcionará RepositorioMateriales.
         services.AddScoped<IRepositorioMateriales, RepositorioMateriales>();
-
-        // Registramos el repositorio de proveedores.
-        // Lo utilizaremos para comprobar que el proveedor
-        // seleccionado al registrar un material exista.
-        services.AddScoped<IRepositorioProveedores, RepositorioProveedores>();
 
         return services;
     }

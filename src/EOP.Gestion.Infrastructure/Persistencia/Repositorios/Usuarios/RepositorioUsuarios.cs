@@ -153,32 +153,28 @@ public class RepositorioUsuarios : IRepositorioUsuarios
     {
         _contexto.Usuarios.Add(usuario);
 
+        // DbUpdateException no significa solamente "correo repetido": también aparece, por
+        // ejemplo, si no se cumple la restricción del rol. Por eso el "when" deja atrapar el error
+        // solo si SQL Server avisa que se repitió el índice del correo (ver IndicesUnicos). Si el
+        // problema es otro, la excepción sigue de largo hasta el manejo de errores de la aplicación,
+        // que la registra (RNF-12): no lo ocultamos ni lo informamos como un correo repetido.
+        //
+        // S1-T34: antes acá le volvíamos a preguntar a la base si el correo existía. Lo cambiamos
+        // para que todos los repositorios detecten los duplicados de la misma forma, y porque mirar
+        // el error mismo es más preciso que deducirlo con una consulta aparte.
         try
         {
             await _contexto.SaveChangesAsync(cancellationToken);
 
             return true;
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException excepcion) when (IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.UsuariosCorreoCorporativo))
         {
             // EF Core sigue recordando que tiene este usuario pendiente de guardar. Lo sacamos
             // para que un guardado posterior con este mismo contexto no lo vuelva a intentar.
             _contexto.Entry(usuario).State = EntityState.Detached;
 
-            // DbUpdateException no significa solamente "correo repetido": también aparece, por
-            // ejemplo, si no se cumple la restricción del rol. Para distinguirlos le preguntamos
-            // a la base si el correo existe, en vez de interpretar el código de error de cada motor.
-            // Si existe, otra solicitud nos ganó de mano. Si no, el problema es otro y no lo ocultamos.
-            bool correoYaRegistrado = await _contexto.Usuarios.AnyAsync(
-                u => u.CorreoCorporativo == usuario.CorreoCorporativo,
-                cancellationToken);
-
-            if (correoYaRegistrado)
-            {
-                return false;
-            }
-
-            throw;
+            return false;
         }
     }
 }

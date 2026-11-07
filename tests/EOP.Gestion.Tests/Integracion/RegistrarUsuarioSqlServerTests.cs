@@ -188,6 +188,37 @@ public class RegistrarUsuarioSqlServerTests : IAsyncLifetime
         Assert.Single(await LeerUsuariosAsync());
     }
 
+    [FactConSqlServer]
+    public async Task CorreoRepetido_NoPisaAlUsuarioQueYaLoTenia()
+    {
+        using (EopDbContext contextoInicial = CrearContexto())
+        {
+            contextoInicial.Usuarios.Add(CrearUsuario("juan@eop.com.uy", RolUsuario.Administrador));
+            await contextoInicial.SaveChangesAsync();
+        }
+
+        using EopDbContext contexto = CrearContexto();
+        bool guardado = await new RepositorioUsuarios(contexto).AgregarSiCorreoDisponibleAsync(CrearUsuario("juan@eop.com.uy"));
+
+        Assert.False(guardado);
+        Usuario unico = Assert.Single(await LeerUsuariosAsync());
+        Assert.Equal(RolUsuario.Administrador, unico.Rol);
+    }
+
+    [FactConSqlServer]
+    public async Task DespuesDeUnCorreoRepetido_ElMismoContextoSigueSirviendoParaGuardar()
+    {
+        // Sin sacar del contexto al usuario rechazado, el guardado siguiente lo volvería a intentar y fallaría.
+        await GuardarUsuarioDirectamenteAsync("juan@eop.com.uy");
+
+        using EopDbContext contexto = CrearContexto();
+        var repositorio = new RepositorioUsuarios(contexto);
+
+        Assert.False(await repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuario("juan@eop.com.uy")));
+        Assert.True(await repositorio.AgregarSiCorreoDisponibleAsync(CrearUsuario("ana@eop.com.uy")));
+        Assert.Equal(2, (await LeerUsuariosAsync()).Count);
+    }
+
     // ---------- Solicitudes simultáneas ----------
 
     [TheoryConSqlServer]
