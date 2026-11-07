@@ -8,6 +8,10 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
 {
     public class RegistrarMaterial
     {
+        // El mismo largo que tiene la columna en MaterialConfiguracion. Si lo dejáramos pasar,
+        // SQL Server rechazaría el INSERT y el usuario vería un error genérico en vez de este mensaje.
+        public const int LargoMaximoNombre = 200;
+
         private readonly IRepositorioMateriales _repositorioMateriales;
         private readonly IRepositorioProveedores _repositorioProveedores;
 
@@ -26,10 +30,24 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
         {
             List<string> errores = new List<string>();
 
+            // S1-T27: medimos y guardamos el nombre sin los espacios del principio y del final.
+            // Si no, "  Caño  " ocuparía más lugar del que se ve y quedaría guardado con esos
+            // espacios. (Para detectar duplicados no cambia nada: NombreNormalizado ya los ignoraba.)
+            string nombreSinEspaciosEnLosExtremos = string.Empty;
+
+            if (nombre != null)
+            {
+                nombreSinEspaciosEnLosExtremos = nombre.Trim();
+            }
+
             // El nombre del material es obligatorio.
-            if (string.IsNullOrWhiteSpace(nombre))
+            if (nombreSinEspaciosEnLosExtremos.Length == 0)
             {
                 errores.Add("El nombre del material es obligatorio.");
+            }
+            else if (nombreSinEspaciosEnLosExtremos.Length > LargoMaximoNombre)
+            {
+                errores.Add($"El nombre del material no puede superar los {LargoMaximoNombre} caracteres.");
             }
 
             // La unidad debe pertenecer a la lista fija.
@@ -66,7 +84,7 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
             // Al asignar Nombre se calcula NombreNormalizado.
             Material material = new Material
             {
-                Nombre = nombre ?? string.Empty,
+                Nombre = nombreSinEspaciosEnLosExtremos,
                 Unidad = unidad.Value
             };
 

@@ -32,7 +32,8 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
                     b.Property<string>("Nombre")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("NombreNormalizado")
                         .IsRequired()
@@ -115,7 +116,8 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
                     b.Property<string>("Nombre")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("NumeroWhatsApp")
                         .IsRequired()
@@ -132,7 +134,16 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                     b.HasIndex("Rut")
                         .IsUnique();
 
-                    b.ToTable("Clientes", (string)null);
+                    b.ToTable("Clientes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Clientes_AlMenosUnCorreo", "([CorreoContacto] IS NOT NULL AND TRIM([CorreoContacto]) <> '') OR ([CorreoFacturacion] IS NOT NULL AND TRIM([CorreoFacturacion]) <> '')");
+
+                            t.HasCheckConstraint("CK_Clientes_NombreNoVacio", "TRIM([Nombre]) <> ''");
+
+                            t.HasCheckConstraint("CK_Clientes_RutFormato", "[Rut] LIKE '____________' AND UNICODE(SUBSTRING([Rut], 1, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 2, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 3, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 4, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 5, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 6, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 7, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 8, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 9, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 10, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 11, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 12, 1)) BETWEEN 48 AND 57");
+
+                            t.HasCheckConstraint("CK_Clientes_WhatsAppNoVacio", "TRIM([NumeroWhatsApp]) <> ''");
+                        });
                 });
 
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Proveedores.CuentaBancaria", b =>
@@ -273,6 +284,10 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
                     b.ToTable("Usuarios", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Usuarios_CorreoCorporativoNoVacio", "TRIM([CorreoCorporativo]) <> ''");
+
+                            t.HasCheckConstraint("CK_Usuarios_NombreCompletoNoVacio", "TRIM([NombreCompleto]) <> ''");
+
                             t.HasCheckConstraint("CK_Usuarios_RolValido", "[Rol] IN (1, 2, 3)");
                         });
                 });

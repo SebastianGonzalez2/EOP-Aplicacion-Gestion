@@ -26,7 +26,7 @@ public class ProveedorConfiguracion : IEntityTypeConfiguration<Proveedor>
             // verificador no se controla acá, eso lo valida ValidadorRut.
             tabla.HasCheckConstraint(
                 "CK_Proveedores_RutFormato",
-                CrearCondicionRutDeDoceDigitos());
+                RestriccionesRut.CrearCondicionRutDeDoceDigitos());
 
             // Los IS NOT NULL no están de adorno: comparar NULL da "desconocido", y una
             // restricción CHECK deja pasar lo desconocido. Sin ellos, un Proveedor con los
@@ -88,28 +88,5 @@ public class ProveedorConfiguracion : IEntityTypeConfiguration<Proveedor>
         // restricción CHECK solo mira su propia fila, y las cuentas están en otra tabla. Esa
         // regla la tienen que controlar las validaciones de S2-T11, y S2-T13 guardar el
         // Proveedor junto con sus cuentas en una sola operación.
-    }
-
-    // Arma la condición que mira el RUT carácter por carácter: el código de cada uno tiene
-    // que estar entre 48 y 57, que son los códigos de '0' y '9'.
-    //
-    // La forma corta, [Rut] NOT LIKE '%[^0-9]%', parece lo mismo pero no lo es: LIKE compara
-    // según el idioma configurado en la base, y para SQL Server caracteres como '²', '½' o
-    // los dígitos árabes también entran en el rango 0-9 (lo comprobamos, y por eso hay una
-    // prueba para cada uno). Comparando códigos, el resultado no depende de esa configuración.
-    //
-    // El LIKE con 12 guiones bajos (cada uno es "un carácter cualquiera") exige el largo
-    // exacto. Tiene que estar sí o sí: en un RUT más corto, mirar una posición que no existe
-    // da NULL, y una restricción CHECK deja pasar lo desconocido.
-    private static string CrearCondicionRutDeDoceDigitos()
-    {
-        string condicion = "[Rut] LIKE '____________'";
-
-        for (int posicion = 1; posicion <= 12; posicion++)
-        {
-            condicion += $" AND UNICODE(SUBSTRING([Rut], {posicion}, 1)) BETWEEN 48 AND 57";
-        }
-
-        return condicion;
     }
 }

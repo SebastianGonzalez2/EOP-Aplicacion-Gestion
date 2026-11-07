@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using EOP.Gestion.Core.CasosDeUso.Clientes;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -13,6 +14,9 @@ namespace EOP.Gestion.WebApp.ViewModels.Clientes
         // con su mensaje en inglés ("The Nombre field is required."). Con [Required] ponemos el nuestro,
         // que además es el que usa la validación del navegador.
         [Required(ErrorMessage = "El nombre del cliente es obligatorio.")]
+        // Igual que en RegistrarUsuarioViewModel: sirve para avisar en el navegador y al lado del
+        // campo. El control definitivo lo hace ValidarDatosCliente, del lado del servidor.
+        [StringLength(ValidarDatosCliente.LargoMaximoNombre, ErrorMessage = "El nombre del cliente no puede superar los 200 caracteres.")]
         public string Nombre { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "El RUT es obligatorio.")]

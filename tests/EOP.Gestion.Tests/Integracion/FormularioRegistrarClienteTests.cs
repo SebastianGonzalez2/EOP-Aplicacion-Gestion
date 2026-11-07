@@ -28,6 +28,23 @@ public class FormularioRegistrarClienteTests : IClassFixture<FormularioRegistrar
     {
         _fabrica = fabrica;
         _fabrica.Repositorio.ClienteGuardado = null;
+        _fabrica.Repositorio.RutDisponibleAlGuardar = true;
+    }
+
+    // Otra solicitud registró el mismo RUT entre la validación y el guardado: el usuario tiene
+    // que ver el formulario con el motivo, no la página de error genérica.
+    [Fact]
+    public async Task Post_SiElRutSeRegistroMientrasTanto_MuestraElMotivoEnElFormulario()
+    {
+        _fabrica.Repositorio.RutDisponibleAlGuardar = false;
+
+        HttpResponseMessage respuesta = await EnviarFormularioAsync(CrearCliente(), DatosValidos());
+        string html = await LeerHtmlAsync(respuesta);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Null(_fabrica.Repositorio.ClienteGuardado);
+        Assert.Contains("Ya existe un cliente registrado con ese RUT.", html);
+        Assert.DoesNotContain("El cliente se registró correctamente.", html);
     }
 
     [Fact]
@@ -238,15 +255,22 @@ public class FormularioRegistrarClienteTests : IClassFixture<FormularioRegistrar
     {
         public Cliente? ClienteGuardado { get; set; }
 
+        // En false simula que otra solicitud registró el mismo RUT entre la validación y el guardado.
+        public bool RutDisponibleAlGuardar { get; set; } = true;
+
         public Task<bool> ExistePorRutAsync(string rutNormalizado, CancellationToken cancellationToken = default)
         {
             return Task.FromResult(false);
         }
 
-        public Task AgregarAsync(Cliente cliente, CancellationToken cancellationToken = default)
+        public Task<bool> AgregarSiRutDisponibleAsync(Cliente cliente, CancellationToken cancellationToken = default)
         {
-            ClienteGuardado = cliente;
-            return Task.CompletedTask;
+            if (RutDisponibleAlGuardar)
+            {
+                ClienteGuardado = cliente;
+            }
+
+            return Task.FromResult(RutDisponibleAlGuardar);
         }
     }
 

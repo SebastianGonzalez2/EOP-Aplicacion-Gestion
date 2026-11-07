@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Core.Entidades.Catalogo;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
@@ -10,6 +11,8 @@ namespace EOP.Gestion.WebApp.ViewModels.Materiales
     public class RegistrarMaterialViewModel
     {
         [Required(ErrorMessage = "El nombre del material es obligatorio.")]
+        // Avisa en el navegador y al lado del campo; el control definitivo lo hace RegistrarMaterial.
+        [StringLength(RegistrarMaterial.LargoMaximoNombre, ErrorMessage = "El nombre del material no puede superar los 200 caracteres.")]
         public string Nombre { get; set; } = string.Empty;
 
 
