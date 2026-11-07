@@ -29,6 +29,7 @@ public class IdentificarOVincularUsuarioTests
         // Permiten simular que "otro proceso" cambia los datos justo antes o
         // justo después del UPDATE (dos inicios de sesión a la vez, un
         // Administrador que inactiva al usuario, etc.).
+        public Action? AntesDeBuscarPorCorreo { get; set; }
         public Action? AntesDeVincular { get; set; }
         public Action? DespuesDeVincular { get; set; }
 
@@ -51,6 +52,8 @@ public class IdentificarOVincularUsuarioTests
 
         public Task<Usuario?> ObtenerPorCorreoCorporativoAsync(string correoCorporativo, CancellationToken cancellationToken = default)
         {
+            AntesDeBuscarPorCorreo?.Invoke();
+
             var usuario = Usuarios.SingleOrDefault(u => u.CorreoCorporativo == correoCorporativo);
             return Task.FromResult(Copiar(usuario));
         }
@@ -348,6 +351,38 @@ public class IdentificarOVincularUsuarioTests
         Assert.NotNull(resultado);
         Assert.Equal(1, resultado.Id);
         Assert.Equal(ObjectIdJuan, resultado.EntraObjectId);
+    }
+
+    [Fact]
+    public async Task LaOtraPestanaVinculaJustoEntreLasDosBusquedas_ElSegundoInicioTambienEntra()
+    {
+        // La búsqueda por Object ID no encontró a nadie, pero antes de buscar por correo la otra pestaña
+        // lo vinculó con ESTE mismo identificador. Es la misma persona: no hay motivo para rechazarla.
+        var repositorio = new RepositorioUsuariosFalso();
+        repositorio.Usuarios.Add(CrearUsuario());
+        repositorio.AntesDeBuscarPorCorreo = () => repositorio.Usuarios[0].EntraObjectId = ObjectIdJuan;
+        var casoDeUso = new IdentificarOVincularUsuario(repositorio);
+
+        Usuario? resultado = await casoDeUso.ObtenerUsuarioEopPorEntraIdOVincularloPorCorreoCorporativoAsync(
+            ObjectIdJuan, "juan.perez@eop.com.uy");
+
+        Assert.NotNull(resultado);
+        Assert.Equal(1, resultado.Id);
+    }
+
+    [Fact]
+    public async Task OtraIdentidadVinculaJustoEntreLasDosBusquedas_NoSeAceptaNiSePisa()
+    {
+        var repositorio = new RepositorioUsuariosFalso();
+        repositorio.Usuarios.Add(CrearUsuario());
+        repositorio.AntesDeBuscarPorCorreo = () => repositorio.Usuarios[0].EntraObjectId = ObjectIdOtro;
+        var casoDeUso = new IdentificarOVincularUsuario(repositorio);
+
+        Usuario? resultado = await casoDeUso.ObtenerUsuarioEopPorEntraIdOVincularloPorCorreoCorporativoAsync(
+            ObjectIdJuan, "juan.perez@eop.com.uy");
+
+        Assert.Null(resultado);
+        Assert.Equal(ObjectIdOtro, repositorio.Usuarios.Single().EntraObjectId);
     }
 
     [Fact]

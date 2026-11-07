@@ -31,6 +31,8 @@ public class CuentaControllerTests
     [Theory]
     [InlineData("https://sitio-falso.com")]
     [InlineData("//sitio-falso.com")]
+    [InlineData("/\\sitio-falso.com")]
+    [InlineData("https:sitio-falso.com")]
     [InlineData(null)]
     public void IniciarSesion_ConUrlRetornoExternaOVacia_VuelveAlInicio(string? urlRetorno)
     {

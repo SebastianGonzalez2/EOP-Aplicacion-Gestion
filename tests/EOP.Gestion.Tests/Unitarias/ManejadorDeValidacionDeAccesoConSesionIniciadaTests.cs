@@ -111,6 +111,22 @@ public class ManejadorDeValidacionDeAccesoConSesionIniciadaTests
         Assert.False(contexto.Principal.IsInRole(nameof(RolUsuario.Supervisor)));
     }
 
+    [Fact]
+    public async Task IdentidadConOtroTipoDeClaimDeRol_ElRolActualSeAgregaConElTipoQueEsaIdentidadReconoce()
+    {
+        // [Authorize(Roles = ...)] pregunta con el RoleClaimType de cada identidad. Hoy el flujo real usa el tipo
+        // estándar, pero depende de cómo Microsoft.Identity.Web mapea los claims: con un tipo fijo, un cambio ahí
+        // dejaría a todos los usuarios sin rol.
+        var escenario = new EscenarioDeValidacion();
+        escenario.Repositorio.Usuarios.Add(CrearUsuario(activo: true));
+        var contexto = escenario.CrearContexto(new Claim(ClaimOidCorto, ObjectIdJuan));
+        contexto.Principal = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimOidCorto, ObjectIdJuan)], "Prueba", "name", "roles"));
+
+        await ManejadorDeValidacionDeAccesoConSesionIniciada.VerificarQueUsuarioSigueHabilitadoORechazarSesionAsync(contexto);
+
+        Assert.True(contexto.Principal!.IsInRole(nameof(RolUsuario.Operador)));
+    }
+
     // ---------- Usuario no habilitado: se rechaza la sesión ----------
 
     [Fact]
