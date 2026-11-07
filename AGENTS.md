@@ -70,6 +70,8 @@ EOP.Gestion.slnx
 │   │   └── Comun/
 │   ├── EOP.Gestion.Infrastructure/    ← referencia a Core
 │   │   ├── Persistencia/              ← DbContext, Configuraciones, Migraciones, Repositorios
+│   │   ├── Consultas/                 ← servicios de consulta para listados (ver «Repositorios»), por módulo
+│   │   ├── Telefonia/                 ← reglas de numeración telefónica por país (libphonenumber)
 │   │   ├── Almacenamiento/            ← Blob Storage
 │   │   ├── Integraciones/             ← OpenAi, DatosUruguay
 │   │   └── Excel/                     ← ClosedXML
@@ -115,6 +117,9 @@ Se usa el patrón Repositorio para que `Core` no dependa de EF Core. Tres reglas
 pasan por repositorios. Van por servicios de consulta en `Infrastructure` que usan EF
 Core directamente y devuelven DTOs. Meterlos en los repositorios los infla hasta
 volverlos inmanejables.
+
+El contexto de EF Core es `EopDbContext` (`Infrastructure/Persistencia`). Cada entidad tiene
+su `DbSet` ahí y su mapeo en una clase propia dentro de `Persistencia/Configuraciones`.
 
 ---
 
@@ -389,6 +394,5 @@ La planificación y la implementación deben basarse en los requerimientos (RF/R
 
 Se completa a medida que avance el sprint 1:
 
-- Nombres definitivos de entidades y DbContext
 - Convención de nombres de las pruebas
 - Configuración de GitHub Actions
