@@ -1,0 +1,35 @@
+@*
+    Mensajes que deja el Controller en TempData antes de redirigir (patrón Post/Redirect/Get).
+    Por ejemplo, después de registrar un cliente el Controller guarda el texto y redirige al
+    formulario vacío; acá se muestra una sola vez, porque TempData se borra apenas se lee.
+
+    Cada pantalla lo incluye debajo de su encabezado con <partial name="_Mensajes" />.
+    Estilos y textos según la sección 16 de docs/diseno-visual.md:
+    - Éxito: se puede cerrar. role="status" para que el lector de pantalla lo anuncie sin interrumpir.
+    - Error y advertencia: quedan visibles. role="alert" porque el usuario tiene que enterarse ya.
+*@
+
+@if (TempData["MensajeExito"] is string mensajeExito)
+{
+    <div class="alert mensaje mensaje-exito alert-dismissible" role="status">
+        <i class="bi bi-check-circle" aria-hidden="true"></i>
+        <div class="mensaje-cuerpo">@mensajeExito</div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar mensaje"></button>
+    </div>
+}
+
+@if (TempData["MensajeAdvertencia"] is string mensajeAdvertencia)
+{
+    <div class="alert mensaje mensaje-advertencia" role="alert">
+        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+        <div class="mensaje-cuerpo">@mensajeAdvertencia</div>
+    </div>
+}
+
+@if (TempData["MensajeError"] is string mensajeError)
+{
+    <div class="alert mensaje mensaje-error" role="alert">
+        <i class="bi bi-x-octagon" aria-hidden="true"></i>
+        <div class="mensaje-cuerpo">@mensajeError</div>
+    </div>
+}

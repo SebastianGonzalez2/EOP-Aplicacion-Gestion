@@ -10,86 +10,131 @@
     ViewData["Title"] = "Registrar cliente";
 }
 
-<h2>Registrar cliente</h2>
+@* Formulario con el diseño de la guía (sección 14 de docs/diseno-visual.md): secciones dentro de
+   un panel, acciones al pie y una ayuda al costado con las reglas de US-053. *@
 
-<p>Ingresá los datos del nuevo cliente.</p>
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Clientes" asp-action="Index">Clientes</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Registrar cliente</li>
+    </ol>
+</nav>
+
+<div class="encabezado">
+    <div>
+        <h1>Registrar cliente</h1>
+        <p>Ingresá los datos del nuevo cliente.</p>
+    </div>
+</div>
 
 @* Mostramos un mensaje cuando el cliente se registra correctamente. *@
-@if (TempData["MensajeExito"] is string mensaje)
-{
-    <div class="alert alert-success" role="alert">
-        @mensaje
-    </div>
-}
+<partial name="_Mensajes" />
 
-<form asp-controller="Clientes" asp-action="Registrar" method="post"> <!-- esto es el formulario de registro de cliente -->
-    @Html.AntiForgeryToken() <!-- Protege contra solicitudes falsas (CSRF) -->
-    <!-- Muestra los errores generales de validación. -->
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div> <!-- 	Muestra errores generales del formulario -->
+<div class="row g-4">
+    <div class="col-xl-8">
+        <form asp-controller="Clientes" asp-action="Registrar" method="post" class="panel"> <!-- esto es el formulario de registro de cliente -->
+            @Html.AntiForgeryToken() <!-- Protege contra solicitudes falsas (CSRF) -->
 
-    <!-- Nombre del cliente -->
-    <div class="mb-3">
-        <label asp-for="Nombre" class="form-label">Nombre</label>
-        <input asp-for="Nombre" class="form-control" />
-        <span asp-validation-for="Nombre" class="text-danger"></span>
-    </div>
+            <div class="seccion-form">
+                <h2>Datos del cliente</h2>
+                <p class="descripcion">Nombre o razón social y RUT uruguayo.</p>
 
-    <!-- RUT -->
-    <div class="mb-3">
-        <label asp-for="Rut" class="form-label">RUT</label>
-        <input asp-for="Rut" class="form-control" />
-        <span asp-validation-for="Rut" class="text-danger"></span>
-    </div>
+                <!-- Muestra los errores generales de validación. -->
+                <div asp-validation-summary="ModelOnly" class="resumen-errores" role="alert"></div> <!-- 	Muestra errores generales del formulario -->
 
-    <!-- Correo de contacto -->
-    <div class="mb-3">
-        <label asp-for="CorreoContacto" class="form-label">Correo de contacto</label>
-        <input asp-for="CorreoContacto" type="email" class="form-control" />
-        <span asp-validation-for="CorreoContacto" class="text-danger"></span>
-    </div>
+                <div class="row g-3">
+                    <!-- Nombre del cliente -->
+                    <div class="col-md-7">
+                        <label asp-for="Nombre" class="form-label">Nombre<span class="obligatorio" aria-hidden="true">*</span></label>
+                        <input asp-for="Nombre" class="form-control" aria-required="true" />
+                        <span asp-validation-for="Nombre" class="error-campo"></span>
+                    </div>
 
-    <!-- Correo de facturación -->
-    <div class="mb-3">
-        <label asp-for="CorreoFacturacion" class="form-label">Correo de facturación</label>
-        <input asp-for="CorreoFacturacion" type="email" class="form-control" />
-        <span asp-validation-for="CorreoFacturacion" class="text-danger"></span>
-    </div>
-
-    <p class="text-muted">
-        Debe ingresarse al menos uno de los dos correos electrónicos.
-    </p>
-
-    <!-- WhatsApp: se elige el país y se escribe el número habitual. El número internacional lo arma el servidor. -->
-    <fieldset class="mb-3">
-        <legend class="form-label fs-6">Número de WhatsApp</legend>
-
-        <!-- En pantallas chicas van uno abajo del otro, así el país y el prefijo se leen completos. -->
-        <div class="row g-2">
-            <div class="col-12 col-md-5">
-                <label asp-for="PaisWhatsApp" class="form-label small mb-1">País y prefijo</label>
-                <select asp-for="PaisWhatsApp" asp-items="Model.PaisesWhatsApp" class="form-select">
-                    <!-- Queda elegida solo si llega un país que no está en la lista: así no cambiamos de país sin avisar. -->
-                    <option value="">Seleccioná un país</option>
-                </select>
-                <span asp-validation-for="PaisWhatsApp" class="text-danger"></span>
+                    <!-- RUT -->
+                    <div class="col-md-5">
+                        <label asp-for="Rut" class="form-label">RUT<span class="obligatorio" aria-hidden="true">*</span></label>
+                        <input asp-for="Rut" class="form-control" aria-required="true" />
+                        <span asp-validation-for="Rut" class="error-campo"></span>
+                    </div>
+                </div>
             </div>
 
-            <div class="col-12 col-md-7">
-                <label asp-for="NumeroNacionalWhatsApp" class="form-label small mb-1">Número de teléfono</label>
-                <input asp-for="NumeroNacionalWhatsApp" type="tel" maxlength="30" class="form-control"
-                       placeholder="099 123 456" />
-                <div class="form-text">Escribilo como se usa en ese país, sin el prefijo internacional.</div>
-                <span asp-validation-for="NumeroNacionalWhatsApp" class="text-danger"></span>
+            <div class="seccion-form">
+                <h2>Contacto</h2>
+                <p class="descripcion" id="ayuda-correos">
+                    Debe ingresarse al menos uno de los dos correos electrónicos.
+                </p>
+
+                <div class="row g-3">
+                    <!-- Correo de contacto -->
+                    <div class="col-md-6">
+                        <label asp-for="CorreoContacto" class="form-label">Correo de contacto</label>
+                        <input asp-for="CorreoContacto" type="email" class="form-control" aria-describedby="ayuda-correos" />
+                        <span asp-validation-for="CorreoContacto" class="error-campo"></span>
+                    </div>
+
+                    <!-- Correo de facturación -->
+                    <div class="col-md-6">
+                        <label asp-for="CorreoFacturacion" class="form-label">Correo de facturación</label>
+                        <input asp-for="CorreoFacturacion" type="email" class="form-control" aria-describedby="ayuda-correos" />
+                        <span asp-validation-for="CorreoFacturacion" class="error-campo"></span>
+                    </div>
+
+                    <!-- WhatsApp: se elige el país y se escribe el número habitual. El número internacional lo arma el servidor. -->
+                    <div class="col-12">
+                        <fieldset>
+                            <legend class="form-label">Número de WhatsApp</legend>
+
+                            <!-- En pantallas chicas van uno abajo del otro, así el país y el prefijo se leen completos. -->
+                            <div class="row g-2">
+                                <div class="col-12 col-md-5">
+                                    <label asp-for="PaisWhatsApp" class="form-label small mb-1">País y prefijo<span class="obligatorio" aria-hidden="true">*</span></label>
+                                    <select asp-for="PaisWhatsApp" asp-items="Model.PaisesWhatsApp" class="form-select" aria-required="true">
+                                        <!-- Queda elegida solo si llega un país que no está en la lista: así no cambiamos de país sin avisar. -->
+                                        <option value="">Seleccioná un país</option>
+                                    </select>
+                                    <span asp-validation-for="PaisWhatsApp" class="error-campo"></span>
+                                </div>
+
+                                <div class="col-12 col-md-7">
+                                    <label asp-for="NumeroNacionalWhatsApp" class="form-label small mb-1">Número de teléfono<span class="obligatorio" aria-hidden="true">*</span></label>
+                                    <input asp-for="NumeroNacionalWhatsApp" type="tel" maxlength="30" class="form-control"
+                                           placeholder="099 123 456" aria-required="true" aria-describedby="ayuda-whatsapp" />
+                                    <div id="ayuda-whatsapp" class="form-text">Escribilo como se usa en ese país, sin el prefijo internacional.</div>
+                                    <span asp-validation-for="NumeroNacionalWhatsApp" class="error-campo"></span>
+                                </div>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
             </div>
+
+            <div class="panel-pie d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span class="small text-body-secondary"><span class="obligatorio ms-0" aria-hidden="true">*</span> Obligatorio</span>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary" asp-controller="Clientes" asp-action="Index">Cancelar</a>
+                    <!-- Botón para registrar el cliente -->
+                    <button type="submit" class="btn btn-primary">
+                        Registrar cliente
+                    </button>
+                </div>
+            </div>
+
+        </form>
+    </div>
+
+    @* Ayuda opcional de la guía: resume las reglas de US-053 que conviene saber antes de guardar. *@
+    <aside class="col-xl-4">
+        <div class="panel panel-cuerpo">
+            <h2 class="h6 fw-bold">Antes de registrar</h2>
+            <ul class="small text-body-secondary ps-3 mb-0 d-grid gap-2">
+                <li>El RUT tiene que ser válido y no puede estar registrado en otro cliente, aunque lo escribas con espacios o puntos.</li>
+                <li>Los dos correos son independientes: podés cargar uno solo o ambos.</li>
+                <li>El cliente queda Activo y disponible para presupuestos y proyectos apenas lo registrás.</li>
+            </ul>
         </div>
-    </fieldset>
-
-    <!-- Botón para registrar el cliente -->
-    <button type="submit" class="btn btn-success">
-        Registrar cliente
-    </button>
-
-</form>
+    </aside>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

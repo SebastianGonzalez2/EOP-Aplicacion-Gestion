@@ -3,10 +3,23 @@
     ViewData["Title"] = "Error";
 }
 
-<h1 class="text-danger">No pudimos completar la solicitud</h1>
-<p>Ocurrió un error inesperado. Intentá nuevamente más tarde.</p>
+@* Pantalla de error inesperado. Se puede ver con o sin sesión ([AllowAnonymous]), así que
+   el layout decide si va con el menú o centrada. Sigue el formato de la guía para errores:
+   encabezado y mensaje de error (Parte D de docs/diseno-visual.md). *@
+<div class="encabezado">
+    <div>
+        <h1>No pudimos completar la solicitud</h1>
+    </div>
+</div>
 
-@if (Model.ShowRequestId)
-{
-    <p>Si necesitás ayuda, compartí este identificador: <code>@Model.RequestId</code></p>
-}
+<div class="mensaje mensaje-error" role="alert">
+    <i class="bi bi-x-octagon" aria-hidden="true"></i>
+    <div class="mensaje-cuerpo">
+        Ocurrió un error inesperado. Intentá nuevamente más tarde.
+
+        @if (Model.ShowRequestId)
+        {
+            <p class="mb-0 mt-2">Si necesitás ayuda, compartí este identificador: <code>@Model.RequestId</code></p>
+        }
+    </div>
+</div>

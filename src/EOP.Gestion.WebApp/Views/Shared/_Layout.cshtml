@@ -1,78 +1,65 @@
-﻿@using EOP.Gestion.Core.Entidades.Usuarios
+﻿@*
+    Layout general de EOP (alternativa A de docs/diseno-visual.md, sección 6).
+
+    Tiene dos formas:
+    - Con sesión: menú lateral verde a la izquierda, barra blanca arriba y el contenido
+      de la pantalla en el medio. Es lo que ve cualquier usuario que ya entró.
+    - Sin sesión: solo la marca y un panel centrado, para las pocas pantallas públicas
+      (sesión cerrada, error al iniciar sesión). No tiene sentido mostrar un menú a
+      alguien que todavía no entró.
+
+    Una pantalla puede pedir una clase extra para el área de contenido con
+    ViewData["ClaseContenido"]. Hoy solo la usa el inicio, para centrar su panel.
+*@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - EOP.Gestion.WebApp</title>
+    <title>@ViewData["Title"] - EOP</title>
     <script type="importmap"></script>
+    @* Todo se sirve desde wwwroot: Bootstrap, los íconos y las fuentes están en wwwroot/lib.
+       No dependemos de Google Fonts ni de ningún CDN (sección 21.2 de la guía). *@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/EOP.Gestion.WebApp.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">EOP.Gestion.WebApp</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Clientes" asp-action="Index">Clientes</a>
-                        </li>
-                        @* Por ahora la sección Proveedores solo tiene el alta, así que el enlace lleva ahí y solo lo ven
-                           los roles que pueden usarla. Cuando llegue el listado (US-074), va a apuntar a él y lo van a
-                           ver también los Operadores. Esto es solo por comodidad: el control real está en el Controller. *@
-                        
-                        @if (User.IsInRole(nameof(RolUsuario.Administrador)) || User.IsInRole(nameof(RolUsuario.Supervisor)))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Proveedores" asp-action="Registrar">Proveedores</a>
-                            </li>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="app">
+            <partial name="_MenuLateral" />
 
-                            @* S2-T15: acceso al formulario de materiales.
-                            El registro definitivo se implementará en S2-T16. *@
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Materiales" asp-action="Registrar">Registrar material</a>
-                            </li>
-                        }
+            <div class="principal">
+                <header class="superior">
+                    @* En celulares y tablets el menú se esconde y este botón lo abre como panel lateral. *@
+                    <button class="btn btn-outline-secondary d-lg-none px-2 py-1" type="button"
+                            data-bs-toggle="offcanvas" data-bs-target="#menuLateral" aria-controls="menuLateral"
+                            aria-label="Abrir menú">
+                        <i class="bi bi-list fs-5" aria-hidden="true"></i>
+                    </button>
 
-                        @* US-043: acceso al alta de usuarios. Cuando llegue el listado (US-045), este enlace va a
-                           apuntar a él. Es solo comodidad: el control real está en UsuariosController. *@
-                        @if (User.IsInRole(nameof(RolUsuario.Administrador)))
-                        {
-                            <li class="nav-item">
-                                <a class="nav-link text-dark" asp-area="" asp-controller="Usuarios" asp-action="Registrar">Registrar usuario</a>
-                            </li>
-                        }
+                    <div class="ms-auto">
+                        <partial name="_EstadoSesionPartial" />
+                    </div>
+                </header>
 
-                    </ul>
-                    <partial name="_EstadoSesionPartial" />
-                </div>
+                <main class="contenido @ViewData["ClaseContenido"]">
+                    @RenderBody()
+                </main>
             </div>
-        </nav>
-    </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
-
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - EOP.Gestion.WebApp - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
-    </footer>
+    }
+    else
+    {
+        <div class="pagina-publica">
+            <div class="marca-publica" aria-hidden="true">EOP</div>
+            <main>
+                @RenderBody()
+            </main>
+        </div>
+    }
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

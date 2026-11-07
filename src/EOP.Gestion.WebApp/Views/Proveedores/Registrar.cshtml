@@ -11,154 +11,166 @@
     IEnumerable<SelectListItem> opcionesMoneda = Html.GetEnumSelectList<Moneda>();
 }
 
-<h2>Registrar proveedor</h2>
+@* Diseño de la guía (sección 14 de docs/diseno-visual.md). Ojo: varias pruebas de integración leen
+   este HTML con expresiones regulares (la etiqueta <form>, el texto del botón de enviar, los botones
+   de las cuentas y del modal). Por eso <form> no lleva clases y los botones mantienen el orden de
+   sus atributos: el estilo se aplica con un panel adentro del formulario. *@
 
-<p>
-    Ingresá los datos del nuevo proveedor y al menos una cuenta bancaria.
-    Los campos marcados con <span class="text-danger">*</span> son obligatorios.
-</p>
+<div class="encabezado">
+    <div>
+        <h1>Registrar proveedor</h1>
+        <p>
+            Ingresá los datos del nuevo proveedor y al menos una cuenta bancaria.
+            Los campos marcados con <span class="obligatorio ms-0">*</span> son obligatorios.
+        </p>
+    </div>
+</div>
 
 @* Solo aparece después de guardar de verdad: el Controller lo carga antes de redirigir hasta acá. *@
-@if (TempData["MensajeExito"] is string mensaje)
-{
-    <div class="alert alert-success" role="alert">
-        @mensaje
-    </div>
-}
+<partial name="_Mensajes" />
 
-@* Como es un POST con asp-action, el Tag Helper agrega solo el token antifalsificación. *@
-<form asp-controller="Proveedores" asp-action="Registrar" method="post">
-    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+<div class="row g-4">
+    <div class="col-xl-8">
+        @* Como es un POST con asp-action, el Tag Helper agrega solo el token antifalsificación. *@
+        <form asp-controller="Proveedores" asp-action="Registrar" method="post">
+            <div class="panel">
+                <fieldset class="seccion-form">
+                    <legend class="titulo-seccion">Datos del proveedor</legend>
+                    <p class="descripcion">Nombre, RUT y datos de contacto.</p>
 
-    <fieldset class="mb-4">
-        <legend class="h5">Datos del proveedor</legend>
-
-        <div class="row g-3">
-            <div class="col-12">
-                <label asp-for="Nombre" class="form-label">Nombre <span class="text-danger">*</span></label>
-                <input asp-for="Nombre" class="form-control" aria-required="true" />
-                <span asp-validation-for="Nombre" class="text-danger"></span>
-            </div>
-
-            <div class="col-12">
-                <label asp-for="Rut" class="form-label">RUT <span class="text-danger">*</span></label>
-                <input asp-for="Rut" class="form-control" aria-required="true" />
-                <span asp-validation-for="Rut" class="text-danger"></span>
-            </div>
-
-            @* Igual que el WhatsApp de Clientes: se elige el país y se escribe el número habitual.
-               El número internacional que pide RF-23 lo va a armar el servidor. *@
-            <div class="col-12">
-                <fieldset>
-                    <legend class="form-label fs-6">Teléfono</legend>
-
-                    @* En pantallas chicas van uno abajo del otro, así el país y el prefijo se leen completos. *@
-                    <div class="row g-2">
-                        <div class="col-12 col-md-5">
-                            <label asp-for="PaisTelefono" class="form-label small mb-1">País y prefijo <span class="text-danger">*</span></label>
-                            <select asp-for="PaisTelefono" asp-items="Model.PaisesTelefono" class="form-select" aria-required="true">
-                                @* Queda elegida solo si llega un país que no está en la lista: así no cambiamos de país sin avisar. *@
-                                <option value="">Seleccioná un país</option>
-                            </select>
-                            <span asp-validation-for="PaisTelefono" class="text-danger"></span>
-                        </div>
-
-                        <div class="col-12 col-md-7">
-                            <label asp-for="NumeroNacionalTelefono" class="form-label small mb-1">Número de teléfono <span class="text-danger">*</span></label>
-                            <input asp-for="NumeroNacionalTelefono" type="tel" maxlength="30" class="form-control" placeholder="099 123 456"
-                                   aria-required="true" aria-describedby="ayuda-telefono" />
-                            <div id="ayuda-telefono" class="form-text">Escribilo como se usa en ese país, sin el prefijo internacional.</div>
-                            <span asp-validation-for="NumeroNacionalTelefono" class="text-danger"></span>
-                        </div>
-                    </div>
-                </fieldset>
-            </div>
-
-            <div class="col-12 col-md-6">
-                <label asp-for="CorreoContacto" class="form-label">Correo de contacto</label>
-                <input asp-for="CorreoContacto" type="email" class="form-control" aria-describedby="ayuda-correos" />
-                <span asp-validation-for="CorreoContacto" class="text-danger"></span>
-            </div>
-
-            <div class="col-12 col-md-6">
-                <label asp-for="CorreoFacturacion" class="form-label">Correo de facturación</label>
-                <input asp-for="CorreoFacturacion" type="email" class="form-control" aria-describedby="ayuda-correos" />
-                <span asp-validation-for="CorreoFacturacion" class="text-danger"></span>
-            </div>
-
-            <div class="col-12">
-                <div id="ayuda-correos" class="form-text mt-0">Debe ingresarse al menos uno de los dos correos electrónicos.</div>
-            </div>
-        </div>
-    </fieldset>
-
-    <section class="mb-4" aria-labelledby="titulo-cuentas-bancarias">
-        <h3 id="titulo-cuentas-bancarias" class="h5">Cuentas bancarias</h3>
-        <p class="form-text mt-0">Cada cuenta necesita banco, número de cuenta, titular y moneda.</p>
-        <span asp-validation-for="CuentasBancarias" class="text-danger"></span>
-
-        @* Usamos for con índice y no foreach porque el índice es lo que termina en el nombre del
-           campo: CuentasBancarias[0].Banco, CuentasBancarias[1].Banco... Con esos nombres, ASP.NET
-           Core sabe qué dato va en cada cuenta. El archivo cuentas-bancarias-formulario.js copia este
-           mismo bloque cuando el usuario agrega otra cuenta. *@
-        <div id="lista-cuentas-bancarias">
-            @for (int i = 0; i < Model.CuentasBancarias.Count; i++)
-            {
-                <fieldset class="cuenta-bancaria border rounded p-3 mb-3">
-                    <legend class="titulo-cuenta h6">Cuenta bancaria @(i + 1)</legend>
+                    <div asp-validation-summary="ModelOnly" class="resumen-errores" role="alert"></div>
 
                     <div class="row g-3">
-                        <div class="col-12 col-md-6">
-                            <label asp-for="CuentasBancarias[i].Banco" class="form-label">Banco <span class="text-danger">*</span></label>
-                            <select asp-for="CuentasBancarias[i].Banco" asp-items="opcionesBanco" class="form-select" aria-required="true">
-                                <option value="">Seleccioná un banco</option>
-                            </select>
-                            <span asp-validation-for="CuentasBancarias[i].Banco" class="text-danger"></span>
+                        <div class="col-12 col-md-7">
+                            <label asp-for="Nombre" class="form-label">Nombre<span class="obligatorio" aria-hidden="true">*</span></label>
+                            <input asp-for="Nombre" class="form-control" aria-required="true" />
+                            <span asp-validation-for="Nombre" class="error-campo"></span>
+                        </div>
+
+                        <div class="col-12 col-md-5">
+                            <label asp-for="Rut" class="form-label">RUT<span class="obligatorio" aria-hidden="true">*</span></label>
+                            <input asp-for="Rut" class="form-control" aria-required="true" />
+                            <span asp-validation-for="Rut" class="error-campo"></span>
+                        </div>
+
+                        @* Igual que el WhatsApp de Clientes: se elige el país y se escribe el número habitual.
+                           El número internacional que pide RF-23 lo va a armar el servidor. *@
+                        <div class="col-12">
+                            <fieldset>
+                                <legend class="form-label">Teléfono</legend>
+
+                                @* En pantallas chicas van uno abajo del otro, así el país y el prefijo se leen completos. *@
+                                <div class="row g-2">
+                                    <div class="col-12 col-md-5">
+                                        <label asp-for="PaisTelefono" class="form-label small mb-1">País y prefijo<span class="obligatorio" aria-hidden="true">*</span></label>
+                                        <select asp-for="PaisTelefono" asp-items="Model.PaisesTelefono" class="form-select" aria-required="true">
+                                            @* Queda elegida solo si llega un país que no está en la lista: así no cambiamos de país sin avisar. *@
+                                            <option value="">Seleccioná un país</option>
+                                        </select>
+                                        <span asp-validation-for="PaisTelefono" class="error-campo"></span>
+                                    </div>
+
+                                    <div class="col-12 col-md-7">
+                                        <label asp-for="NumeroNacionalTelefono" class="form-label small mb-1">Número de teléfono<span class="obligatorio" aria-hidden="true">*</span></label>
+                                        <input asp-for="NumeroNacionalTelefono" type="tel" maxlength="30" class="form-control" placeholder="099 123 456"
+                                               aria-required="true" aria-describedby="ayuda-telefono" />
+                                        <div id="ayuda-telefono" class="form-text">Escribilo como se usa en ese país, sin el prefijo internacional.</div>
+                                        <span asp-validation-for="NumeroNacionalTelefono" class="error-campo"></span>
+                                    </div>
+                                </div>
+                            </fieldset>
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label asp-for="CuentasBancarias[i].Moneda" class="form-label">Moneda <span class="text-danger">*</span></label>
-                            <select asp-for="CuentasBancarias[i].Moneda" asp-items="opcionesMoneda" class="form-select" aria-required="true">
-                                <option value="">Seleccioná una moneda</option>
-                            </select>
-                            <span asp-validation-for="CuentasBancarias[i].Moneda" class="text-danger"></span>
+                            <label asp-for="CorreoContacto" class="form-label">Correo de contacto</label>
+                            <input asp-for="CorreoContacto" type="email" class="form-control" aria-describedby="ayuda-correos" />
+                            <span asp-validation-for="CorreoContacto" class="error-campo"></span>
                         </div>
 
                         <div class="col-12 col-md-6">
-                            <label asp-for="CuentasBancarias[i].NumeroCuenta" class="form-label">Número de cuenta <span class="text-danger">*</span></label>
-                            <input asp-for="CuentasBancarias[i].NumeroCuenta" class="form-control" aria-required="true" />
-                            <span asp-validation-for="CuentasBancarias[i].NumeroCuenta" class="text-danger"></span>
+                            <label asp-for="CorreoFacturacion" class="form-label">Correo de facturación</label>
+                            <input asp-for="CorreoFacturacion" type="email" class="form-control" aria-describedby="ayuda-correos" />
+                            <span asp-validation-for="CorreoFacturacion" class="error-campo"></span>
                         </div>
 
-                        <div class="col-12 col-md-6">
-                            <label asp-for="CuentasBancarias[i].Titular" class="form-label">Titular <span class="text-danger">*</span></label>
-                            <input asp-for="CuentasBancarias[i].Titular" class="form-control" aria-required="true" />
-                            <span asp-validation-for="CuentasBancarias[i].Titular" class="text-danger"></span>
+                        <div class="col-12">
+                            <div id="ayuda-correos" class="form-text mt-0">Debe ingresarse al menos uno de los dos correos electrónicos.</div>
                         </div>
-                    </div>
-
-                    @* Con una sola cuenta el botón queda oculto: siempre tiene que quedar una como mínimo. *@
-                    <div class="text-end mt-3">
-                        <button type="button" class="boton-quitar-cuenta btn btn-outline-secondary btn-sm" hidden="@(Model.CuentasBancarias.Count == 1)">
-                            Quitar cuenta @(i + 1)
-                        </button>
                     </div>
                 </fieldset>
-            }
-        </div>
 
-        @* type="button" para que este botón nunca envíe el formulario. *@
-        <button type="button" id="boton-agregar-cuenta" class="btn btn-outline-primary">
-            Agregar otra cuenta bancaria
-        </button>
-    </section>
+                <section class="seccion-form" aria-labelledby="titulo-cuentas-bancarias">
+                    <h2 id="titulo-cuentas-bancarias">Cuentas bancarias</h2>
+                    <p class="descripcion">Cada cuenta necesita banco, número de cuenta, titular y moneda.</p>
+                    <span asp-validation-for="CuentasBancarias" class="error-campo mb-3"></span>
 
-    @* RF-23 pide una acción explícita y confirmación del usuario: apretar este botón es la acción, y
-       cuentas-bancarias-formulario.js abre la ventana de abajo para pedir la confirmación antes de enviar. *@
-    <button type="submit" class="btn btn-success">
-        Registrar proveedor
-    </button>
-</form>
+                    @* Usamos for con índice y no foreach porque el índice es lo que termina en el nombre del
+                       campo: CuentasBancarias[0].Banco, CuentasBancarias[1].Banco... Con esos nombres, ASP.NET
+                       Core sabe qué dato va en cada cuenta. El archivo cuentas-bancarias-formulario.js copia este
+                       mismo bloque cuando el usuario agrega otra cuenta. *@
+                    <div id="lista-cuentas-bancarias">
+                        @for (int i = 0; i < Model.CuentasBancarias.Count; i++)
+                        {
+                            <fieldset class="cuenta-bancaria border rounded p-3 mb-3">
+                                <legend class="titulo-cuenta h6 fw-bold">Cuenta bancaria @(i + 1)</legend>
+
+                                <div class="row g-3">
+                                    <div class="col-12 col-md-6">
+                                        <label asp-for="CuentasBancarias[i].Banco" class="form-label">Banco<span class="obligatorio" aria-hidden="true">*</span></label>
+                                        <select asp-for="CuentasBancarias[i].Banco" asp-items="opcionesBanco" class="form-select" aria-required="true">
+                                            <option value="">Seleccioná un banco</option>
+                                        </select>
+                                        <span asp-validation-for="CuentasBancarias[i].Banco" class="error-campo"></span>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label asp-for="CuentasBancarias[i].Moneda" class="form-label">Moneda<span class="obligatorio" aria-hidden="true">*</span></label>
+                                        <select asp-for="CuentasBancarias[i].Moneda" asp-items="opcionesMoneda" class="form-select" aria-required="true">
+                                            <option value="">Seleccioná una moneda</option>
+                                        </select>
+                                        <span asp-validation-for="CuentasBancarias[i].Moneda" class="error-campo"></span>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label asp-for="CuentasBancarias[i].NumeroCuenta" class="form-label">Número de cuenta<span class="obligatorio" aria-hidden="true">*</span></label>
+                                        <input asp-for="CuentasBancarias[i].NumeroCuenta" class="form-control" aria-required="true" />
+                                        <span asp-validation-for="CuentasBancarias[i].NumeroCuenta" class="error-campo"></span>
+                                    </div>
+
+                                    <div class="col-12 col-md-6">
+                                        <label asp-for="CuentasBancarias[i].Titular" class="form-label">Titular<span class="obligatorio" aria-hidden="true">*</span></label>
+                                        <input asp-for="CuentasBancarias[i].Titular" class="form-control" aria-required="true" />
+                                        <span asp-validation-for="CuentasBancarias[i].Titular" class="error-campo"></span>
+                                    </div>
+                                </div>
+
+                                @* Con una sola cuenta el botón queda oculto: siempre tiene que quedar una como mínimo. *@
+                                <div class="text-end mt-3">
+                                    <button type="button" class="boton-quitar-cuenta btn btn-outline-secondary btn-sm" hidden="@(Model.CuentasBancarias.Count == 1)">
+                                        Quitar cuenta @(i + 1)
+                                    </button>
+                                </div>
+                            </fieldset>
+                        }
+                    </div>
+
+                    @* type="button" para que este botón nunca envíe el formulario. *@
+                    <button type="button" id="boton-agregar-cuenta" class="btn btn-outline-secondary">
+                        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar otra cuenta bancaria
+                    </button>
+                </section>
+
+                <div class="panel-pie d-flex justify-content-end">
+                    @* RF-23 pide una acción explícita y confirmación del usuario: apretar este botón es la acción, y
+                       cuentas-bancarias-formulario.js abre la ventana de abajo para pedir la confirmación antes de enviar. *@
+                    <button type="submit" class="btn btn-primary">
+                        Registrar proveedor
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
 
 @* Es un modal de Bootstrap, que ya está en el proyecto. Va afuera del formulario y sus botones son
    type="button": el único que envía es el script, cuando el usuario confirma. *@
@@ -166,7 +178,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="titulo-confirmar-alta" class="modal-title h5">Confirmar registro</h3>
+                <h2 id="titulo-confirmar-alta" class="modal-title">Confirmar registro</h2>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
@@ -174,7 +186,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" id="boton-confirmar-alta" class="btn btn-success">Confirmar registro</button>
+                <button type="button" id="boton-confirmar-alta" class="btn btn-primary">Confirmar registro</button>
             </div>
         </div>
     </div>

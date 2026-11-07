@@ -1,8 +1,29 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+﻿@*
+    Pantalla de inicio aprobada: panel de bienvenida (Parte C de docs/diseno-visual.md).
+    Es deliberadamente simple: la marca y un saludo. No muestra accesos, listas ni datos:
+    la navegación la hace el menú lateral, y el alcance no incluye un dashboard en el inicio.
+*@
+@{
+    ViewData["Title"] = "Inicio";
+
+    // Le pide al layout que centre este panel en el área de contenido.
+    ViewData["ClaseContenido"] = "contenido-centrado";
+
+    // Saludamos con el nombre de pila: la primera palabra del nombre que manda Microsoft.
+    // Si el claim "name" no viniera, usamos el nombre de usuario, igual que la barra de arriba.
+    string nombreCompleto = User.FindFirst("name")?.Value ?? User.Identity?.Name ?? "";
+    string[] palabrasDelNombre = nombreCompleto.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+    string saludo = "Hola";
+    if (palabrasDelNombre.Length > 0)
+    {
+        saludo = "Hola, " + palabrasDelNombre[0];
+    }
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="panel bienvenida">
+    <div class="bienvenida-marca" aria-hidden="true">EOP</div>
+    <p class="bienvenida-sub">Estudios, Obras y Proyectos</p>
+    <hr />
+    <h1>@saludo</h1>
+    <p class="bienvenida-ayuda">Elegí una sección del menú para empezar.</p>
+</section>
