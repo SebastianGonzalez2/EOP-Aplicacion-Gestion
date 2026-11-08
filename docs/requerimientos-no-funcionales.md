@@ -5,7 +5,7 @@
 > hay que regenerar este archivo.
 
 
-20 requerimientos no funcionales.
+21 requerimientos no funcionales.
 
 ---
 
@@ -258,3 +258,27 @@ El sistema deberá mostrar una indicación visual de progreso o procesamiento du
 Tipo: Usabilidad / Diseño visual.
 
 Referencias: Operaciones que requieran espera por parte del usuario.
+
+## RNF-021 — Validación completa del RUT uruguayo
+
+
+**Descripción**
+
+
+El sistema deberá validar en el servidor todo RUT que se registre o modifique, comprobando su estructura uruguaya y su dígito verificador antes de guardar los datos. Se utilizará la misma validación en todos los módulos que reciban un RUT.
+
+**Reglas de validación**
+
+1. Antes de validar, se quitarán los separadores habituales: puntos, guiones y espacios.
+2. El RUT deberá tener exactamente 12 dígitos.
+3. Los dos primeros dígitos (prefijo) deberán estar entre 01 y 22.
+4. Los seis dígitos siguientes (número de serie) no podrán ser todos cero.
+5. Los tres dígitos siguientes (sufijo) deberán ser 001.
+6. El último dígito deberá coincidir con el dígito verificador calculado a partir de los 11 anteriores.
+7. Si el RUT no cumple alguna de estas reglas, el sistema deberá informar el error y no guardar los datos.
+
+Esta validación comprueba el formato, pero no confirma que el RUT exista o esté activo ante la DGI. Los criterios técnicos y sus fuentes están documentados en DT-04 de `decisiones-tecnicas.md`.
+
+Tipo: Integridad de datos.
+
+Referencias: RF-23, RF-86, RF-89, RF-109, US-009, US-053, US-054, US-072, RNF-10, RNF-18, DT-04.

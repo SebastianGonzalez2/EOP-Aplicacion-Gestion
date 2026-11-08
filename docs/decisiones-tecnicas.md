@@ -56,7 +56,7 @@ Sabemos que esta organización requiere escribir algo más de código, pero nos 
 
 ## DT-04 — Reglas de validación del RUT uruguayo
 
-**Fecha:** 04/11/2026 · **Sprint:** 2
+**Fecha:** 04/11/2026 · **Sprint:** 1
 
 **Decisión.** `ValidadorRut` exige 12 dígitos, prefijo entre 01 y 22, número de serie distinto de 000000, sufijo 001 y dígito verificador correcto. La misma clase valida el RUT de Clientes y de Proveedores.
 
@@ -207,11 +207,11 @@ Formato para las próximas:
 
 ---
 
-# Nuevos requerimientos no funcionales
+# Nuevo requerimiento no funcional incorporado
 
-Requerimientos surgidos durante el desarrollo, anotados acá para pasarlos al apartado «Nuevos requerimientos surgidos» de la documentación de cada sprint. No modifican los requerimientos vigentes en `requerimientos-no-funcionales.md`.
+Registro del requerimiento surgido durante el desarrollo del Sprint 1. Ya se incorporó al anteproyecto y a [`requerimientos-no-funcionales.md`](./requerimientos-no-funcionales.md) como RNF-021. Se conserva aquí el contexto de su origen y su relación con DT-04.
 
-## Sprint 2 — Validación completa del RUT uruguayo
+## RNF-021 — Validación completa del RUT uruguayo (Sprint 1)
 
 **Descripción**
 
