@@ -151,6 +151,7 @@ Vienen de los requerimientos no funcionales. No son sugerencias.
 **Datos**
 
 - **RNF-10 / RNF-18** — Toda validación se hace del lado del servidor. La validación en el navegador es comodidad, no control.
+- **RNF-21** — Todo RUT ingresado o modificado se valida en el servidor con la misma regla para todos los módulos: 12 dígitos, prefijo 01–22, serie distinta de 000000, sufijo 001 y dígito verificador correcto. No afirmar que esta validación certifica la existencia del RUT.
 - **RNF-6** — Los archivos van a Blob Storage. En la base quedan los datos estructurados y la referencia. Nunca el binario.
 - **RNF-1** — Toda acción destructiva pide confirmación explícita.
 
