@@ -3011,7 +3011,7 @@ Prioridad: Alta.
 **Descripción**
 
 
-El sistema deberá permitir a Supervisor o Administrador registrar manualmente una Factura de venta desde la sección Facturas de venta de la ficha de un Proyecto existente. El usuario seleccionará y confirmará el tipo de comprobante, adjuntará el PDF original y completará los campos requeridos antes de Guardar factura.
+El sistema deberá permitir a Supervisor o Administrador registrar manualmente una Factura de venta desde la sección Facturas de venta de la ficha de un Proyecto existente. El usuario seleccionará el tipo de comprobante, podrá adjuntar el PDF original sin una confirmación previa del tipo y completará los campos requeridos antes de Guardar factura. La única confirmación definitiva se realizará al pulsar Guardar factura.
 
 El sistema no realizará OCR, extracción automática ni precarga mediante Azure AI Document Intelligence. La Factura quedará asociada exclusivamente al Proyecto de origen y contribuirá a los ingresos facturados según RF-103.
 
@@ -3021,7 +3021,7 @@ El sistema no realizará OCR, extracción automática ni precarga mediante Azure
 
 La operación se iniciará en el Proyecto mediante Registrar factura de venta. Solo Supervisor y Administrador podrán ejecutarla según RF-73; Operador tendrá únicamente permiso de consulta. El Proyecto de origen se obtendrá automáticamente, sin selector para cambiarlo.
 
-El Tipo de comprobante deberá elegirse exclusivamente entre estos seis valores fijos: e-Factura (DGI 111), e-Ticket (101), Nota de crédito de e-Factura (112), Nota de crédito de e-Ticket (102), Nota de débito de e-Factura (113) y Nota de débito de e-Ticket (103). No se permitirán altas, modificaciones ni bajas de tipos. El usuario deberá confirmar explícitamente que el tipo elegido corresponde al PDF antes de continuar.
+El Tipo de comprobante deberá elegirse exclusivamente entre estos seis valores fijos: e-Factura (DGI 111), e-Ticket (101), Nota de crédito de e-Factura (112), Nota de crédito de e-Ticket (102), Nota de débito de e-Factura (113) y Nota de débito de e-Ticket (103). No se permitirán altas, modificaciones ni bajas de tipos. El usuario podrá revisar o corregir el tipo seleccionado antes de guardar la Factura, sin una confirmación intermedia ni bloqueo para adjuntar el PDF.
 
 El PDF original será obligatorio y válido y se adjuntará mediante selección de archivo o arrastrar y soltar. No se guardará ninguna Factura sin su PDF original.
 
@@ -4065,7 +4065,7 @@ Prioridad: Alta.
 **Descripción**
 
 
-El sistema deberá permitir a Supervisor o Administrador registrar manualmente una Factura de compra desde Facturas de compra de la ficha de un Proyecto existente. El usuario seleccionará y confirmará un Tipo de comprobante fijo, adjuntará el PDF original obligatorio, seleccionará un Proveedor existente y completará los datos del formulario antes de Guardar factura.
+El sistema deberá permitir a Supervisor o Administrador registrar manualmente una Factura de compra desde Facturas de compra de la ficha de un Proyecto existente. El usuario seleccionará un Tipo de comprobante fijo, adjuntará el PDF original obligatorio sin confirmación intermedia del tipo, seleccionará un Proveedor existente y completará los datos del formulario antes de Guardar factura. La única confirmación definitiva se realizará al pulsar Guardar factura.
 
 No se utilizarán OCR, Azure AI Document Intelligence ni creación de Proveedores desde la Factura. La Factura se asociará al Proyecto de origen y contribuirá a los indicadores de costos según RF-103.
 
@@ -4075,7 +4075,7 @@ No se utilizarán OCR, Azure AI Document Intelligence ni creación de Proveedore
 
 El registro comenzará desde la sección Facturas de compra del Proyecto. Supervisor y Administrador podrán ejecutarlo según RF-73; Operador tendrá únicamente permiso de consulta. El Proyecto de origen se mostrará automáticamente y no se podrá cambiar.
 
-Antes de adjuntar el PDF, el usuario elegirá y confirmará manualmente uno de estos seis Tipos fijos: e-Factura (DGI 111), e-Ticket (101), Nota de crédito de e-Factura (112), Nota de crédito de e-Ticket (102), Nota de débito de e-Factura (113) y Nota de débito de e-Ticket (103). No se podrán administrar tipos ni determinar su valor mediante extracción.
+El usuario elegirá manualmente uno de estos seis Tipos fijos: e-Factura (DGI 111), e-Ticket (101), Nota de crédito de e-Factura (112), Nota de crédito de e-Ticket (102), Nota de débito de e-Factura (113) y Nota de débito de e-Ticket (103). No se podrán administrar tipos ni determinar su valor mediante extracción. El usuario podrá revisar o corregir el tipo antes de guardar y podrá adjuntar el PDF sin una confirmación previa.
 
 El PDF original será obligatorio, válido y privado, y se podrá adjuntar mediante selección de archivo o arrastrar y soltar; sin PDF no se registrará la Factura.
 
@@ -4083,7 +4083,7 @@ El formulario mostrará Proyecto, Receptor EOP y RUT receptor EOP configurado co
 
 Si el Proveedor necesario no existe, deberá darse de alta previamente en el módulo Proveedores conforme a RF-23; una vez existente, podrá seleccionarse al retomar la carga de la Factura. No se realizarán búsquedas automáticas a partir del PDF.
 
-El usuario ingresará manualmente Fecha de emisión, Serie, Número real del comprobante, Importe registrado y Moneda. El Tipo confirmado y el Proveedor elegido serán obligatorios. No habrá precargas ni advertencias basadas en OCR.
+El usuario ingresará manualmente Fecha de emisión, Serie, Número real del comprobante, Importe registrado y Moneda. El Tipo seleccionado y el Proveedor elegido serán obligatorios. No habrá precargas ni advertencias basadas en OCR.
 
 El Importe registrado deberá ser positivo y corresponder al total final del comprobante, incluidos impuestos y redondeos. No se registrarán por separado saldos, adelantos, líneas ni pagos parciales; las Notas de crédito conservarán importe positivo.
 
