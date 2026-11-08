@@ -2582,7 +2582,7 @@ En el alta se seleccionará manualmente el proveedor y se ingresará precio unit
 
 El nombre de Material será obligatorio y único por denominación completa normalizada, ignorando diferencias de mayúsculas, minúsculas y espacios innecesarios.
 
-La Unidad será obligatoria y se seleccionará exclusivamente entre las opciones fijas disponibles (mm, cm, m, km, cm², m², cm³, m³, ml, litro, g, kg, t y unidad; m, m², m³, kg y litro fueron tomadas del relevamiento original y el resto se agregó a pedido del equipo; lista sujeta a validación con EOP); no se podrán crear ni administrar unidades desde este formulario.
+La Unidad será obligatoria y se seleccionará exclusivamente entre las 14 opciones fijas disponibles (mm, cm, m, km, cm², m², cm³, m³, ml, litro, g, kg, t y unidad). Esta lista de unidades fue validada con EOP; no se podrán crear ni administrar unidades desde este formulario.
 
 Todo material nuevo deberá registrar al menos una primera relación material-proveedor válida en la misma operación de alta.
 
