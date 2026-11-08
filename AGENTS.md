@@ -33,8 +33,7 @@ Proyecto Integrador — Universidad ORT Uruguay. Equipo de 2 integrantes. 8 spri
 | Gantt | Frappe Gantt |
 | Gráficos | Chart.js |
 | Cotizaciones | datosUruguay API (USD/UYU, datos del BCU) |
-| Hosting | Azure App Service · Azure WebJobs |
-| Email | Azure Communication Services Email |
+| Hosting | Azure App Service |
 
 **Fuera del alcance de la primera versión** (no implementar, aunque aparezca mencionado en documentación vieja):
 
@@ -42,6 +41,8 @@ Proyecto Integrador — Universidad ORT Uruguay. Equipo de 2 integrantes. 8 spri
 - Generación del Word de propuesta comercial mediante IA — EOP la prepara afuera y sube el PDF
 - Sincronización automática de precios con Fivisa
 - Pantallas de administración de tipos de proyecto, tipos de documento y unidades (son conjuntos fijos)
+- Azure WebJobs dedicados al vencimiento de presupuestos — se comprueba al listar, consultar u operar, sin tarea programada (RF-36 / US-020)
+- Envío automático de propuestas comerciales por correo o WhatsApp, incluido Azure Communication Services Email — EOP realiza el envío por fuera de la aplicación y registra medio y fecha; WhatsApp Click to Chat solo abre la conversación (RF-34 / US-018)
 
 ---
 
