@@ -8,7 +8,7 @@ regeneran a partir de él cuando cambia.
 |---|---|
 | [`necesidades-y-objetivos.md`](./necesidades-y-objetivos.md) | Necesidades del cliente (N-xx) y objetivos académicos y de producto |
 | [`requerimientos-funcionales.md`](./requerimientos-funcionales.md) | Los 109 RF con sus reglas de negocio, dependencias y prioridad |
-| [`requerimientos-no-funcionales.md`](./requerimientos-no-funcionales.md) | Los 20 RNF |
+| [`requerimientos-no-funcionales.md`](./requerimientos-no-funcionales.md) | Los 21 RNF |
 | [`user-stories.md`](./user-stories.md) | Las 76 US con criterios de aceptación; las excluidas llevan aviso |
 | [`alcance.md`](./alcance.md) | Funcionalidades incluidas y excluidas de la primera versión |
 | [`decisiones-tecnicas.md`](./decisiones-tecnicas.md) | Decisiones de diseño con su motivo y alternativas descartadas |
