@@ -15,11 +15,16 @@
     Bootstrap lo convierte en un panel que se abre con el botón de la barra de arriba
     (la clase offcanvas-lg hace ese cambio sola, sin JavaScript propio).
 *@
+
 @{
     bool esAdministrador = User.IsInRole(nameof(RolUsuario.Administrador));
     bool esSupervisor = User.IsInRole(nameof(RolUsuario.Supervisor));
-    bool puedeVerAbastecimiento = esAdministrador || esSupervisor;
+    bool esOperador = User.IsInRole(nameof(RolUsuario.Operador));
+
+    bool puedeVerAbastecimiento = esAdministrador || esSupervisor || esOperador;
+    bool puedeRegistrarMateriales = esAdministrador || esSupervisor;
 }
+
 
 @functions {
     // Devuelve "page" si el enlace pertenece a la sección que se está mostrando, y null si no.
@@ -75,24 +80,35 @@
                     </a>
                 </div>
 
-                @* Por ahora la sección Proveedores solo tiene el alta, así que el enlace lleva ahí y solo lo ven
-                   los roles que pueden usarla. Cuando llegue el listado (US-074), va a apuntar a él y lo van a
-                   ver también los Operadores. Esto es solo por comodidad: el control real está en el Controller. *@
+                
+                @* US-074: los tres roles pueden consultar el listado de proveedores.
+                   El registro sigue reservado a Administrador y Supervisor. *@
                 @if (puedeVerAbastecimiento)
                 {
                     <div class="nav-grupo">
                         <div class="nav-grupo-titulo">Abastecimiento</div>
-                        <a class="@ClaseDelEnlace("Proveedores")" aria-current="@MarcaDeSeccionActual("Proveedores")" asp-controller="Proveedores" asp-action="Registrar">
+
+                        <a class="@ClaseDelEnlace("Proveedores")"
+                           aria-current="@MarcaDeSeccionActual("Proveedores")"
+                           asp-controller="Proveedores"
+                           asp-action="Index">
                             <i class="bi bi-truck" aria-hidden="true"></i>Proveedores
                         </a>
 
-                        @* S2-T15: acceso al formulario de materiales.
-                        El registro definitivo se implementará en S2-T16. *@
-                        <a class="@ClaseDelEnlace("Materiales")" aria-current="@MarcaDeSeccionActual("Materiales")" asp-controller="Materiales" asp-action="Registrar">
-                            <i class="bi bi-box-seam" aria-hidden="true"></i>Materiales
-                        </a>
+                        @if (puedeRegistrarMateriales)
+                        {
+                            @* S2-T15: acceso al formulario de materiales.
+                               El registro definitivo se implementará en S2-T16. *@
+                            <a class="@ClaseDelEnlace("Materiales")"
+                               aria-current="@MarcaDeSeccionActual("Materiales")"
+                               asp-controller="Materiales"
+                               asp-action="Registrar">
+                                <i class="bi bi-box-seam" aria-hidden="true"></i>Materiales
+                            </a>
+                        }
                     </div>
                 }
+
 
                 @* US-043: acceso al alta de usuarios. Cuando llegue el listado (US-045), este enlace va a
                    apuntar a él. Es solo comodidad: el control real está en UsuariosController. *@

@@ -43,6 +43,8 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         // RF-73, Materiales y Proveedores: registran Supervisor y Administrador.
         ["GET Materiales/Registrar"] = AdministradorOSupervisor,
         ["POST Materiales/Registrar"] = AdministradorOSupervisor,
+        // US-074: los tres roles pueden consultar proveedores.
+        ["GET Proveedores/Index"] = "Administrador,Operador,Supervisor",
         ["GET Proveedores/Registrar"] = AdministradorOSupervisor,
         ["POST Proveedores/Registrar"] = AdministradorOSupervisor,
 

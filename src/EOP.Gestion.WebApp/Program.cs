@@ -10,6 +10,8 @@ using EOP.Gestion.Core.CasosDeUso.Proveedores;
 using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using System.Security.Claims;
 using EOP.Gestion.Core.CasosDeUso.Materiales;
+using EOP.Gestion.Infrastructure.Consultas.Proveedores;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,6 +63,9 @@ builder.Services.AddScoped<ModificarRolUsuario>();
 // Registramos el caso de uso con el que el Administrador da de alta un usuario.
 builder.Services.AddScoped<RegistrarUsuario>();
 
+// Registramos la consulta que obtiene los proveedores
+// existentes para mostrarlos en el listado.
+builder.Services.AddScoped<ConsultarProveedores>();
 
 
 // ================================
