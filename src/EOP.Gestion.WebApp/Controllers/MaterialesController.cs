@@ -6,26 +6,69 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Core.Comun;
-
+using EOP.Gestion.Infrastructure.Consultas.Materiales;
+using EOP.Gestion.Core.Entidades.Catalogo;
 
 namespace EOP.Gestion.WebApp.Controllers
 {
-    // Solamente Supervisor y Administrador pueden registrar materiales.
-    [Authorize(Roles = "Supervisor,Administrador")]
+    // Los tres roles pueden consultar materiales.
+    // Las operaciones restringidas tendrán su propia autorización.
+    [Authorize]
     public class MaterialesController : Controller
     {
         private readonly ConsultarProveedoresParaSeleccion _consultarProveedores;
         private readonly RegistrarMaterial _registrarMaterial;
 
+        // Servicio que consulta los materiales y aplica los filtros del catálogo.
+        private readonly ConsultarMateriales _consultarMateriales;
+
         // Recibimos el servicio que consulta los proveedores existentes.
-        public MaterialesController(ConsultarProveedoresParaSeleccion consultarProveedores, RegistrarMaterial registrarMaterial)
+        public MaterialesController(ConsultarProveedoresParaSeleccion consultarProveedores, RegistrarMaterial registrarMaterial, ConsultarMateriales consultarMateriales    )
         {
             _consultarProveedores = consultarProveedores;
             _registrarMaterial = registrarMaterial;
+            _consultarMateriales = consultarMateriales;
         }
 
-        // GET: muestra el formulario de registro de materiales.
+
+
+        // GET: muestra el catálogo de materiales.
+        // Permite buscar por nombre y filtrar por unidad y proveedor.
         [HttpGet]
+        public async Task<IActionResult> Index(string? busqueda,UnidadMedida? unidad,int? proveedorId)
+        {
+            // Consultamos los materiales aplicando los filtros recibidos.
+            var materiales = await _consultarMateriales.EjecutarAsync(busqueda,unidad,proveedorId,HttpContext.RequestAborted);
+
+            // Obtenemos los proveedores existentes para el filtro.
+            var proveedores = await _consultarProveedores.EjecutarAsync(HttpContext.RequestAborted);
+
+            // Preparamos las opciones del desplegable de proveedores.
+            var opcionesProveedores = proveedores.Select(proveedor =>new SelectListItem
+                {
+                    Text = proveedor.Nombre,
+                    Value = proveedor.Id.ToString()
+                }).ToList();
+
+            // Conservamos los filtros seleccionados para mostrarlos en la vista.
+            ViewBag.Busqueda = busqueda;
+            ViewBag.Unidad = unidad;
+            ViewBag.ProveedorId = proveedorId;
+            ViewBag.Proveedores = opcionesProveedores;
+
+            // Enviamos los materiales a la vista.
+            return View(materiales);
+        }
+
+
+
+
+
+
+        // GET: muestra el formulario de registro de materiales.
+        // Solamente Supervisor y Administrador pueden registrar.
+        [HttpGet]
+        [Authorize(Roles = "Supervisor,Administrador")]
         public async Task<IActionResult> Registrar()
         {
             RegistrarMaterialViewModel modelo = new RegistrarMaterialViewModel();
@@ -45,8 +88,8 @@ namespace EOP.Gestion.WebApp.Controllers
         }
 
 
-        // POST: recibe los datos enviados desde el formulario.
         [HttpPost]
+        [Authorize(Roles = "Supervisor,Administrador")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Registrar(RegistrarMaterialViewModel modelo)
         {

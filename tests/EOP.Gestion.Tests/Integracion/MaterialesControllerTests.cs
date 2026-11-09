@@ -1,5 +1,6 @@
 ﻿
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
+using EOP.Gestion.Infrastructure.Consultas.Materiales;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Tests.Compartido;
 using EOP.Gestion.WebApp.Controllers;
@@ -55,9 +56,12 @@ namespace EOP.Gestion.Tests.Integracion
                 new RepositorioMateriales(contexto),
                 new RepositorioProveedores(contexto));
 
+            var consultarMateriales = new ConsultarMateriales(contexto);
+
             var controller = new MaterialesController(
                 consulta,
-                registrarMaterial)
+                registrarMaterial,
+                consultarMateriales)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -118,9 +122,12 @@ namespace EOP.Gestion.Tests.Integracion
                 new RepositorioMateriales(contexto),
                 new RepositorioProveedores(contexto));
 
+            var consultarMateriales = new ConsultarMateriales(contexto);
+
             var controller = new MaterialesController(
                 consulta,
-                registrarMaterial)
+                registrarMaterial,
+                consultarMateriales)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -174,9 +181,12 @@ namespace EOP.Gestion.Tests.Integracion
                 new RepositorioMateriales(contexto),
                 new RepositorioProveedores(contexto));
 
+            var consultarMateriales = new ConsultarMateriales(contexto);
+
             var controller = new MaterialesController(
                 consulta,
-                registrarMaterial)
+                registrarMaterial,
+                consultarMateriales)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -245,9 +255,12 @@ namespace EOP.Gestion.Tests.Integracion
 
             var httpContext = new DefaultHttpContext();
 
+            var consultarMateriales = new ConsultarMateriales(contexto);
+
             var controller = new MaterialesController(
                 consulta,
-                registrarMaterial)
+                registrarMaterial,
+                consultarMateriales)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -339,9 +352,12 @@ namespace EOP.Gestion.Tests.Integracion
                 new RepositorioMateriales(contexto),
                 new RepositorioProveedores(contexto));
 
+            var consultarMateriales = new ConsultarMateriales(contexto);
+
             var controller = new MaterialesController(
                 consulta,
-                registrarMaterial)
+                registrarMaterial,
+                consultarMateriales)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -378,28 +394,57 @@ namespace EOP.Gestion.Tests.Integracion
 
 
         [Fact]
-        public void MaterialesController_TieneLosPermisosCorrectos()
+        public void MaterialesController_PermiteConsultarConSesionIniciada()
         {
-            // Obtenemos el atributo Authorize del controlador.
+            // El Controller exige autenticación, pero no restringe el acceso
+            // por rol, porque los tres roles pueden consultar materiales.
             var atributos = typeof(MaterialesController)
                 .GetCustomAttributes(typeof(AuthorizeAttribute), true);
 
             var autorizacion = Assert.IsType<AuthorizeAttribute>(
                 Assert.Single(atributos));
 
-            // Comprobamos los roles permitidos.
-            Assert.NotNull(autorizacion.Roles);
+            Assert.True(string.IsNullOrEmpty(autorizacion.Roles));
+        }
 
-            string[] rolesPermitidos = autorizacion.Roles.Split(',');
 
-            Assert.Contains(nameof(RolUsuario.Administrador), rolesPermitidos);
-            Assert.Contains(nameof(RolUsuario.Supervisor), rolesPermitidos);
 
-            // El Operador no puede registrar materiales.
-            Assert.DoesNotContain(nameof(RolUsuario.Operador), rolesPermitidos);
+        [Fact]
+        public void RegistrarGetYPost_SoloPermitenSupervisorYAdministrador()
+        {
+            // Ahora los permisos del registro están en cada acción,
+            // no en el Controller, para no bloquear el listado al Operador.
+            var metodoGet = typeof(MaterialesController).GetMethod(
+                nameof(MaterialesController.Registrar),
+                Type.EmptyTypes);
 
-            // Deben estar habilitados únicamente esos dos roles.
-            Assert.Equal(2, rolesPermitidos.Length);
+            var metodoPost = typeof(MaterialesController).GetMethod(
+                nameof(MaterialesController.Registrar),
+                new[] { typeof(RegistrarMaterialViewModel) });
+
+            Assert.NotNull(metodoGet);
+            Assert.NotNull(metodoPost);
+
+            // Comprobamos la misma restricción tanto en el GET como en el POST.
+            foreach (var metodo in new[] { metodoGet, metodoPost })
+            {
+                var atributos = metodo.GetCustomAttributes(
+                    typeof(AuthorizeAttribute), true);
+
+                var autorizacion = Assert.IsType<AuthorizeAttribute>(
+                    Assert.Single(atributos));
+
+                Assert.NotNull(autorizacion.Roles);
+
+                string[] rolesPermitidos = autorizacion.Roles.Split(',');
+
+                Assert.Contains(nameof(RolUsuario.Administrador), rolesPermitidos);
+                Assert.Contains(nameof(RolUsuario.Supervisor), rolesPermitidos);
+
+                // El Operador puede consultar, pero no registrar materiales.
+                Assert.DoesNotContain(nameof(RolUsuario.Operador), rolesPermitidos);
+                Assert.Equal(2, rolesPermitidos.Length);
+            }
         }
 
 

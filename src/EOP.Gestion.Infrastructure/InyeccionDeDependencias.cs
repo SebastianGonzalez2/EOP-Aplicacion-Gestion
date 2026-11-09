@@ -13,6 +13,7 @@ using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales;
 using EOP.Gestion.Core.Interfaces.Proveedores;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
 using EOP.Gestion.Infrastructure.Consultas.Clientes;
+using EOP.Gestion.Infrastructure.Consultas.Materiales;
 
 namespace EOP.Gestion.Infrastructure;
 
@@ -47,6 +48,10 @@ public static class InyeccionDeDependencias
         // Registramos el servicio encargado de consultar
         // y filtrar los clientes para el listado.
         services.AddScoped<ConsultarClientes>();
+
+        // Registramos el servicio que consulta y filtra los materiales
+        // por nombre, unidad y proveedor para el listado del catálogo.
+        services.AddScoped<ConsultarMateriales>();
 
         // Registramos el servicio que consulta los proveedores existentes
         // para mostrarlos en el selector del formulario de materiales.

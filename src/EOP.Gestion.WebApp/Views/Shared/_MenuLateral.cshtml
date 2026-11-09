@@ -18,7 +18,10 @@
 @{
     bool esAdministrador = User.IsInRole(nameof(RolUsuario.Administrador));
     bool esSupervisor = User.IsInRole(nameof(RolUsuario.Supervisor));
-    bool puedeVerAbastecimiento = esAdministrador || esSupervisor;
+    bool esOperador = User.IsInRole(nameof(RolUsuario.Operador));
+
+    // Los tres roles pueden consultar el catálogo de materiales.
+    bool puedeVerAbastecimiento = esAdministrador || esSupervisor || esOperador;
 }
 
 @functions {
@@ -75,24 +78,37 @@
                     </a>
                 </div>
 
-                @* Por ahora la sección Proveedores solo tiene el alta, así que el enlace lleva ahí y solo lo ven
-                   los roles que pueden usarla. Cuando llegue el listado (US-074), va a apuntar a él y lo van a
-                   ver también los Operadores. Esto es solo por comodidad: el control real está en el Controller. *@
+                
                 @if (puedeVerAbastecimiento)
                 {
                     <div class="nav-grupo">
                         <div class="nav-grupo-titulo">Abastecimiento</div>
-                        <a class="@ClaseDelEnlace("Proveedores")" aria-current="@MarcaDeSeccionActual("Proveedores")" asp-controller="Proveedores" asp-action="Registrar">
-                            <i class="bi bi-truck" aria-hidden="true"></i>Proveedores
-                        </a>
 
-                        @* S2-T15: acceso al formulario de materiales.
-                        El registro definitivo se implementará en S2-T16. *@
-                        <a class="@ClaseDelEnlace("Materiales")" aria-current="@MarcaDeSeccionActual("Materiales")" asp-controller="Materiales" asp-action="Registrar">
+                        @* Por ahora Proveedores solamente tiene el formulario de alta.
+                           Por eso el enlace sigue limitado a Supervisor y Administrador.
+                           Cuando se implemente US-074, se podrá acceder al listado
+                           también desde el rol Operador. *@
+                        @if (esAdministrador || esSupervisor)
+                        {
+                            <a class="@ClaseDelEnlace("Proveedores")"
+                               aria-current="@MarcaDeSeccionActual("Proveedores")"
+                               asp-controller="Proveedores"
+                               asp-action="Registrar">
+                                <i class="bi bi-truck" aria-hidden="true"></i>Proveedores
+                            </a>
+                        }
+
+                        @* US-040: los tres roles pueden consultar el catálogo.
+                           El registro sigue restringido desde el Controller. *@
+                        <a class="@ClaseDelEnlace("Materiales")"
+                           aria-current="@MarcaDeSeccionActual("Materiales")"
+                           asp-controller="Materiales"
+                           asp-action="Index">
                             <i class="bi bi-box-seam" aria-hidden="true"></i>Materiales
                         </a>
                     </div>
                 }
+
 
                 @* US-043: acceso al alta de usuarios. Cuando llegue el listado (US-045), este enlace va a
                    apuntar a él. Es solo comodidad: el control real está en UsuariosController. *@

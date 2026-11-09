@@ -1,0 +1,241 @@
+﻿@model List<EOP.Gestion.Core.DTOs.Materiales.MaterialListadoDto>
+@using EOP.Gestion.Core.Entidades.Catalogo
+@using Microsoft.AspNetCore.Mvc.Rendering
+
+@{
+    ViewData["Title"] = "Materiales";
+
+    // Recuperamos los filtros que recibió el Controller.
+    string busquedaActual = ViewBag.Busqueda as string ?? "";
+    UnidadMedida? unidadSeleccionada = (UnidadMedida?)ViewBag.Unidad;
+    int? proveedorSeleccionado = (int?)ViewBag.ProveedorId;
+
+    List<SelectListItem> proveedores =ViewBag.Proveedores as List<SelectListItem> ?? new();
+
+    // Las unidades son fijas y mostramos sus abreviaturas.
+    var unidades = new Dictionary<UnidadMedida, string>
+    {
+        { UnidadMedida.Milimetro, "mm" },
+        { UnidadMedida.Centimetro, "cm" },
+        { UnidadMedida.Metro, "m" },
+        { UnidadMedida.Kilometro, "km" },
+        { UnidadMedida.CentimetroCuadrado, "cm²" },
+        { UnidadMedida.MetroCuadrado, "m²" },
+        { UnidadMedida.CentimetroCubico, "cm³" },
+        { UnidadMedida.MetroCubico, "m³" },
+        { UnidadMedida.Mililitro, "ml" },
+        { UnidadMedida.Litro, "litro" },
+        { UnidadMedida.Gramo, "g" },
+        { UnidadMedida.Kilogramo, "kg" },
+        { UnidadMedida.Tonelada, "t" },
+        { UnidadMedida.Unidad, "unidad" }
+    };
+
+    bool hayFiltros =!string.IsNullOrWhiteSpace(busquedaActual) ||unidadSeleccionada.HasValue ||proveedorSeleccionado.HasValue;
+
+    bool puedeRegistrar =User.IsInRole("Supervisor") ||User.IsInRole("Administrador");
+}
+
+<div class="encabezado">
+    <div>
+        <h1>Materiales</h1>
+        <p>Consultá los materiales registrados y sus precios por proveedor.</p>
+    </div>
+
+    @if (puedeRegistrar)
+    {
+        <a asp-controller="Materiales"
+           asp-action="Registrar"
+           class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>
+            Registrar material
+        </a>
+    }
+</div>
+
+<partial name="_Mensajes" />
+
+<!-- Formulario de búsqueda y filtros -->
+<form asp-controller="Materiales"
+      asp-action="Index"
+      method="get"
+      class="panel mb-3"
+      role="search"
+      aria-label="Filtros de materiales">
+
+    <div class="panel-cuerpo">
+        <div class="row g-3 align-items-end">
+
+            <!-- Búsqueda por nombre -->
+            <div class="col-12 col-xl-4">
+                <label for="busqueda" class="form-label">
+                    Nombre del material
+                </label>
+
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                    </span>
+
+                    <input type="search"
+                           id="busqueda"
+                           name="busqueda"
+                           value="@busquedaActual"
+                           class="form-control border-start-0"
+                           placeholder="Buscar material" />
+                </div>
+            </div>
+
+            <!-- Filtro por unidad -->
+            <div class="col-6 col-md-3 col-xl-2">
+                <label for="unidad" class="form-label">
+                    Unidad
+                </label>
+
+                <select id="unidad" name="unidad" class="form-select">
+                    <option value="">Todas</option>
+
+                    @foreach (var unidad in unidades)
+                    {
+                        <option value="@((int)unidad.Key)"
+                                selected="@(unidadSeleccionada == unidad.Key)">
+                            @unidad.Value
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <!-- Filtro por proveedor -->
+            <div class="col-6 col-md-3 col-xl-3">
+                <label for="proveedorId" class="form-label">
+                    Proveedor
+                </label>
+
+                <select id="proveedorId" name="proveedorId" class="form-select">
+                    <option value="">Todos</option>
+
+                    @foreach (var proveedor in proveedores)
+                    {
+                        <option value="@proveedor.Value"
+                                selected="@(proveedorSeleccionado?.ToString() == proveedor.Value)">
+                            @proveedor.Text
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-12 col-md-3 col-xl-auto">
+                <button type="submit" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-search me-1" aria-hidden="true"></i>
+                    Buscar
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="panel-pie d-flex flex-wrap gap-2 justify-content-between align-items-center">
+        <span class="text-body-secondary small">
+            Los filtros se combinan: se muestran los materiales que cumplen todos.
+        </span>
+
+        <a asp-controller="Materiales"
+           asp-action="Index"
+           class="btn btn-link btn-sm text-decoration-none p-0">
+            <i class="bi bi-x-circle me-1" aria-hidden="true"></i>
+            Limpiar filtros
+        </a>
+    </div>
+</form>
+
+<!-- Tabla del catálogo -->
+<section class="panel" aria-label="Resultados">
+
+    @if (Model.Count == 0)
+    {
+        <div class="sin-resultados" role="status">
+
+            @if (hayFiltros)
+            {
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <h2>No se encontraron materiales.</h2>
+                <p>Probá cambiando los filtros seleccionados.</p>
+
+                <a asp-controller="Materiales"
+                   asp-action="Index"
+                   class="btn btn-outline-secondary">
+                    Limpiar filtros
+                </a>
+            }
+            else
+            {
+                <i class="bi bi-inbox" aria-hidden="true"></i>
+                <h2>No se encontraron materiales.</h2>
+                <p>Todavía no hay materiales registrados.</p>
+
+                @if (puedeRegistrar)
+                {
+                    <a asp-controller="Materiales"
+                       asp-action="Registrar"
+                       class="btn btn-primary">
+                        Registrar material
+                    </a>
+                }
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover tabla">
+                <thead>
+                    <tr>
+                        <th scope="col">Material</th>
+                        <th scope="col">Unidad</th>
+                        <th scope="col">Proveedor</th>
+                        <th scope="col" class="text-end">Precio unitario</th>
+                        <th scope="col">Moneda</th>
+                        <th scope="col">Última actualización</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var material in Model)
+                    {
+                        @if (material.Referencias.Count == 0)
+                        {
+                            <tr>
+                                <td>@material.Nombre</td>
+                                <td>@unidades[material.Unidad]</td>
+                                <td><span class="sin-dato">Sin proveedor</span></td>
+                                <td class="text-end">—</td>
+                                <td>—</td>
+                                <td>—</td>
+                            </tr>
+                        }
+                        else
+                        {
+                            @foreach (var referencia in material.Referencias)
+                            {
+                                <tr>
+                                    <td>@material.Nombre</td>
+                                    <td>@unidades[material.Unidad]</td>
+                                    <td>@referencia.ProveedorNombre</td>
+                                    <td class="text-end">@referencia.PrecioUnitario</td>
+                                    <td>@referencia.Moneda</td>
+                                    <td>@referencia.FechaUltimaActualizacion.ToString("dd/MM/yyyy HH:mm")</td>
+                                </tr>
+                            }
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="panel-pie">
+            <span class="text-body-secondary small">
+                Se muestran @Model.Count materiales.
+            </span>
+        </div>
+    }
+</section>
