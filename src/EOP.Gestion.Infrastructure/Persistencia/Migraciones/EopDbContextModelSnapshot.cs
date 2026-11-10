@@ -22,6 +22,10 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.HasSequence<int>("SecuenciaPresupuestos")
+                .HasMin(1L)
+                .HasMax(9999L);
+
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Catalogo.Material", b =>
                 {
                     b.Property<int>("Id")
@@ -143,6 +147,97 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                             t.HasCheckConstraint("CK_Clientes_RutFormato", "[Rut] LIKE '____________' AND UNICODE(SUBSTRING([Rut], 1, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 2, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 3, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 4, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 5, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 6, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 7, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 8, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 9, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 10, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 11, 1)) BETWEEN 48 AND 57 AND UNICODE(SUBSTRING([Rut], 12, 1)) BETWEEN 48 AND 57");
 
                             t.HasCheckConstraint("CK_Clientes_WhatsAppNoVacio", "TRIM([NumeroWhatsApp]) <> ''");
+                        });
+                });
+
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.Presupuesto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClienteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(250)
+                        .HasColumnType("nvarchar(250)");
+
+                    b.Property<int>("Estado")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FechaCreacion")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NombreProyecto")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("NumeroCorrelativo")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PlazoVigenciaDias")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ResponsableId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TipoProyectoId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("NumeroCorrelativo")
+                        .IsUnique();
+
+                    b.HasIndex("ResponsableId");
+
+                    b.HasIndex("TipoProyectoId");
+
+                    b.ToTable("Presupuestos", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Presupuestos_CodigoNoVacio", "TRIM([Codigo]) <> ''");
+
+                            t.HasCheckConstraint("CK_Presupuestos_CorrelativoDeCuatroCifras", "[NumeroCorrelativo] BETWEEN 1 AND 9999");
+
+                            t.HasCheckConstraint("CK_Presupuestos_EstadoValido", "[Estado] IN (1, 2, 3, 4, 5, 6, 7, 8)");
+
+                            t.HasCheckConstraint("CK_Presupuestos_NombreProyectoNoVacio", "TRIM([NombreProyecto]) <> ''");
+
+                            t.HasCheckConstraint("CK_Presupuestos_PlazoVigenciaPositivo", "[PlazoVigenciaDias] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.TipoProyecto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique();
+
+                    b.ToTable("TiposProyecto", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TiposProyecto_NombreNoVacio", "TRIM([Nombre]) <> ''");
                         });
                 });
 
@@ -303,6 +398,27 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                     b.HasOne("EOP.Gestion.Core.Entidades.Proveedores.Proveedor", null)
                         .WithMany()
                         .HasForeignKey("ProveedorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.Presupuesto", b =>
+                {
+                    b.HasOne("EOP.Gestion.Core.Entidades.Clientes.Cliente", null)
+                        .WithMany()
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Usuarios.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("ResponsableId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.TipoProyecto", null)
+                        .WithMany()
+                        .HasForeignKey("TipoProyectoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

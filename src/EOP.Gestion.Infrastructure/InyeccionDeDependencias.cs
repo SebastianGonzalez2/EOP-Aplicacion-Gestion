@@ -13,6 +13,8 @@ using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales;
 using EOP.Gestion.Core.Interfaces.Proveedores;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Proveedores;
 using EOP.Gestion.Infrastructure.Consultas.Clientes;
+using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
 
 namespace EOP.Gestion.Infrastructure;
 
@@ -70,6 +72,10 @@ public static class InyeccionDeDependencias
         // Cuando una clase necesite IRepositorioMateriales,
         // ASP.NET Core le proporcionará RepositorioMateriales.
         services.AddScoped<IRepositorioMateriales, RepositorioMateriales>();
+
+        // Registramos el repositorio de presupuestos, que guarda el presupuesto
+        // y le asigna su código interno.
+        services.AddScoped<IRepositorioPresupuestos, RepositorioPresupuestos>();
 
         return services;
     }
