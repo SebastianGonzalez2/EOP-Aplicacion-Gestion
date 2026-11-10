@@ -6,6 +6,7 @@ using EOP.Gestion.WebApp.ViewModels.Proveedores;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using EOP.Gestion.Infrastructure.Consultas.Proveedores;
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -22,11 +23,33 @@ namespace EOP.Gestion.WebApp.Controllers
         // Caso de uso que valida y guarda el proveedor con sus cuentas.
         private readonly RegistrarProveedor _registrarProveedor;
 
-        public ProveedoresController(IServicioTelefonos servicioTelefonos, RegistrarProveedor registrarProveedor)
+        // Consulta que obtiene los proveedores para mostrarlos en el listado.
+        private readonly ConsultarProveedores _consultarProveedores;
+
+        public ProveedoresController(IServicioTelefonos servicioTelefonos, RegistrarProveedor registrarProveedor, ConsultarProveedores consultarProveedores)
         {
             _servicioTelefonos = servicioTelefonos;
             _registrarProveedor = registrarProveedor;
+            _consultarProveedores = consultarProveedores;
         }
+
+
+
+        // GET: /Proveedores
+        // Obtiene todos los proveedores y los envía a la vista del listado.
+        // Los tres roles pueden consultar proveedores según US-074.
+        [HttpGet]
+        [Authorize(Roles = "Administrador,Supervisor,Operador")]
+        public async Task<IActionResult> Index()
+        {
+            var proveedores = await _consultarProveedores.EjecutarAsync(HttpContext.RequestAborted);
+
+            return View(proveedores);
+        }
+
+
+
+
 
         // GET: /Proveedores/Registrar
         // Muestra el formulario de alta vacío.
@@ -152,5 +175,15 @@ namespace EOP.Gestion.WebApp.Controllers
                 modelo.PaisesTelefono.Add(new SelectListItem(pais.Descripcion, pais.CodigoIso));
             }
         }
+
+
+
+
+
+
+
+
+
+
     }
 }

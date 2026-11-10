@@ -1,0 +1,112 @@
+﻿@model List<EOP.Gestion.Core.DTOs.Proveedores.ProveedorListadoDto>
+
+@{
+    ViewData["Title"] = "Proveedores";
+}
+
+@*
+    Listado de proveedores (US-074).
+    Los tres roles pueden consultar, pero solo Administrador
+    y Supervisor pueden registrar proveedores (RF-73).
+*@
+
+<div class="encabezado">
+    <div>
+        <h1>Proveedores</h1>
+        <p>Listado de proveedores registrados en el sistema.</p>
+    </div>
+
+    @if (User.IsInRole("Administrador") || User.IsInRole("Supervisor"))
+    {
+        <a asp-controller="Proveedores"
+           asp-action="Registrar"
+           class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar proveedor
+        </a>
+    }
+</div>
+
+<partial name="_Mensajes" />
+
+<section class="panel" aria-label="Listado de proveedores">
+
+    @if (Model.Count == 0)
+    {
+        <div class="sin-resultados" role="status">
+            <i class="bi bi-inbox" aria-hidden="true"></i>
+            <h2>No se encontraron proveedores.</h2>
+            <p>Todavía no hay proveedores registrados.</p>
+
+            @if (User.IsInRole("Administrador") || User.IsInRole("Supervisor"))
+            {
+                <a asp-controller="Proveedores"
+                   asp-action="Registrar"
+                   class="btn btn-primary">
+                    Registrar proveedor
+                </a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover tabla">
+                <thead>
+                    <tr>
+                        <th scope="col">Nombre</th>
+                        <th scope="col">RUT</th>
+                        <th scope="col">Teléfono</th>
+                        <th scope="col">Correo contacto</th>
+                        <th scope="col">Correo facturación</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var proveedor in Model)
+                    {
+                        <tr>
+                            <td>@proveedor.Nombre</td>
+                            <td>@proveedor.Rut</td>
+                            <td>@proveedor.Telefono</td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(proveedor.CorreoContacto))
+                                {
+                                    @proveedor.CorreoContacto
+                                }
+                                else
+                                {
+                                    <span class="sin-dato">Sin informar</span>
+                                }
+                            </td>
+
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(proveedor.CorreoFacturacion))
+                                {
+                                    @proveedor.CorreoFacturacion
+                                }
+                                else
+                                {
+                                    <span class="sin-dato">Sin informar</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="panel-pie">
+            <span class="text-body-secondary small">
+                @if (Model.Count == 1)
+                {
+                    @:Se muestra 1 proveedor.
+                }
+                else
+                {
+                    @:Se muestran @Model.Count proveedores.
+                }
+            </span>
+        </div>
+    }
+</section>

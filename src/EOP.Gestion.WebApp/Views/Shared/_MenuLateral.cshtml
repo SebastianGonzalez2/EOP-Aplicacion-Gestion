@@ -15,14 +15,16 @@
     Bootstrap lo convierte en un panel que se abre con el botón de la barra de arriba
     (la clase offcanvas-lg hace ese cambio sola, sin JavaScript propio).
 *@
+
 @{
     bool esAdministrador = User.IsInRole(nameof(RolUsuario.Administrador));
     bool esSupervisor = User.IsInRole(nameof(RolUsuario.Supervisor));
     bool esOperador = User.IsInRole(nameof(RolUsuario.Operador));
 
-    // Los tres roles pueden consultar el catálogo de materiales.
+    // Los tres roles pueden consultar el catálogo de materiales y el listado de proveedores.
     bool puedeVerAbastecimiento = esAdministrador || esSupervisor || esOperador;
 }
+
 
 @functions {
     // Devuelve "page" si el enlace pertenece a la sección que se está mostrando, y null si no.
@@ -79,24 +81,19 @@
                 </div>
 
                 
+                @* US-074: los tres roles pueden consultar el listado de proveedores.
+                   El registro sigue reservado a Administrador y Supervisor. *@
                 @if (puedeVerAbastecimiento)
                 {
                     <div class="nav-grupo">
                         <div class="nav-grupo-titulo">Abastecimiento</div>
 
-                        @* Por ahora Proveedores solamente tiene el formulario de alta.
-                           Por eso el enlace sigue limitado a Supervisor y Administrador.
-                           Cuando se implemente US-074, se podrá acceder al listado
-                           también desde el rol Operador. *@
-                        @if (esAdministrador || esSupervisor)
-                        {
-                            <a class="@ClaseDelEnlace("Proveedores")"
-                               aria-current="@MarcaDeSeccionActual("Proveedores")"
-                               asp-controller="Proveedores"
-                               asp-action="Registrar">
-                                <i class="bi bi-truck" aria-hidden="true"></i>Proveedores
-                            </a>
-                        }
+                        <a class="@ClaseDelEnlace("Proveedores")"
+                           aria-current="@MarcaDeSeccionActual("Proveedores")"
+                           asp-controller="Proveedores"
+                           asp-action="Index">
+                            <i class="bi bi-truck" aria-hidden="true"></i>Proveedores
+                        </a>
 
                         @* US-040: los tres roles pueden consultar el catálogo.
                            El registro sigue restringido desde el Controller. *@
