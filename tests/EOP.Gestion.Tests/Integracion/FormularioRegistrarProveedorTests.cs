@@ -413,23 +413,20 @@ public partial class FormularioRegistrarProveedorTests : IClassFixture<Formulari
 
     // ---------- Enlace en el menú ----------
 
-    [Theory]
-    [InlineData("Administrador", true)]
-    [InlineData("Supervisor", true)]
-    [InlineData("Operador", false)]
-    public async Task Menu_MuestraElEnlaceSoloALosRolesQuePuedenRegistrar(string rol, bool debeVerElEnlace)
-    {
-        string html = await LeerHtmlAsync(await CrearCliente(rol).GetAsync("/"));
 
-        if (debeVerElEnlace)
-        {
-            Assert.Contains("href=\"/Proveedores/Registrar\"", html);
-        }
-        else
-        {
-            Assert.DoesNotContain("/Proveedores", html);
-        }
+    [Theory]
+    [InlineData("Administrador")]
+    [InlineData("Supervisor")]
+    [InlineData("Operador")]
+    public async Task Menu_MuestraElListadoDeProveedoresATodosLosRoles(string rol)
+    {
+        string html = await LeerHtmlAsync(
+            await CrearCliente(rol).GetAsync("/"));
+
+        Assert.Contains("href=\"/Proveedores\"", html);
+        Assert.DoesNotContain("href=\"/Proveedores/Registrar\"", html);
     }
+
 
     // ---------- Ayudas ----------
 
