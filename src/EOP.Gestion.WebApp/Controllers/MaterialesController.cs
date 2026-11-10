@@ -156,8 +156,8 @@ namespace EOP.Gestion.WebApp.Controllers
             // El registro fue correcto.
             TempData["MensajeExito"] = "Material registrado correctamente.";
 
-            // Redirigimos para evitar repetir el registro al actualizar.
-            return RedirectToAction(nameof(Registrar));
+            
+            return RedirectToAction(nameof(Index));
         }
 
 
