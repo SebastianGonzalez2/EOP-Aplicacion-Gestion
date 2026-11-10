@@ -42,9 +42,12 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
 
         // RF-67 y RF-73: los tres roles pueden consultar materiales.
         // Solamente Supervisor y Administrador pueden registrarlos.
+
         ["GET Materiales/Index"] = CualquierRolConSesion,
         ["GET Materiales/Registrar"] = AdministradorOSupervisor,
         ["POST Materiales/Registrar"] = AdministradorOSupervisor,
+        ["GET Materiales/AgregarProveedor"] = AdministradorOSupervisor,
+
 
         // US-074: los tres roles pueden consultar proveedores.
         ["GET Proveedores/Index"] = "Administrador,Operador,Supervisor",

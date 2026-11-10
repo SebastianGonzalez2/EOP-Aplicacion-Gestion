@@ -97,5 +97,33 @@ namespace EOP.Gestion.Infrastructure.Consultas.Materiales
 
             return materiales;
         }
+
+
+
+        // Busca un material existente por su identificador.
+        // Lo usamos para mostrar qué material seleccionó el usuario
+        // antes de agregarle un nuevo proveedor.
+        public async Task<MaterialListadoDto?> ObtenerPorIdAsync(int materialId,CancellationToken cancellationToken = default)
+        {
+            // No tiene sentido consultar la base con un Id inválido.
+            if (materialId <= 0)
+            {
+                return null;
+            }
+
+            // Consultamos solamente el material solicitado.
+            // AsNoTracking evita que EF Core prepare la entidad
+            // para modificaciones, porque solamente queremos leerla.
+            MaterialListadoDto? material = await _context.Materiales.AsNoTracking().Where(material => material.Id == materialId).Select(material => new MaterialListadoDto
+                {
+                    Id = material.Id,
+                    Nombre = material.Nombre,
+                    Unidad = material.Unidad
+                }).FirstOrDefaultAsync(cancellationToken);
+
+            return material;
+        }
+
+
     }
 }
