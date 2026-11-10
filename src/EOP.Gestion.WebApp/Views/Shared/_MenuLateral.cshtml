@@ -21,8 +21,8 @@
     bool esSupervisor = User.IsInRole(nameof(RolUsuario.Supervisor));
     bool esOperador = User.IsInRole(nameof(RolUsuario.Operador));
 
+    // Los tres roles pueden consultar el catálogo de materiales y el listado de proveedores.
     bool puedeVerAbastecimiento = esAdministrador || esSupervisor || esOperador;
-    bool puedeRegistrarMateriales = esAdministrador || esSupervisor;
 }
 
 
@@ -95,17 +95,14 @@
                             <i class="bi bi-truck" aria-hidden="true"></i>Proveedores
                         </a>
 
-                        @if (puedeRegistrarMateriales)
-                        {
-                            @* S2-T15: acceso al formulario de materiales.
-                               El registro definitivo se implementará en S2-T16. *@
-                            <a class="@ClaseDelEnlace("Materiales")"
-                               aria-current="@MarcaDeSeccionActual("Materiales")"
-                               asp-controller="Materiales"
-                               asp-action="Registrar">
-                                <i class="bi bi-box-seam" aria-hidden="true"></i>Materiales
-                            </a>
-                        }
+                        @* US-040: los tres roles pueden consultar el catálogo.
+                           El registro sigue restringido desde el Controller. *@
+                        <a class="@ClaseDelEnlace("Materiales")"
+                           aria-current="@MarcaDeSeccionActual("Materiales")"
+                           asp-controller="Materiales"
+                           asp-action="Index">
+                            <i class="bi bi-box-seam" aria-hidden="true"></i>Materiales
+                        </a>
                     </div>
                 }
 
