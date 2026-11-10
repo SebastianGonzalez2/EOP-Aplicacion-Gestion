@@ -2,6 +2,7 @@
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Infrastructure.Consultas.Materiales;
+using EOP.Gestion.Infrastructure.Consultas.Proveedores;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Tests.Compartido;
 using Microsoft.Data.Sqlite;
@@ -180,6 +181,62 @@ namespace EOP.Gestion.Tests.Integracion
                 datos.FivisaId);
 
             Assert.Empty(resultado);
+        }
+
+
+        [Fact]
+        public async Task LasReferenciasDeUnMaterialSeOrdenanPorNombreDeProveedor()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+
+            var resultado = await new ConsultarMateriales(contexto).EjecutarAsync("Cable de cobre", null, null);
+
+            var material = Assert.Single(resultado);
+
+            Assert.Equal(
+                new[] { "Barraca Central", "Fivisa" },
+                material.Referencias.Select(referencia => referencia.ProveedorNombre));
+        }
+
+
+        [Fact]
+        public async Task MaterialSinReferencias_AparecesSinPreciosYNoApareceAlFiltrarPorProveedor()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+
+            contexto.Materiales.Add(new Material { Nombre = "Cinta aisladora", Unidad = UnidadMedida.Unidad });
+            await contexto.SaveChangesAsync();
+
+            var consulta = new ConsultarMateriales(contexto);
+
+            var sinFiltros = await consulta.EjecutarAsync("Cinta", null, null);
+            var material = Assert.Single(sinFiltros);
+            Assert.Empty(material.Referencias);
+
+            var porProveedor = await consulta.EjecutarAsync("Cinta", null, datos.FivisaId);
+            Assert.Empty(porProveedor);
+        }
+
+
+        [Fact]
+        public async Task ConsultarProveedoresParaSeleccion_DevuelveTodosOrdenadosPorNombre()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+
+            var proveedores = await new ConsultarProveedoresParaSeleccion(contexto).EjecutarAsync();
+
+            Assert.Equal(
+                new[] { "Barraca Central", "Fivisa" },
+                proveedores.Select(proveedor => proveedor.Nombre));
+
+            Assert.Equal(datos.BarracaId, proveedores[0].Id);
+            Assert.Equal(datos.FivisaId, proveedores[1].Id);
         }
 
 
