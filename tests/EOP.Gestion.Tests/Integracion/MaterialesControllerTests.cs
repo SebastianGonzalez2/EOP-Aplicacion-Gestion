@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Comun;
+using EOP.Gestion.Core.DTOs.Materiales;
 using Microsoft.AspNetCore.Authorization;
 using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales;
@@ -286,11 +287,11 @@ namespace EOP.Gestion.Tests.Integracion
             // Ejecutamos el registro.
             IActionResult resultado = await controller.Registrar(modelo);
 
-            // Si todo salió bien, debe redirigir al formulario.
+            // Si todo salió bien, debe redirigir al catálogo.
             RedirectToActionResult redireccion =
                 Assert.IsType<RedirectToActionResult>(resultado);
 
-            Assert.Equal("Registrar", redireccion.ActionName);
+            Assert.Equal("Index", redireccion.ActionName);
 
             // Comprobamos que guardó un solo material.
             Material material = Assert.Single(
@@ -314,6 +315,40 @@ namespace EOP.Gestion.Tests.Integracion
             Assert.Equal(
                 "Material registrado correctamente.",
                 controller.TempData["MensajeExito"]);
+
+            // S2-T17: comprobamos que el material recién registrado
+            // también se puede consultar desde el catálogo.
+            // No agregamos los datos directamente al listado:
+            // tienen que recuperarse de la base de datos.
+            IActionResult resultadoCatalogo =
+                await controller.Index(null, null, null);
+
+            ViewResult vistaCatalogo =
+                Assert.IsType<ViewResult>(resultadoCatalogo);
+
+            List<MaterialListadoDto> materialesCatalogo =
+                Assert.IsType<List<MaterialListadoDto>>(vistaCatalogo.Model);
+
+            // Como registramos un solo material, el catálogo
+            // debe devolver exactamente ese material.
+            MaterialListadoDto materialCatalogo =
+                Assert.Single(materialesCatalogo);
+
+            Assert.Equal(material.Id, materialCatalogo.Id);
+            Assert.Equal("Cable de cobre", materialCatalogo.Nombre);
+            Assert.Equal(UnidadMedida.Metro, materialCatalogo.Unidad);
+
+            // El catálogo también tiene que mostrar la primera
+            // referencia del material con el proveedor elegido.
+            ReferenciaPrecioMaterialDto referenciaCatalogo =
+                Assert.Single(materialCatalogo.Referencias);
+
+            Assert.Equal(proveedor.Nombre, referenciaCatalogo.ProveedorNombre);
+            Assert.Equal(150m, referenciaCatalogo.PrecioUnitario);
+            Assert.Equal(Moneda.UYU, referenciaCatalogo.Moneda);
+            Assert.Equal(
+                relacion.FechaUltimaActualizacion,
+                referenciaCatalogo.FechaUltimaActualizacion);
         }
 
 
