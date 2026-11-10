@@ -7,12 +7,18 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 
+using EOP.Gestion.Infrastructure.Consultas.Usuarios;
+using EOP.Gestion.Infrastructure.Persistencia;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+
+
 namespace EOP.Gestion.Tests.Unitarias;
 
 // Comprobamos qué le responde el Controller a cada resultado del caso de uso.
 // La seguridad (rol, token antifalsificación, POST) se prueba pasando por la app
 // entera en ValidacionSesionIniciadaIntegracionTests.ModificarRol.cs.
-public class UsuariosControllerTests
+public class UsuariosControllerTests : IDisposable
 {
     private const string MensajeExito = "MensajeExito";
     private const string MensajeError = "MensajeError";
@@ -20,16 +26,47 @@ public class UsuariosControllerTests
     private readonly RepositorioUsuariosConTurnoEnMemoria _repositorio = new();
     private readonly UsuariosController _controller;
 
+    private readonly SqliteConnection _conexion;
+    private readonly EopDbContext _contexto;
+
+
     public UsuariosControllerTests()
     {
+        // Creamos una conexión SQLite temporal para las pruebas.
+        _conexion = new SqliteConnection("Data Source=:memory:");
+        _conexion.Open();
+
+        var opciones = new DbContextOptionsBuilder<EopDbContext>()
+            .UseSqlite(_conexion)
+            .Options;
+
+        _contexto = new EopDbContext(opciones);
+
         var contextoHttp = new DefaultHttpContext();
 
-        _controller = new UsuariosController(new ModificarRolUsuario(_repositorio), new RegistrarUsuario(_repositorio))
+        _controller = new UsuariosController(
+            new ModificarRolUsuario(_repositorio),
+            new RegistrarUsuario(_repositorio),
+            new ConsultarUsuarios(_contexto))
         {
-            ControllerContext = new ControllerContext { HttpContext = contextoHttp },
-            TempData = new TempDataDictionary(contextoHttp, new ProveedorTempDataSinGuardar())
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = contextoHttp
+            },
+            TempData = new TempDataDictionary(
+                contextoHttp,
+                new ProveedorTempDataSinGuardar())
         };
     }
+
+
+
+    public void Dispose()
+    {
+        _contexto.Dispose();
+        _conexion.Dispose();
+    }
+
 
     private void AgregarUsuario(int id, RolUsuario rol)
     {

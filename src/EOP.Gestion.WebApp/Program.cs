@@ -12,6 +12,8 @@ using System.Security.Claims;
 using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
 
+using EOP.Gestion.Infrastructure.Consultas.Usuarios;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -66,6 +68,11 @@ builder.Services.AddScoped<RegistrarUsuario>();
 // Registramos la consulta que obtiene los proveedores
 // existentes para mostrarlos en el listado.
 builder.Services.AddScoped<ConsultarProveedores>();
+
+
+// Registramos la consulta que obtiene todos los usuarios
+// para mostrarlos en el listado administrativo.
+builder.Services.AddScoped<ConsultarUsuarios>();
 
 
 // ================================

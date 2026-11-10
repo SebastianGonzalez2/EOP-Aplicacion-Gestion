@@ -106,18 +106,24 @@
                     </div>
                 }
 
-
-                @* US-043: acceso al alta de usuarios. Cuando llegue el listado (US-045), este enlace va a
-                   apuntar a él. Es solo comodidad: el control real está en UsuariosController. *@
+                
+                @* US-045: solamente el Administrador puede acceder al
+                   listado de usuarios. Desde ahí puede registrar usuarios
+                   y realizar las acciones administrativas habilitadas. *@
                 @if (esAdministrador)
                 {
                     <div class="nav-grupo">
                         <div class="nav-grupo-titulo">Administración</div>
-                        <a class="@ClaseDelEnlace("Usuarios")" aria-current="@MarcaDeSeccionActual("Usuarios")" asp-controller="Usuarios" asp-action="Registrar">
+
+                        <a class="@ClaseDelEnlace("Usuarios")"
+                           aria-current="@MarcaDeSeccionActual("Usuarios")"
+                           asp-controller="Usuarios"
+                           asp-action="Index">
                             <i class="bi bi-person-gear" aria-hidden="true"></i>Usuarios
                         </a>
                     </div>
                 }
+
             </nav>
         </div>
     </div>

@@ -1,3 +1,4 @@
+
 using System.Net;
 using System.Text.RegularExpressions;
 using EOP.Gestion.Core.Entidades.Usuarios;
@@ -15,6 +16,7 @@ namespace EOP.Gestion.Tests.Integracion;
 public partial class ValidacionSesionIniciadaIntegracionTests
 {
     private const string RutaRegistrarUsuario = "/Usuarios/Registrar";
+    private const string RutaListadoUsuarios = "/Usuarios";
     private const string CorreoNuevo = "nuevo.usuario@eop.com.uy";
     private const string ObjectIdUsuarioNuevo = "66666666-6666-6666-6666-666666666666";
     private const string MensajeUsuarioRegistrado = "El usuario se registró correctamente.";
@@ -71,7 +73,7 @@ public partial class ValidacionSesionIniciadaIntegracionTests
     [InlineData(RolUsuario.Administrador, true)]
     [InlineData(RolUsuario.Supervisor, false)]
     [InlineData(RolUsuario.Operador, false)]
-    public async Task ElEnlaceDeLaBarra_SoloLoVeElAdministrador(RolUsuario rol, bool debeVerlo)
+    public async Task ElEnlaceAlListadoDeLaBarra_SoloLoVeElAdministrador(RolUsuario rol, bool debeVerlo)
     {
         using var fabrica = new FabricaConSesionReal();
         await fabrica.GuardarUsuarioAsync(activo: true, entraObjectId: ObjectIdJuan, rol: rol);
@@ -79,7 +81,8 @@ public partial class ValidacionSesionIniciadaIntegracionTests
 
         string html = await (await PedirConCookieAsync(fabrica, "/", cookieDeSesion)).Content.ReadAsStringAsync();
 
-        Assert.Equal(debeVerlo, html.Contains($"href=\"{RutaRegistrarUsuario}\""));
+        // El menú ahora apunta al listado de usuarios y no al formulario de registro.
+        Assert.Equal(debeVerlo, html.Contains($"href=\"{RutaListadoUsuarios}\""));
     }
 
     // ---------- Quién puede registrar ----------
