@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Entidades.Catalogo;
+using EOP.Gestion.Core.Entidades.Presupuestos;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 
 namespace EOP.Gestion.Infrastructure.Persistencia;
 
@@ -34,6 +36,14 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
     // Cada relación guarda el precio, la moneda y la fecha de actualización.
     public DbSet<MaterialProveedor> MaterialProveedores => Set<MaterialProveedor>();
 
+    // Los presupuestos y los tipos de proyecto fijos que se les asignan (S2-T23).
+    public DbSet<Presupuesto> Presupuestos => Set<Presupuesto>();
+    public DbSet<TipoProyecto> TiposProyecto => Set<TipoProyecto>();
+
+    // Nombre de la secuencia de SQL Server que entrega el correlativo global del código
+    // de los presupuestos (el #### de PRES-AAAAMMDD-NOMBRE-####).
+    public const string NombreSecuenciaPresupuestos = "SecuenciaPresupuestos";
+
 
     // Se ejecuta cuando Entity Framework construye el modelo
     // de datos de la aplicación.
@@ -45,6 +55,22 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
         // Por ejemplo: campos obligatorios, longitudes e índices únicos.
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(EopDbContext).Assembly);
+
+        // Secuencia del correlativo de presupuestos: arranca en 1, sube de a uno y llega hasta 9999
+        // porque el código admite cuatro cifras. No es cíclica: al agotarse, SQL Server da error
+        // en vez de repetir números, que es lo correcto para un código único.
+        //
+        // Solo se define con SQL Server: algunas pruebas crean la base en SQLite en memoria, que
+        // no soporta secuencias y fallaría al crear las tablas. Esas pruebas no guardan
+        // presupuestos; las que sí lo hacen usan SQL Server real.
+        if (Database.IsSqlServer())
+        {
+            modelBuilder.HasSequence<int>(NombreSecuenciaPresupuestos)
+                .StartsAt(GeneradorCodigoPresupuesto.CorrelativoMinimo)
+                .IncrementsBy(1)
+                .HasMin(GeneradorCodigoPresupuesto.CorrelativoMinimo)
+                .HasMax(GeneradorCodigoPresupuesto.CorrelativoMaximo);
+        }
 
         /*
             Podriamos poner:
