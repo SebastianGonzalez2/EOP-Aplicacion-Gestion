@@ -5,8 +5,8 @@ namespace EOP.Gestion.Core.Entidades.Presupuestos
     //
     // Los guardamos en una tabla y no en un enum porque la lista definitiva todavía está
     // PENDIENTE DE VALIDAR CON EOP (RF-01). Así, cuando EOP la confirme, se carga con una
-    // migración y no hace falta tocar esta clase ni el Presupuesto. Hasta entonces la tabla queda
-    // vacía a propósito: no inventamos valores.
+    // migración y no hace falta tocar esta clase ni el Presupuesto. Mientras tanto hay dos tipos
+    // PROVISORIOS (Obra y Eficiencia energética) para poder hacer pruebas; ver TipoProyectoConfiguracion.
     public class TipoProyecto
     {
         public int Id { get; set; }

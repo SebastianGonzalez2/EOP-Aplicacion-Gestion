@@ -45,7 +45,7 @@ public class PresupuestosSqlServerTests : IAsyncLifetime
             Rol = RolUsuario.Operador,
             Activo = true
         };
-        // La lista real de tipos de proyecto está pendiente de validar con EOP: el tipo es de prueba.
+        // Tipo propio de esta prueba, además de los dos provisorios que precargan las migraciones.
         var tipoProyecto = new TipoProyecto { Nombre = "Tipo de prueba" };
 
         contexto.AddRange(cliente, responsable, tipoProyecto);
@@ -433,12 +433,27 @@ public class PresupuestosSqlServerTests : IAsyncLifetime
     }
 
     [FactConSqlServer]
-    public async Task LaTablaDeTiposDeProyecto_NoTraeValoresInventados()
+    public async Task LasMigraciones_PrecarganLosDosTiposDeProyectoProvisorios()
     {
-        // La lista definitiva está pendiente de validar con EOP (RF-01): la migración no carga ninguno.
-        // Acá solo existe el tipo que sembró esta prueba.
+        // La lista definitiva está pendiente de validar con EOP (RF-01): estos dos son para pruebas.
+        // Además está el tipo que sembró esta misma prueba en InitializeAsync.
         using EopDbContext contexto = CrearContexto();
 
-        Assert.Equal(["Tipo de prueba"], await contexto.TiposProyecto.Select(t => t.Nombre).ToListAsync());
+        Assert.Equal(
+            ["Eficiencia energética", "Obra", "Tipo de prueba"],
+            await contexto.TiposProyecto.Select(t => t.Nombre).OrderBy(nombre => nombre).ToListAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task UnPresupuesto_SePuedeCrearConUnTipoDeProyectoPrecargado()
+    {
+        int idDeObra = await CrearContexto().TiposProyecto.Where(t => t.Nombre == "Obra").Select(t => t.Id).SingleAsync();
+        Presupuesto presupuesto = CrearPresupuesto();
+        presupuesto.TipoProyectoId = idDeObra;
+
+        await AgregarConContextoNuevoAsync(presupuesto);
+
+        using EopDbContext contexto = CrearContexto();
+        Assert.Equal(idDeObra, (await contexto.Presupuestos.SingleAsync()).TipoProyectoId);
     }
 }

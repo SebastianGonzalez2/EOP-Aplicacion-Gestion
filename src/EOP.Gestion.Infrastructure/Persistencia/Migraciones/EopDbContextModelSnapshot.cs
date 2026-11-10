@@ -239,6 +239,18 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                         {
                             t.HasCheckConstraint("CK_TiposProyecto_NombreNoVacio", "TRIM([Nombre]) <> ''");
                         });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Nombre = "Obra"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Nombre = "Eficiencia energética"
+                        });
                 });
 
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Proveedores.CuentaBancaria", b =>
