@@ -54,6 +54,7 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["POST Proveedores/Registrar"] = AdministradorOSupervisor,
 
         // RF-72 y RF-73, Usuarios: exclusivamente el Administrador.
+        ["GET Usuarios/Index"] = SoloAdministrador,
         ["GET Usuarios/Registrar"] = SoloAdministrador,
         ["POST Usuarios/Registrar"] = SoloAdministrador,
         ["POST Usuarios/ModificarRol"] = SoloAdministrador,

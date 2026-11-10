@@ -4,6 +4,7 @@ using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.WebApp.ViewModels.Usuarios;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using EOP.Gestion.Infrastructure.Consultas.Usuarios;
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -13,20 +14,42 @@ namespace EOP.Gestion.WebApp.Controllers
     [Authorize(Roles = "Administrador")]
     public class UsuariosController : Controller
     {
-        // Después de cada intento volvemos al listado de usuarios, donde se muestra el resultado.
-        // Ese listado llega con US-045: hasta entonces, esta redirección termina en un 404.
-        // No usamos RedirectToAction porque falla si la acción todavía no existe.
+        // Después de modificar un rol, volvemos al listado de usuarios (US-045).
+        // Ahí mostramos los mensajes de éxito o error guardados en TempData.
         private const string RutaListadoUsuarios = "~/Usuarios";
 
         private readonly ModificarRolUsuario _modificarRolUsuario;
 
         private readonly RegistrarUsuario _registrarUsuario;
 
-        public UsuariosController(ModificarRolUsuario modificarRolUsuario, RegistrarUsuario registrarUsuario)
+        private readonly ConsultarUsuarios _consultarUsuarios;
+
+        public UsuariosController(ModificarRolUsuario modificarRolUsuario, RegistrarUsuario registrarUsuario, ConsultarUsuarios consultarUsuarios)
         {
             _modificarRolUsuario = modificarRolUsuario;
             _registrarUsuario = registrarUsuario;
+            _consultarUsuarios = consultarUsuarios;
         }
+
+
+
+        // GET: /Usuarios
+        // Muestra el listado administrativo de todos los usuarios registrados.
+        [HttpGet]
+        [Authorize(Roles = "Administrador")]
+        public async Task<IActionResult> Index()
+        {
+            // Consultamos los usuarios sin aplicar filtros.
+            var usuarios = await _consultarUsuarios.EjecutarAsync(HttpContext.RequestAborted);
+
+            // Enviamos los usuarios a la vista para mostrarlos en una tabla.
+            return View(usuarios);
+        }
+
+
+
+
+
 
         // GET: /Usuarios/Registrar
         // Muestra el formulario de alta vacío. No existe registro público: el único que puede
@@ -69,9 +92,9 @@ namespace EOP.Gestion.WebApp.Controllers
 
             TempData["MensajeExito"] = "El usuario se registró correctamente. Quedó Activo y se va a vincular con su cuenta de Microsoft en su primer inicio de sesión.";
 
-            // Redirigimos en vez de devolver la vista para que el navegador termine en un GET.
-            // Si no, actualizar la página volvería a mandar este POST. Vamos al formulario y no al
-            // listado de ModificarRol porque ese listado todavía no existe (US-045) y daría un 404.
+            // Después de registrar un usuario, volvemos al formulario mediante un GET.
+            // Así, si el Administrador actualiza la página, no vuelve a enviar el POST.
+            // Mantenemos el comportamiento del registro (US-043).
             return RedirectToAction(nameof(Registrar));
         }
 

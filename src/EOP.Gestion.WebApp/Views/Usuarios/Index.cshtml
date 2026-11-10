@@ -1,0 +1,132 @@
+﻿@using EOP.Gestion.Core.Entidades.Usuarios
+@model List<EOP.Gestion.Core.DTOs.Usuarios.UsuarioListadoDto>
+
+@{
+    ViewData["Title"] = "Usuarios";
+}
+
+@* Listado administrativo de usuarios (US-045).
+   Solo el Administrador puede acceder a esta pantalla.
+   Mostramos todos los usuarios, sin búsqueda ni filtros. *@
+
+<div class="encabezado">
+    <div>
+        <h1>Usuarios</h1>
+        <p>Listado de usuarios registrados en el sistema.</p>
+    </div>
+
+    <a asp-controller="Usuarios"
+       asp-action="Registrar"
+       class="btn btn-primary">
+        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar usuario
+    </a>
+</div>
+
+<partial name="_Mensajes" />
+
+<section class="panel" aria-label="Listado de usuarios">
+    @if (Model.Count == 0)
+    {
+        <div class="sin-resultados" role="status">
+            <i class="bi bi-inbox" aria-hidden="true"></i>
+            <h2>No se encontraron usuarios.</h2>
+            <p>Todavía no hay usuarios registrados.</p>
+
+            <a asp-controller="Usuarios"
+               asp-action="Registrar"
+               class="btn btn-primary">
+                Registrar usuario
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover tabla">
+                <thead>
+                    <tr>
+                        <th scope="col">Nombre completo</th>
+                        <th scope="col">Correo corporativo</th>
+                        <th scope="col">Rol</th>
+                        <th scope="col">Estado</th>
+                        <th scope="col" class="col-acciones">Acciones</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    @foreach (var usuario in Model)
+                    {
+                        <tr>
+                            <td>@usuario.NombreCompleto</td>
+                            <td>@usuario.CorreoCorporativo</td>
+                            <td>@usuario.Rol</td>
+
+                            <td>
+                                @if (usuario.Activo)
+                                {
+                                    <span class="estado estado-exito">Activo</span>
+                                }
+                                else
+                                {
+                                    <span class="estado estado-cerrado">Inactivo</span>
+                                }
+                            </td>
+
+                            <td class="col-acciones">
+                                @* La modificación del rol ya existe en US-044.
+                                   El formulario envía el Id y el nuevo rol al Controller. *@
+                                <form asp-controller="Usuarios"
+                                      asp-action="ModificarRol"
+                                      method="post"
+                                      class="d-flex align-items-center gap-2">
+
+                                    <input type="hidden"
+                                           name="UsuarioId"
+                                           value="@usuario.Id" />
+
+                                    <select name="NuevoRol"
+                                            class="form-select form-select-sm"
+                                            aria-label="Nuevo rol de @usuario.NombreCompleto">
+
+                                        <option value="Administrador"
+                                                selected="@(usuario.Rol == RolUsuario.Administrador)">
+                                            Administrador
+                                        </option>
+
+                                        <option value="Supervisor"
+                                                selected="@(usuario.Rol == RolUsuario.Supervisor)">
+                                            Supervisor
+                                        </option>
+
+                                        <option value="Operador"
+                                                selected="@(usuario.Rol == RolUsuario.Operador)">
+                                            Operador
+                                        </option>
+                                    </select>
+
+                                    <button type="submit"
+                                            class="btn btn-outline-secondary btn-sm">
+                                        Guardar
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="panel-pie">
+            <span class="text-body-secondary small">
+                @if (Model.Count == 1)
+                {
+                    @:Se muestra 1 usuario.
+                }
+                else
+                {
+                    @:Se muestran @Model.Count usuarios.
+                }
+            </span>
+        </div>
+    }
+</section>
