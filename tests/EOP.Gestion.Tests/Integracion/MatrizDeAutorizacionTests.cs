@@ -40,6 +40,11 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["GET Clientes/Registrar"] = CualquierRolConSesion,
         ["POST Clientes/Registrar"] = CualquierRolConSesion,
 
+        // US-002 y RF-73: Operador, Supervisor y Administrador
+        // pueden acceder al formulario de creación de presupuestos.
+        ["GET Presupuestos/Crear"] = "Administrador,Operador,Supervisor",
+
+
         // RF-67 y RF-73: los tres roles pueden consultar materiales.
         // Solamente Supervisor y Administrador pueden registrarlos.
 

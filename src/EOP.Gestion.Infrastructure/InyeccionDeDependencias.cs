@@ -16,7 +16,7 @@ using EOP.Gestion.Infrastructure.Consultas.Clientes;
 using EOP.Gestion.Infrastructure.Consultas.Materiales;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
-
+using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 namespace EOP.Gestion.Infrastructure;
 
 /// <summary>
@@ -81,6 +81,10 @@ public static class InyeccionDeDependencias
         // Registramos el repositorio de presupuestos, que guarda el presupuesto
         // y le asigna su código interno.
         services.AddScoped<IRepositorioPresupuestos, RepositorioPresupuestos>();
+
+        // Consulta los tipos de proyecto disponibles
+        // para el formulario de creación de presupuestos.
+        services.AddScoped<ConsultarTiposProyectoParaSeleccion>();
 
         return services;
     }
