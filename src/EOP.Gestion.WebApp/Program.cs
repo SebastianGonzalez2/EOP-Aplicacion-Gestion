@@ -11,6 +11,7 @@ using EOP.Gestion.Core.CasosDeUso.Usuarios;
 using System.Security.Claims;
 using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
+using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 
 using EOP.Gestion.Infrastructure.Consultas.Usuarios;
 
@@ -41,6 +42,10 @@ builder.Services.AddScoped<ValidarDatosCliente>();
 // Registramos el caso de uso que valida y guarda
 // los nuevos clientes en la base de datos.
 builder.Services.AddScoped<RegistrarCliente>();
+
+// Registramos el caso de uso encargado de validar
+// y guardar los presupuestos nuevos.
+builder.Services.AddScoped<RegistrarPresupuesto>();
 
 // Registramos el caso de uso que valida los datos del proveedor.
 builder.Services.AddScoped<ValidarDatosProveedor>();

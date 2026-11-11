@@ -24,6 +24,8 @@
         <p>Ingresá los datos básicos del nuevo presupuesto.</p>
     </div>
 </div>
+@* Mostramos el mensaje de éxito después de guardar el presupuesto. *@
+<partial name="_Mensajes" />
 
 <div class="row g-4">
     <div class="col-xl-8">
@@ -150,12 +152,8 @@
                         Cancelar
                     </a>
 
-                    @* El guardado se implementará en la siguiente tarea.
-                       Por ahora deshabilitamos el botón para no enviar
-                       el formulario a una acción POST inexistente. *@
                     <button type="submit"
-                            class="btn btn-primary"
-                            disabled>
+                            class="btn btn-primary">
                         Crear presupuesto
                     </button>
                 </div>

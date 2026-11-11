@@ -5,6 +5,10 @@ using EOP.Gestion.WebApp.ViewModels.Presupuestos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using EOP.Gestion.Core.CasosDeUso.Presupuestos;
+using EOP.Gestion.Core.Entidades.Presupuestos;
+using Microsoft.Identity.Web;
+
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -15,12 +19,15 @@ namespace EOP.Gestion.WebApp.Controllers
         private readonly ConsultarClientes _consultarClientes;
         private readonly ConsultarTiposProyectoParaSeleccion _consultarTiposProyecto;
 
+        private readonly RegistrarPresupuesto _registrarPresupuesto;
+
         // Recibimos los servicios que consultan los clientes
         // y los tipos de proyecto disponibles.
-        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto)
+        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto, RegistrarPresupuesto registrarPresupuesto)
         {
             _consultarClientes = consultarClientes;
             _consultarTiposProyecto = consultarTiposProyecto;
+            _registrarPresupuesto = registrarPresupuesto;
         }
 
         // GET: muestra el formulario para crear un presupuesto.
@@ -60,6 +67,56 @@ namespace EOP.Gestion.WebApp.Controllers
                 Text = tipo.Nombre,
                 Value = tipo.Id.ToString()
             }).ToList();
+        }
+
+
+        // POST: recibe los datos enviados desde el formulario.
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Crear(CrearPresupuestoViewModel modelo)
+        {
+            // Primero comprobamos las validaciones del ViewModel.
+            if (!ModelState.IsValid)
+            {
+                // Si hay errores, volvemos a cargar los desplegables.
+                await CargarOpciones(modelo, HttpContext.RequestAborted);
+
+                return View(modelo);
+            }
+
+            // Preparamos la entidad con los datos del formulario.
+            // El Responsable, estado y código los establece el sistema.
+            Presupuesto presupuesto = new Presupuesto
+            {
+                NombreProyecto = modelo.NombreProyecto,
+                ClienteId = modelo.ClienteId!.Value,
+                TipoProyectoId = modelo.TipoProyectoId!.Value,
+                PlazoVigenciaDias = modelo.PlazoVigenciaDias!.Value
+            };
+
+            // Identificamos al usuario autenticado mediante Microsoft.
+            string? entraObjectId = User.GetObjectId();
+
+            // Ejecutamos el caso de uso que valida y guarda.
+            List<string> errores = await _registrarPresupuesto.EjecutarAsync(presupuesto,entraObjectId,HttpContext.RequestAborted);
+
+            // Si existen errores, los mostramos en el formulario.
+            if (errores.Count > 0)
+            {
+                foreach (string error in errores)
+                {
+                    ModelState.AddModelError(string.Empty, error);
+                }
+
+                await CargarOpciones(modelo, HttpContext.RequestAborted);
+
+                return View(modelo);
+            }
+
+            // Mostramos el código del presupuesto registrado.
+            TempData["MensajeExito"] ="El presupuesto se creó correctamente. Código: " +presupuesto.Codigo;
+
+            return RedirectToAction(nameof(Crear));
         }
     }
 }
