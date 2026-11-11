@@ -163,6 +163,42 @@ namespace EOP.Gestion.WebApp.Controllers
 
 
 
+        // GET: muestra el formulario para agregar un proveedor
+        // a un material que ya existe en el catálogo.
+        [HttpGet]
+        [Authorize(Roles = "Supervisor,Administrador")]
+        public async Task<IActionResult> AgregarProveedor(int materialId)
+        {
+            // Buscamos el material seleccionado por su Id.
+            var material = await _consultarMateriales.ObtenerPorIdAsync(materialId,HttpContext.RequestAborted);
+
+            // Si el material no existe, devolvemos un error 404.
+            if (material == null)
+            {
+                return NotFound();
+            }
+
+            // Preparamos el ViewModel con los datos del material.
+            AgregarProveedorMaterialViewModel modelo = new AgregarProveedorMaterialViewModel
+            {
+                MaterialId = material.Id,
+                NombreMaterial = material.Nombre
+            };
+
+            // Consultamos los proveedores registrados en la base de datos.
+            var proveedores = await _consultarProveedores.EjecutarAsync(HttpContext.RequestAborted);
+
+            // Convertimos los proveedores en opciones para el desplegable.
+            modelo.Proveedores = proveedores.Select(proveedor => new SelectListItem
+            {
+                Text = proveedor.Nombre,
+                Value = proveedor.Id.ToString()
+            }).ToList();
+
+            // Enviamos el ViewModel a la vista AgregarProveedor.cshtml.
+            return View(modelo);
+        }
+
 
 
     }

@@ -1,0 +1,138 @@
+﻿@model EOP.Gestion.WebApp.ViewModels.Materiales.AgregarProveedorMaterialViewModel
+
+@{
+    ViewData["Title"] = "Agregar proveedor";
+}
+
+<div class="encabezado">
+    <div>
+        <h1>Agregar proveedor</h1>
+        <p>Asociá un proveedor existente al material seleccionado.</p>
+    </div>
+</div>
+
+<partial name="_Mensajes" />
+
+<div class="row g-4">
+    <div class="col-xl-8">
+
+        <form asp-controller="Materiales"
+              asp-action="AgregarProveedor"
+              method="post"
+              class="panel">
+
+            @Html.AntiForgeryToken()
+
+            <!-- Conservamos el identificador del material seleccionado. -->
+            <input asp-for="MaterialId" type="hidden" />
+
+            <!-- Mostramos los errores generales del formulario. -->
+            <div asp-validation-summary="ModelOnly"
+                 class="resumen-errores"
+                 role="alert"></div>
+
+            <div class="seccion-form">
+                <h2>Material seleccionado</h2>
+
+                <p class="descripcion">
+                    El nuevo proveedor quedará asociado a este material.
+                </p>
+
+                <!-- El material ya existe y no se modifica desde este formulario. -->
+                <p class="fw-semibold mb-0">
+                    @Model.NombreMaterial
+                </p>
+            </div>
+
+            <div class="seccion-form">
+                <h2>Proveedor y precio</h2>
+
+                <p class="descripcion">
+                    Seleccioná un proveedor registrado e ingresá su precio.
+                </p>
+
+                <div class="row g-3">
+
+                    <!-- Proveedor existente -->
+                    <div class="col-12">
+                        <label asp-for="ProveedorId" class="form-label">
+                            Proveedor
+                            <span class="obligatorio" aria-hidden="true">*</span>
+                        </label>
+
+                        <select asp-for="ProveedorId"
+                                asp-items="Model.Proveedores"
+                                class="form-select"
+                                aria-required="true">
+                            <option value="">Seleccioná un proveedor</option>
+                        </select>
+
+                        <span asp-validation-for="ProveedorId"
+                              class="error-campo"></span>
+                    </div>
+
+                    <!-- Precio unitario -->
+                    <div class="col-md-6">
+                        <label asp-for="PrecioUnitario" class="form-label">
+                            Precio unitario
+                            <span class="obligatorio" aria-hidden="true">*</span>
+                        </label>
+
+                        <input asp-for="PrecioUnitario"
+                               type="number"
+                               step="any"
+                               class="form-control"
+                               aria-required="true" />
+
+                        <span asp-validation-for="PrecioUnitario"
+                              class="error-campo"></span>
+                    </div>
+
+                    <!-- Moneda -->
+                    <div class="col-md-6">
+                        <label asp-for="Moneda" class="form-label">
+                            Moneda
+                            <span class="obligatorio" aria-hidden="true">*</span>
+                        </label>
+
+                        <select asp-for="Moneda"
+                                class="form-select"
+                                aria-required="true">
+                            <option value="">Seleccioná una moneda</option>
+                            <option value="UYU">UYU - Pesos uruguayos</option>
+                            <option value="USD">USD - Dólares estadounidenses</option>
+                        </select>
+
+                        <span asp-validation-for="Moneda"
+                              class="error-campo"></span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="panel-pie d-flex justify-content-end gap-2">
+
+                <!-- Volvemos al catálogo sin guardar cambios. -->
+                <a asp-controller="Materiales"
+                   asp-action="Index"
+                   class="btn btn-outline-secondary">
+                    Cancelar
+                </a>
+
+                
+                @* S2-T18: el formulario ya está preparado.
+                El guardado definitivo se implementará en S2-T19. *@
+                <button type="submit" class="btn btn-primary" disabled>
+                    Agregar proveedor
+                </button>
+
+
+            </div>
+
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

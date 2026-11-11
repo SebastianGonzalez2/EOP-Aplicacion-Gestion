@@ -10,7 +10,7 @@
     UnidadMedida? unidadSeleccionada = (UnidadMedida?)ViewBag.Unidad;
     int? proveedorSeleccionado = (int?)ViewBag.ProveedorId;
 
-    List<SelectListItem> proveedores =ViewBag.Proveedores as List<SelectListItem> ?? new();
+    List<SelectListItem> proveedores = ViewBag.Proveedores as List<SelectListItem> ?? new();
 
     // Las unidades son fijas y mostramos sus abreviaturas.
     var unidades = new Dictionary<UnidadMedida, string>
@@ -31,9 +31,12 @@
         { UnidadMedida.Unidad, "unidad" }
     };
 
-    bool hayFiltros =!string.IsNullOrWhiteSpace(busquedaActual) ||unidadSeleccionada.HasValue ||proveedorSeleccionado.HasValue;
+    bool hayFiltros = !string.IsNullOrWhiteSpace(busquedaActual)
+        || unidadSeleccionada.HasValue
+        || proveedorSeleccionado.HasValue;
 
-    bool puedeRegistrar =User.IsInRole("Supervisor") ||User.IsInRole("Administrador");
+    bool puedeRegistrar = User.IsInRole("Supervisor")
+        || User.IsInRole("Administrador");
 }
 
 <div class="encabezado">
@@ -196,6 +199,12 @@
                         <th scope="col" class="text-end">Precio unitario</th>
                         <th scope="col">Moneda</th>
                         <th scope="col">Última actualización</th>
+
+                        @* Solo los usuarios autorizados pueden agregar proveedores. *@
+                        @if (puedeRegistrar)
+                        {
+                            <th scope="col" class="text-end">Acciones</th>
+                        }
                     </tr>
                 </thead>
 
@@ -211,6 +220,19 @@
                                 <td class="text-end">—</td>
                                 <td>—</td>
                                 <td>—</td>
+
+                                @* Permite agregar un proveedor a un material que todavía no tiene referencias. *@
+                                @if (puedeRegistrar)
+                                {
+                                    <td class="text-end">
+                                        <a asp-controller="Materiales"
+                                           asp-action="AgregarProveedor"
+                                           asp-route-materialId="@material.Id"
+                                           class="btn btn-outline-secondary btn-sm">
+                                            Agregar proveedor
+                                        </a>
+                                    </td>
+                                }
                             </tr>
                         }
                         else
@@ -224,6 +246,19 @@
                                     <td class="text-end">@referencia.PrecioUnitario</td>
                                     <td>@referencia.Moneda</td>
                                     <td>@referencia.FechaUltimaActualizacion.ToString("dd/MM/yyyy HH:mm")</td>
+
+                                    @* Permite asociar otro proveedor al material existente. *@
+                                    @if (puedeRegistrar)
+                                    {
+                                        <td class="text-end">
+                                            <a asp-controller="Materiales"
+                                               asp-action="AgregarProveedor"
+                                               asp-route-materialId="@material.Id"
+                                               class="btn btn-outline-secondary btn-sm">
+                                                Agregar proveedor
+                                            </a>
+                                        </td>
+                                    }
                                 </tr>
                             }
                         }
