@@ -73,12 +73,32 @@
                     </a>
                 </div>
 
+                
                 <div class="nav-grupo">
                     <div class="nav-grupo-titulo">Comercial</div>
-                    <a class="@ClaseDelEnlace("Clientes")" aria-current="@MarcaDeSeccionActual("Clientes")" asp-controller="Clientes" asp-action="Index">
+
+                    <a class="@ClaseDelEnlace("Clientes")"
+                       aria-current="@MarcaDeSeccionActual("Clientes")"
+                       asp-controller="Clientes"
+                       asp-action="Index">
                         <i class="bi bi-people" aria-hidden="true"></i>Clientes
                     </a>
+
+                    @* US-002: los tres roles pueden crear presupuestos.
+                       Por ahora el enlace lleva al formulario de creación.
+                       Cuando implementemos el listado (US-001),
+                       cambiaremos el destino a Index. *@
+                    @if (esAdministrador || esSupervisor || esOperador)
+                    {
+                        <a class="@ClaseDelEnlace("Presupuestos")"
+                           aria-current="@MarcaDeSeccionActual("Presupuestos")"
+                           asp-controller="Presupuestos"
+                           asp-action="Crear">
+                            <i class="bi bi-file-earmark-text" aria-hidden="true"></i>Presupuestos
+                        </a>
+                    }
                 </div>
+
 
                 
                 @* US-074: los tres roles pueden consultar el listado de proveedores.
