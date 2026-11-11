@@ -14,6 +14,9 @@ namespace EOP.Gestion.Infrastructure.Almacenamiento;
 /// distinta del usuario que inició sesión en EOP.
 /// Los valores de esta clase no son secretos, así que pueden ir en appsettings.json.
 /// </remarks>
+/// 
+
+//Todo esto nos sirve para configurar la conexión a Azure Blob Storage, que es donde guardamos los archivos privados de la aplicación.
 public sealed class AlmacenamientoBlobOpciones
 {
     public const string NombreSeccion = "AlmacenamientoBlob";

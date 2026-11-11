@@ -15,6 +15,7 @@ namespace EOP.Gestion.Infrastructure.Almacenamiento;
 /// </summary>
 public sealed class ServicioAlmacenamientoBlob : IServicioAlmacenamiento
 {
+    //esto es un comentario de prueba para ver si se sube a git
     private const string TipoContenidoPorDefecto = "application/octet-stream";
 
     private const string MensajeAlmacenamientoNoDisponible =
@@ -33,7 +34,12 @@ public sealed class ServicioAlmacenamientoBlob : IServicioAlmacenamiento
     // Es exactamente la forma de lo que genera GuardarAsync: carpeta/32 caracteres hexadecimales + extensión opcional.
     private static readonly Regex FormatoReferencia = new(@"^[a-z0-9]+(-[a-z0-9]+)*/[0-9a-f]{32}(\.[a-z0-9]{1,10})?$", RegexOptions.Compiled);
 
+    //BlobContainerClient bien facil es un cliente de Azure que nos permite interactuar con un contenedor de blobs osea un contenedor de archivos en Azure.
+    //Con este cliente podemos subir, descargar, eliminar y listar archivos en el contenedor de blob
     private readonly BlobContainerClient _contenedor;
+
+    //El logger es para registrar eventos, errores y mensajes de información en la aplicación.
+    //Nos ayuda a monitorear el comportamiento del servicio de almacenamiento y a depurar problemas.
     private readonly ILogger<ServicioAlmacenamientoBlob> _logger;
 
     public ServicioAlmacenamientoBlob(
@@ -44,6 +50,7 @@ public sealed class ServicioAlmacenamientoBlob : IServicioAlmacenamiento
         _logger = logger;
     }
 
+    //este metodo lo que hace basicamente es guardar un archivo en Azure Blob Storage y devolver una referencia única para ese archivo.
     public async Task<string> GuardarAsync(
         ArchivoParaGuardar archivo,
         CancellationToken cancellationToken = default)
@@ -57,8 +64,15 @@ public sealed class ServicioAlmacenamientoBlob : IServicioAlmacenamiento
         // 3. Subimos el archivo.
         try
         {
+            // BlobClient es un cliente de Azure que representa un archivo específico dentro del contenedor de blob. 
+            // Lo que hacemos aca bien facil es obtener un cliente para el archivo que vamos a subir, usando la referencia que generamos.
+            // Un cliente es como un "manejador" que nos permite interactuar con ese archivo en particular: subirlo, descargarlo, eliminarlo, etc.
             BlobClient blob = _contenedor.GetBlobClient(referencia);
 
+
+            // esto de opciones de subida bien facil es para configurar cómo queremos subir el archivo.
+            // Por ejemplo, le decimos que tipo de contenido tiene (como "application/pdf") y
+            // que no queremos sobrescribir un archivo que ya exista con el mismo nombre.
             var opcionesDeSubida = new BlobUploadOptions
             {
                 HttpHeaders = new BlobHttpHeaders { ContentType = archivo.TipoContenido },
@@ -84,6 +98,7 @@ public sealed class ServicioAlmacenamientoBlob : IServicioAlmacenamiento
         }
     }
 
+    //este metodo lo que hace basicamente es recuperar un archivo de Azure Blob Storage usando la referencia que se guardó en la base de datos.
     public async Task<ArchivoDescargado?> ObtenerAsync(
         string referencia,
         CancellationToken cancellationToken = default)

@@ -19,14 +19,10 @@ public interface IServicioAlmacenamiento
     // guardar en la base. Nunca pisa otro archivo: cada llamada genera un nombre nuevo.
     // Si los datos son inválidos lanza ArgumentException; si Azure falla lanza
     // AlmacenamientoNoDisponibleException.
-    Task<string> GuardarAsync(
-        ArchivoParaGuardar archivo,
-        CancellationToken cancellationToken = default);
+    Task<string> GuardarAsync(ArchivoParaGuardar archivo,CancellationToken cancellationToken = default);
 
     // Recupera el archivo de esa referencia, o devuelve null si no existe.
     // Si la referencia no tiene el formato que genera GuardarAsync lanza ArgumentException;
     // si Azure falla lanza AlmacenamientoNoDisponibleException.
-    Task<ArchivoDescargado?> ObtenerAsync(
-        string referencia,
-        CancellationToken cancellationToken = default);
+    Task<ArchivoDescargado?> ObtenerAsync(string referencia,CancellationToken cancellationToken = default);
 }
