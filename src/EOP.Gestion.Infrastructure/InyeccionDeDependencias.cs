@@ -82,6 +82,11 @@ public static class InyeccionDeDependencias
         // y le asigna su código interno.
         services.AddScoped<IRepositorioPresupuestos, RepositorioPresupuestos>();
 
+        // Registramos el servicio que comprueba que el cliente
+        // esté activo y que el tipo de proyecto exista.
+        services.AddScoped<IConsultaReferenciasPresupuesto, ConsultaReferenciasPresupuesto>();
+
+
         // Consulta los tipos de proyecto disponibles
         // para el formulario de creación de presupuestos.
         services.AddScoped<ConsultarTiposProyectoParaSeleccion>();

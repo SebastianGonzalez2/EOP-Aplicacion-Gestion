@@ -1,8 +1,11 @@
 ﻿
+using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Infrastructure.Consultas.Clientes;
 using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
 using EOP.Gestion.WebApp.Controllers;
 using EOP.Gestion.WebApp.ViewModels.Presupuestos;
 using Microsoft.AspNetCore.Http;
@@ -55,9 +58,16 @@ namespace EOP.Gestion.Tests.Integracion
 
             var consultarTipos = new ConsultarTiposProyectoParaSeleccion(contexto);
 
+            // Preparamos el caso de uso que ahora necesita el Controller.
+            var registrarPresupuesto = new RegistrarPresupuesto(
+                new RepositorioPresupuestos(contexto),
+                new ConsultaReferenciasPresupuesto(contexto),
+                new RepositorioUsuarios(contexto));
+
             var controller = new PresupuestosController(
                 consultarClientes,
-                consultarTipos)
+                consultarTipos,
+                registrarPresupuesto)
             {
                 ControllerContext = new ControllerContext
                 {
