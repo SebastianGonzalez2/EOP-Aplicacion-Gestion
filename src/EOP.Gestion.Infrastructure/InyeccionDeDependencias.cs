@@ -17,6 +17,9 @@ using EOP.Gestion.Infrastructure.Consultas.Materiales;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
 using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
+using EOP.Gestion.Core.Interfaces.Almacenamiento;
+using EOP.Gestion.Infrastructure.Almacenamiento;
+using Microsoft.Extensions.Logging;
 namespace EOP.Gestion.Infrastructure;
 
 /// <summary>
@@ -85,6 +88,21 @@ public static class InyeccionDeDependencias
         // Consulta los tipos de proyecto disponibles
         // para el formulario de creación de presupuestos.
         services.AddScoped<ConsultarTiposProyectoParaSeleccion>();
+
+        // Registramos el servicio de almacenamiento de archivos privados (Azure Blob Storage).
+        // Singleton: el cliente de Azure está pensado para reutilizarse y guarda en memoria el token
+        // de acceso, así que conviene crearlo una sola vez y compartirlo.
+        // Se crea la primera vez que alguien lo pide, no al arrancar: así la aplicación inicia
+        // aunque Azure no esté disponible (RNF-13), y si falta configuración el error aparece claro
+        // en la primera operación con archivos.
+        services.AddSingleton<IServicioAlmacenamiento>(proveedorDeServicios =>
+        {
+            var opcionesAlmacenamiento = AlmacenamientoBlobOpciones.Leer(configuration);
+            var contenedor = FabricaContenedorBlob.Crear(opcionesAlmacenamiento);
+            var logger = proveedorDeServicios.GetRequiredService<ILogger<ServicioAlmacenamientoBlob>>();
+
+            return new ServicioAlmacenamientoBlob(contenedor, logger);
+        });
 
         return services;
     }

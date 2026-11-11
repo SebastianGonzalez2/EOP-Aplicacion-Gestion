@@ -12,7 +12,7 @@ regeneran a partir de él cuando cambia.
 | [`user-stories.md`](./user-stories.md) | Las 76 US con criterios de aceptación; las excluidas llevan aviso |
 | [`alcance.md`](./alcance.md) | Funcionalidades incluidas y excluidas de la primera versión |
 | [`decisiones-tecnicas.md`](./decisiones-tecnicas.md) | Decisiones de diseño con su motivo y alternativas descartadas |
-| [`azure-blob-storage.md`](./azure-blob-storage.md) | Configuración de almacenamiento privado Azure Blob Storage, verificaciones y pendientes (S2-T02) |
+| [`azure-blob-storage.md`](./azure-blob-storage.md) | Configuración de almacenamiento privado Azure Blob Storage, verificaciones, servicio de la aplicación y pendientes (S2-T02, S2-T03) |
 | [`uso-de-ia.md`](./uso-de-ia.md) | Registro de uso de IA generativa |
 
 ## Cómo usarlos

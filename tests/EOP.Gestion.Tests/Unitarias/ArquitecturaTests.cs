@@ -20,4 +20,14 @@ public class ArquitecturaTests
 
         Assert.DoesNotContain(dependenciaProhibida, referencias);
     }
+
+    [Fact]
+    public void Core_NoDebeDependerDelSdkDeAzure()
+    {
+        var referencias = Assembly.Load("EOP.Gestion.Core")
+            .GetReferencedAssemblies()
+            .Select(a => a.Name);
+
+        Assert.DoesNotContain(referencias, nombre => nombre != null && nombre.StartsWith("Azure"));
+    }
 }

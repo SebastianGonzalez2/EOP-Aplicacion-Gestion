@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- SDK oficial de Azure: Blob Storage (archivos privados) y Azure.Identity (autenticación con
+         Microsoft Entra ID / identidad administrada, sin claves de la cuenta). -->
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Azure.Storage.Blobs" Version="12.30.1" />
     <!-- Reglas de numeración telefónica de cada país (biblioteca de Google, portada a .NET). -->
     <PackageReference Include="libphonenumber-csharp" Version="9.0.42" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.10" />
