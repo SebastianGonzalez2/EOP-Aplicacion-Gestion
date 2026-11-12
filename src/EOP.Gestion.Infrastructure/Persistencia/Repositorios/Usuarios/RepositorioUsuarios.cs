@@ -141,6 +141,17 @@ public class RepositorioUsuarios : IRepositorioUsuarios
                 cancellationToken);
     }
 
+    // Cambia únicamente la columna Activo. El usuario no se elimina ni se toca ninguna otra
+    // fila: sus relaciones con proyectos, tareas y otros registros quedan como estaban (RF-75).
+    public async Task ActualizarEstadoAsync(int usuarioId, bool activo, CancellationToken cancellationToken = default)
+    {
+        await _contexto.Usuarios
+            .Where(u => u.Id == usuarioId)
+            .ExecuteUpdateAsync(
+                cambios => cambios.SetProperty(u => u.Activo, activo),
+                cancellationToken);
+    }
+
     // Este método es el que evita los correos repetidos cuando llegan dos altas al mismo tiempo.
     //
     // El problema: las dos solicitudes preguntan "¿este correo está libre?", las dos reciben

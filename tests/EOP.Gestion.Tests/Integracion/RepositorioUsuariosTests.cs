@@ -310,6 +310,66 @@ public class RepositorioUsuariosTests : IDisposable
         Assert.Equal(RolUsuario.Operador, await LeerRolGuardadoAsync(juan.Id));
     }
 
+    // ---------- Cambio de estado (S2-T07 / US-046) ----------
+
+    [Fact]
+    public async Task ActualizarEstadoAsync_ConfirmandoElTurno_InactivaYReactivaSinTocarLosDemasDatos()
+    {
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy", entraObjectId: ObjectIdJuan, rol: RolUsuario.Supervisor);
+        var ana = await GuardarUsuarioAsync("ana@eop.com.uy");
+
+        await using (var bloqueo = await _repositorio.BloquearAdministradoresAsync())
+        {
+            await _repositorio.ActualizarEstadoAsync(juan.Id, false);
+            await bloqueo.ConfirmarAsync();
+        }
+
+        using (var contexto = CrearContexto())
+        {
+            // El registro sigue existiendo con todos sus datos: inactivar no elimina.
+            Usuario juanInactivo = await contexto.Usuarios.SingleAsync(u => u.Id == juan.Id);
+            Assert.False(juanInactivo.Activo);
+            Assert.Equal("Usuario de prueba", juanInactivo.NombreCompleto);
+            Assert.Equal("juan@eop.com.uy", juanInactivo.CorreoCorporativo);
+            Assert.Equal(RolUsuario.Supervisor, juanInactivo.Rol);
+            Assert.Equal(ObjectIdJuan, juanInactivo.EntraObjectId);
+
+            // RF-75: el cambio afecta solo al usuario modificado.
+            Assert.True((await contexto.Usuarios.SingleAsync(u => u.Id == ana.Id)).Activo);
+        }
+
+        await _repositorio.ActualizarEstadoAsync(juan.Id, true);
+
+        using var contextoFinal = CrearContexto();
+        Assert.True((await contextoFinal.Usuarios.SingleAsync(u => u.Id == juan.Id)).Activo);
+    }
+
+    [Fact]
+    public async Task ActualizarEstadoAsync_SinConfirmarElTurno_ConservaElEstadoOriginal()
+    {
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy");
+
+        await using (await _repositorio.BloquearAdministradoresAsync())
+        {
+            await _repositorio.ActualizarEstadoAsync(juan.Id, false);
+        }
+
+        using var contexto = CrearContexto();
+        Assert.True((await contexto.Usuarios.SingleAsync(u => u.Id == juan.Id)).Activo);
+    }
+
+    [Fact]
+    public async Task ActualizarEstadoAsync_ConUnIdInexistente_NoCreaNiModificaNada()
+    {
+        var juan = await GuardarUsuarioAsync("juan@eop.com.uy");
+
+        await _repositorio.ActualizarEstadoAsync(juan.Id + 1000, false);
+
+        using var contexto = CrearContexto();
+        Usuario unico = await contexto.Usuarios.SingleAsync();
+        Assert.True(unico.Activo);
+    }
+
     // ---------- Alta de usuarios (S1-T17) ----------
 
     private static Usuario CrearUsuarioNuevo(string correo, RolUsuario rol = RolUsuario.Operador) => new()
