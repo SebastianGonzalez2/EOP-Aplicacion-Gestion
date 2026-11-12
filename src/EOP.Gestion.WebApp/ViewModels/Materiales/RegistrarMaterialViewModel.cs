@@ -25,11 +25,8 @@ namespace EOP.Gestion.WebApp.ViewModels.Materiales
 
 
         [Required(ErrorMessage = "El precio unitario es obligatorio.")]
-        [Range(typeof(decimal),
-        "0",
-        "79228162514264337593543950335",
-        MinimumIsExclusive = true,
-        ErrorMessage = "El precio unitario debe ser mayor que cero.")]
+        // Mayor que cero y que entre en la columna decimal(28,10) (S2-T22).
+        [PrecioUnitarioValido]
         public decimal? PrecioUnitario { get; set; }
 
 

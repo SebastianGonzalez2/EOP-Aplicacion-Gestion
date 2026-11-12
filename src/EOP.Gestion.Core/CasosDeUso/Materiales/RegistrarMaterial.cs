@@ -66,10 +66,12 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
                 errores.Add("Seleccioná un proveedor válido.");
             }
 
-            // El precio debe ser estrictamente mayor que cero.
-            if (!precioUnitario.HasValue || precioUnitario.Value <= 0)
+            // El precio debe ser mayor que cero y entrar en la columna (S2-T22).
+            string? errorDePrecio = ValidadorPrecioUnitario.ObtenerError(precioUnitario);
+
+            if (errorDePrecio != null)
             {
-                errores.Add("El precio unitario debe ser mayor que cero.");
+                errores.Add(errorDePrecio);
             }
 
             // Solamente aceptamos las monedas definidas en el sistema.
