@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using Microsoft.Identity.Web;
+using EOP.Gestion.Infrastructure.Consultas.Usuarios;
 
 
 namespace EOP.Gestion.WebApp.Controllers
@@ -24,28 +25,66 @@ namespace EOP.Gestion.WebApp.Controllers
         // Consulta que obtiene los presupuestos para el listado.
         private readonly ConsultarPresupuestos _consultarPresupuestos;
 
+        // Consultamos los usuarios para ofrecerlos
+        // como responsables en el filtro de presupuestos.
+        private readonly ConsultarUsuarios _consultarUsuarios;
+
+
         // Recibimos los servicios que consultan los clientes
         // y los tipos de proyecto disponibles.
-        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto, RegistrarPresupuesto registrarPresupuesto, ConsultarPresupuestos consultarPresupuestos)
+        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto, RegistrarPresupuesto registrarPresupuesto, ConsultarPresupuestos consultarPresupuestos, ConsultarUsuarios consultarUsuarios)
         {
             _consultarClientes = consultarClientes;
             _consultarTiposProyecto = consultarTiposProyecto;
             _registrarPresupuesto = registrarPresupuesto;
             _consultarPresupuestos = consultarPresupuestos;
+            _consultarUsuarios = consultarUsuarios;
         }
 
 
         // GET: /Presupuestos
-        // Muestra el listado de presupuestos registrados (US-001).
+        // Muestra el listado aplicando los filtros seleccionados (US-001).
         [HttpGet]
         [Authorize(Roles = "Operador,Supervisor,Administrador")]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(string? codigo = null,EstadoPresupuesto? estado = null,int? clienteId = null,DateTime? fecha = null,
+            int? responsableId = null)
         {
-            // Consultamos todos los presupuestos registrados.
-            // Los filtros se incorporarán en la tarea S2-T27.
-            var presupuestos = await _consultarPresupuestos.EjecutarAsync(HttpContext.RequestAborted);
+            // Consultamos los presupuestos aplicando los filtros.
+            var presupuestos = await _consultarPresupuestos.EjecutarAsync(HttpContext.RequestAborted,
+                codigo,estado,clienteId,fecha,responsableId);
 
-            // Enviamos los datos a la vista Index.cshtml.
+            // Obtenemos todos los clientes, incluidos los inactivos,
+            // porque también podemos buscar presupuestos históricos.
+            var clientes = await _consultarClientes.EjecutarAsync(null, null, HttpContext.RequestAborted);
+
+            // Preparamos las opciones del desplegable de clientes.
+            ViewBag.Clientes = clientes.Select(cliente => new SelectListItem
+            {
+                Text = cliente.Nombre,
+                Value = cliente.Id.ToString()
+            }).ToList();
+
+            // Obtenemos los usuarios para poder filtrar
+            // por el responsable de cada presupuesto.
+            var usuarios = await _consultarUsuarios.EjecutarAsync(HttpContext.RequestAborted);
+
+            // Incluimos usuarios inactivos porque pueden seguir
+            // siendo responsables de presupuestos anteriores.
+            ViewBag.Responsables = usuarios.Select(usuario => new SelectListItem
+            {
+                Text = usuario.NombreCompleto,
+                Value = usuario.Id.ToString()
+            }).ToList();
+
+            // Guardamos los filtros seleccionados para que
+            // la vista pueda mantenerlos después de buscar.
+            ViewBag.Codigo = codigo;
+            ViewBag.Estado = estado;
+            ViewBag.ClienteId = clienteId;
+            ViewBag.Fecha = fecha;
+            ViewBag.ResponsableId = responsableId;
+
+            // Mostramos el listado con los filtros aplicados.
             return View(presupuestos);
         }
 

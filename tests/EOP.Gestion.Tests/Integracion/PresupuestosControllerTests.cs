@@ -3,6 +3,7 @@ using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Infrastructure.Consultas.Clientes;
 using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
+using EOP.Gestion.Infrastructure.Consultas.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
@@ -68,7 +69,8 @@ namespace EOP.Gestion.Tests.Integracion
                 consultarClientes,
                 consultarTipos,
                 registrarPresupuesto,
-                new ConsultarPresupuestos(contexto))
+                new ConsultarPresupuestos(contexto),
+                new ConsultarUsuarios(contexto))
             {
                 ControllerContext = new ControllerContext
                 {

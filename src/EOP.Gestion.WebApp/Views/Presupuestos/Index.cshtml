@@ -1,18 +1,52 @@
 ﻿@using EOP.Gestion.Core.Entidades.Presupuestos
+@using Microsoft.AspNetCore.Mvc.Rendering
 @model List<EOP.Gestion.Core.DTOs.Presupuestos.PresupuestoListadoDto>
 
 @{
     ViewData["Title"] = "Presupuestos";
+
+    // Recuperamos los filtros recibidos desde el Controller
+    // para mantener sus valores después de realizar una búsqueda.
+    string codigoSeleccionado = ViewBag.Codigo as string ?? "";
+
+    EstadoPresupuesto? estadoSeleccionado =
+        ViewBag.Estado is EstadoPresupuesto estado ? estado : null;
+
+    int? clienteSeleccionado =
+        ViewBag.ClienteId is int clienteId ? clienteId : null;
+
+    DateTime? fechaSeleccionada =
+        ViewBag.Fecha is DateTime fecha ? fecha : null;
+
+    int? responsableSeleccionado =
+        ViewBag.ResponsableId is int responsableId ? responsableId : null;
+
+    // Opciones que el Controller obtuvo de la base de datos.
+    IEnumerable<SelectListItem> clientes =
+        ViewBag.Clientes as IEnumerable<SelectListItem>
+        ?? Enumerable.Empty<SelectListItem>();
+
+    IEnumerable<SelectListItem> responsables =
+        ViewBag.Responsables as IEnumerable<SelectListItem>
+        ?? Enumerable.Empty<SelectListItem>();
+
+    // Determinamos si el usuario aplicó algún filtro.
+    bool hayFiltros =
+        !string.IsNullOrWhiteSpace(codigoSeleccionado)
+        || estadoSeleccionado.HasValue
+        || clienteSeleccionado.HasValue
+        || fechaSeleccionada.HasValue
+        || responsableSeleccionado.HasValue;
 }
 
-@* Listado de presupuestos (US-001).
+@* Listado y filtros de presupuestos (US-001).
    Mostramos los datos principales de cada presupuesto.
-   Los filtros se implementarán en S2-T27 y el acceso al detalle en S2-T28. *@
+   El acceso al detalle se implementará en S2-T28. *@
 
 <div class="encabezado">
     <div>
         <h1>Presupuestos</h1>
-        <p>Listado de presupuestos registrados en el sistema.</p>
+        <p>Consultá los presupuestos registrados y utilizá los filtros para encontrarlos.</p>
     </div>
 
     <a asp-controller="Presupuestos"
@@ -25,15 +59,201 @@
 
 <partial name="_Mensajes" />
 
+@* Formulario GET: los filtros se envían en la URL.
+   Buscar no crea ni modifica ningún presupuesto. *@
+<form asp-controller="Presupuestos"
+      asp-action="Index"
+      method="get"
+      class="panel mb-3"
+      role="search"
+      aria-label="Filtros de presupuestos">
+
+    <div class="panel-cuerpo">
+
+        <div class="row g-3 align-items-end">
+
+            @* Filtro por código del presupuesto. *@
+            <div class="col-12 col-xl-4">
+                <label class="form-label" for="f-codigo">
+                    Código
+                </label>
+
+                <div class="input-group">
+                    <span class="input-group-text">
+                        <i class="bi bi-search" aria-hidden="true"></i>
+                    </span>
+
+                    <input id="f-codigo"
+                           name="codigo"
+                           type="search"
+                           class="form-control"
+                           placeholder="Buscar por código"
+                           value="@codigoSeleccionado" />
+                </div>
+            </div>
+
+            @* Filtro por estado del presupuesto. *@
+            <div class="col-6 col-md-4 col-xl-2">
+                <label class="form-label" for="f-estado">
+                    Estado
+                </label>
+
+                <select id="f-estado"
+                        name="estado"
+                        class="form-select">
+
+                    <option value="">Todos</option>
+
+                    <option value="@((int)EstadoPresupuesto.Borrador)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.Borrador)">
+                        Borrador
+                    </option>
+
+                    <option value="@((int)EstadoPresupuesto.ParaRevisionInterna)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.ParaRevisionInterna)">
+                        Para revisión interna
+                    </option>
+
+                    <option value="@((int)EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente)">
+                        Enviado / pendiente de respuesta
+                    </option>
+
+                    <option value="@((int)EstadoPresupuesto.Aprobado)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.Aprobado)">
+                        Aprobado
+                    </option>
+
+                    <option value="@((int)EstadoPresupuesto.Rechazado)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.Rechazado)">
+                        Rechazado
+                    </option>
+
+                    <option value="@((int)EstadoPresupuesto.SolicitudDeModificacionDelCliente)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.SolicitudDeModificacionDelCliente)">
+                        Solicitud de modificación
+                    </option>
+
+                    <option value="@((int)EstadoPresupuesto.Vencido)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.Vencido)">
+                        Vencido
+                    </option>
+
+                    <option value="@((int)EstadoPresupuesto.Cancelado)"
+                            selected="@(estadoSeleccionado == EstadoPresupuesto.Cancelado)">
+                        Cancelado
+                    </option>
+                </select>
+            </div>
+
+            @* Filtro por cliente.
+               También incluimos clientes inactivos porque
+               pueden tener presupuestos históricos. *@
+            <div class="col-6 col-md-4 col-xl-3">
+                <label class="form-label" for="f-cliente">
+                    Cliente
+                </label>
+
+                <select id="f-cliente"
+                        name="clienteId"
+                        class="form-select">
+
+                    <option value="">Todos</option>
+
+                    @foreach (var cliente in clientes)
+                    {
+                        <option value="@cliente.Value"
+                                selected="@(cliente.Value == clienteSeleccionado?.ToString())">
+                            @cliente.Text
+                        </option>
+                    }
+                </select>
+            </div>
+
+            @* Filtro por fecha de creación. *@
+            <div class="col-6 col-md-4 col-xl-3">
+                <label class="form-label" for="f-fecha">
+                    Fecha de creación
+                </label>
+
+                <input id="f-fecha"
+                       name="fecha"
+                       type="date"
+                       class="form-control"
+                       value="@(fechaSeleccionada?.ToString("yyyy-MM-dd"))" />
+            </div>
+
+        </div>
+
+        <div class="row g-3 align-items-end mt-1">
+
+            @* Filtro por responsable.
+               Incluimos usuarios inactivos para que también
+               puedan consultarse sus presupuestos anteriores. *@
+            <div class="col-12 col-md-6 col-xl-4">
+                <label class="form-label" for="f-responsable">
+                    Responsable
+                </label>
+
+                <select id="f-responsable"
+                        name="responsableId"
+                        class="form-select">
+
+                    <option value="">Todos</option>
+
+                    @foreach (var responsable in responsables)
+                    {
+                        <option value="@responsable.Value"
+                                selected="@(responsable.Value == responsableSeleccionado?.ToString())">
+                            @responsable.Text
+                        </option>
+                    }
+                </select>
+            </div>
+
+            <div class="col-12 col-md-auto">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-search me-1" aria-hidden="true"></i>
+                    Aplicar filtros
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="panel-pie d-flex flex-wrap gap-2 justify-content-between align-items-center">
+        <span class="text-body-secondary small">
+            Los filtros se pueden combinar para precisar los resultados.
+        </span>
+
+        <a asp-controller="Presupuestos"
+           asp-action="Index"
+           class="btn btn-link btn-sm text-decoration-none p-0">
+            <i class="bi bi-x-circle me-1" aria-hidden="true"></i>
+            Limpiar filtros
+        </a>
+    </div>
+</form>
+
 <section class="panel" aria-label="Listado de presupuestos">
 
     @if (Model.Count == 0)
     {
-        @* Si no existen presupuestos, mostramos un mensaje. *@
+        @* Distinguimos entre un listado vacío y una búsqueda
+           que no encontró presupuestos con los filtros aplicados. *@
         <div class="sin-resultados" role="status">
             <i class="bi bi-inbox" aria-hidden="true"></i>
+
             <h2>No se encontraron presupuestos.</h2>
-            <p>Todavía no hay presupuestos registrados.</p>
+
+            @if (hayFiltros)
+            {
+                <p>Probá con otros filtros o utilizá Limpiar filtros.</p>
+            }
+            else
+            {
+                <p>Todavía no hay presupuestos registrados.</p>
+            }
         </div>
     }
     else
@@ -108,7 +328,9 @@
                         }
 
                         <tr>
-                            <td class="col-texto">@presupuesto.Codigo</td>
+                            <td class="col-texto">
+                                @presupuesto.Codigo
+                            </td>
 
                             <td class="col-principal">
                                 @presupuesto.NombreProyecto
