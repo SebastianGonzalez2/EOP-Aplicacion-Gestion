@@ -23,6 +23,15 @@ public class RegistrarMaterialTests
             MaterialGuardado = material;
             return Task.FromResult(true);
         }
+
+        public Task<bool> ExistePorIdAsync(int materialId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<bool> ExisteRelacionConProveedorAsync(int materialId, int proveedorId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<bool> AgregarRelacionSiNoExisteAsync(MaterialProveedor relacion, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class RepositorioProveedoresFalso : IRepositorioProveedores

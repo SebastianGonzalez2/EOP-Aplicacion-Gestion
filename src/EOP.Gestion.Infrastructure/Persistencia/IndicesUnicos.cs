@@ -37,6 +37,9 @@ public static class IndicesUnicos
 
     public const string MaterialesNombreNormalizado = "IX_Materiales_NombreNormalizado";
 
+    // S2-T19: un material no puede tener dos relaciones con el mismo proveedor.
+    public const string MaterialProveedoresMaterialIdProveedorId = "IX_MaterialProveedores_MaterialId_ProveedorId";
+
     public const string UsuariosCorreoCorporativo = "IX_Usuarios_CorreoCorporativo";
 
     // Devuelve true solo si el guardado falló porque se repitió un valor en ese índice.

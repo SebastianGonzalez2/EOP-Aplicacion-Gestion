@@ -23,11 +23,16 @@ namespace EOP.Gestion.WebApp.Controllers
         private readonly ConsultarMateriales _consultarMateriales;
 
         // Recibimos el servicio que consulta los proveedores existentes.
-        public MaterialesController(ConsultarProveedoresParaSeleccion consultarProveedores, RegistrarMaterial registrarMaterial, ConsultarMateriales consultarMateriales    )
+        // Caso de uso que valida y guarda una nueva relación material-proveedor.
+        private readonly AgregarProveedorAMaterial _agregarProveedorAMaterial;
+
+        public MaterialesController(ConsultarProveedoresParaSeleccion consultarProveedores, RegistrarMaterial registrarMaterial, ConsultarMateriales consultarMateriales,
+                                    AgregarProveedorAMaterial agregarProveedorAMaterial)
         {
             _consultarProveedores = consultarProveedores;
             _registrarMaterial = registrarMaterial;
             _consultarMateriales = consultarMateriales;
+            _agregarProveedorAMaterial = agregarProveedorAMaterial;
         }
 
 
@@ -185,18 +190,86 @@ namespace EOP.Gestion.WebApp.Controllers
                 NombreMaterial = material.Nombre
             };
 
-            // Consultamos los proveedores registrados en la base de datos.
-            var proveedores = await _consultarProveedores.EjecutarAsync(HttpContext.RequestAborted);
+            // Cargamos los proveedores registrados para el desplegable.
+            await CargarProveedores(modelo, HttpContext.RequestAborted);
 
-            // Convertimos los proveedores en opciones para el desplegable.
+            // Enviamos el ViewModel a la vista AgregarProveedor.cshtml.
+            return View(modelo);
+        }
+
+        // Obtiene los proveedores registrados y prepara las opciones del desplegable.
+        private async Task CargarProveedores(AgregarProveedorMaterialViewModel modelo, CancellationToken cancellationToken)
+        {
+            var proveedores = await _consultarProveedores.EjecutarAsync(cancellationToken);
+
             modelo.Proveedores = proveedores.Select(proveedor => new SelectListItem
             {
                 Text = proveedor.Nombre,
                 Value = proveedor.Id.ToString()
             }).ToList();
+        }
 
-            // Enviamos el ViewModel a la vista AgregarProveedor.cshtml.
-            return View(modelo);
+        // POST: guarda la nueva relación material-proveedor (US-010B).
+        // El [Authorize] va en esta acción también: ocultar el botón no alcanza (RNF-4),
+        // un Operador podría mandar el POST a mano y el servidor debe rechazarlo.
+        [HttpPost]
+        [Authorize(Roles = "Supervisor,Administrador")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> AgregarProveedor(AgregarProveedorMaterialViewModel modelo)
+        {
+            // El nombre del material no viaja en el formulario (es BindNever),
+            // así que lo volvemos a buscar. Si el material no existe, no hay nada que mostrar.
+            var material = await _consultarMateriales.ObtenerPorIdAsync(modelo.MaterialId, HttpContext.RequestAborted);
+
+            if (material == null)
+            {
+                return NotFound();
+            }
+
+            modelo.NombreMaterial = material.Nombre;
+
+            // Las opciones del desplegable tampoco viajan, hay que cargarlas de nuevo.
+            await CargarProveedores(modelo, HttpContext.RequestAborted);
+
+            // Comprobamos las validaciones definidas en el ViewModel.
+            if (!ModelState.IsValid)
+            {
+                return View(modelo);
+            }
+
+            // Convertimos el texto del formulario al enum Moneda.
+            // El ViewModel ya garantiza que sea UYU o USD, pero lo verificamos igual
+            // porque Enum.Parse lanzaría una excepción con cualquier otro texto.
+            if (modelo.Moneda != "UYU" && modelo.Moneda != "USD")
+            {
+                ModelState.AddModelError(nameof(modelo.Moneda), "La moneda debe ser UYU o USD.");
+
+                return View(modelo);
+            }
+
+            Moneda moneda = Enum.Parse<Moneda>(modelo.Moneda);
+
+            // El caso de uso valida (proveedor existente, precio, duplicado) y guarda.
+            List<string> errores = await _agregarProveedorAMaterial.EjecutarAsync(
+                modelo.MaterialId,
+                modelo.ProveedorId,
+                modelo.PrecioUnitario,
+                moneda,
+                HttpContext.RequestAborted);
+
+            if (errores.Count > 0)
+            {
+                foreach (string error in errores)
+                {
+                    ModelState.AddModelError(string.Empty, error);
+                }
+
+                return View(modelo);
+            }
+
+            TempData["MensajeExito"] = "Proveedor agregado correctamente al material.";
+
+            return RedirectToAction(nameof(Index));
         }
 
 

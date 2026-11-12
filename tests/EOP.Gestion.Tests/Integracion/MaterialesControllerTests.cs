@@ -62,7 +62,8 @@ namespace EOP.Gestion.Tests.Integracion
             var controller = new MaterialesController(
                 consulta,
                 registrarMaterial,
-                consultarMateriales)
+                consultarMateriales,
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -128,7 +129,8 @@ namespace EOP.Gestion.Tests.Integracion
             var controller = new MaterialesController(
                 consulta,
                 registrarMaterial,
-                consultarMateriales)
+                consultarMateriales,
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -187,7 +189,8 @@ namespace EOP.Gestion.Tests.Integracion
             var controller = new MaterialesController(
                 consulta,
                 registrarMaterial,
-                consultarMateriales)
+                consultarMateriales,
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -261,7 +264,8 @@ namespace EOP.Gestion.Tests.Integracion
             var controller = new MaterialesController(
                 consulta,
                 registrarMaterial,
-                consultarMateriales)
+                consultarMateriales,
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -392,7 +396,8 @@ namespace EOP.Gestion.Tests.Integracion
             var controller = new MaterialesController(
                 consulta,
                 registrarMaterial,
-                consultarMateriales)
+                consultarMateriales,
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {

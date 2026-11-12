@@ -17,5 +17,18 @@ namespace EOP.Gestion.Core.Interfaces.Materiales
         // guardó antes (por ejemplo, otra persona lo registró al mismo tiempo), no guarda nada
         // y devuelve false. Cualquier otro problema de la base sí es una excepción.
         Task<bool> AgregarSiNombreDisponibleAsync(Material material,MaterialProveedor primeraRelacion,CancellationToken cancellationToken = default);
+
+        // S2-T19: comprueba si el material ya está registrado en el catálogo.
+        Task<bool> ExistePorIdAsync(int materialId,CancellationToken cancellationToken = default);
+
+        // S2-T19: comprueba si el material ya tiene una relación con ese proveedor.
+        Task<bool> ExisteRelacionConProveedorAsync(int materialId,int proveedorId,CancellationToken cancellationToken = default);
+
+        // S2-T19: guarda una nueva relación para un material que ya existe.
+        //
+        // Devuelve true si se guardó. Si otra persona creó la misma relación material-proveedor
+        // al mismo tiempo, no guarda nada y devuelve false. Cualquier otro problema de la base
+        // sí es una excepción.
+        Task<bool> AgregarRelacionSiNoExisteAsync(MaterialProveedor relacion,CancellationToken cancellationToken = default);
     }
 }
