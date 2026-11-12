@@ -102,7 +102,8 @@ public class PresupuestosControllerPostTests : IDisposable
         _controller = new PresupuestosController(
             new ConsultarClientes(_contexto),
             new ConsultarTiposProyectoParaSeleccion(_contexto),
-            casoDeUso)
+            casoDeUso,
+            new ConsultarPresupuestos(_contexto))
         {
             ControllerContext = new ControllerContext
             {

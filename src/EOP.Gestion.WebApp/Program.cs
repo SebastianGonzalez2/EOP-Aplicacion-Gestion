@@ -12,6 +12,7 @@ using System.Security.Claims;
 using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
+using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 
 using EOP.Gestion.Infrastructure.Consultas.Usuarios;
 
@@ -90,6 +91,10 @@ builder.Services.AddScoped<ConsultarProveedores>();
 // para mostrarlos en el listado administrativo.
 builder.Services.AddScoped<ConsultarUsuarios>();
 
+
+// Registramos la consulta que obtiene los presupuestos
+// existentes para mostrarlos en el listado.
+builder.Services.AddScoped<ConsultarPresupuestos>();
 
 // ================================
 // AUTENTICACIÓN CON MICROSOFT ENTRA ID

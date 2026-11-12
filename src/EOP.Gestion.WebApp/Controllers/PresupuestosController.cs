@@ -21,14 +21,35 @@ namespace EOP.Gestion.WebApp.Controllers
 
         private readonly RegistrarPresupuesto _registrarPresupuesto;
 
+        // Consulta que obtiene los presupuestos para el listado.
+        private readonly ConsultarPresupuestos _consultarPresupuestos;
+
         // Recibimos los servicios que consultan los clientes
         // y los tipos de proyecto disponibles.
-        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto, RegistrarPresupuesto registrarPresupuesto)
+        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto, RegistrarPresupuesto registrarPresupuesto, ConsultarPresupuestos consultarPresupuestos)
         {
             _consultarClientes = consultarClientes;
             _consultarTiposProyecto = consultarTiposProyecto;
             _registrarPresupuesto = registrarPresupuesto;
+            _consultarPresupuestos = consultarPresupuestos;
         }
+
+
+        // GET: /Presupuestos
+        // Muestra el listado de presupuestos registrados (US-001).
+        [HttpGet]
+        [Authorize(Roles = "Operador,Supervisor,Administrador")]
+        public async Task<IActionResult> Index()
+        {
+            // Consultamos todos los presupuestos registrados.
+            // Los filtros se incorporarán en la tarea S2-T27.
+            var presupuestos = await _consultarPresupuestos.EjecutarAsync(HttpContext.RequestAborted);
+
+            // Enviamos los datos a la vista Index.cshtml.
+            return View(presupuestos);
+        }
+
+
 
         // GET: muestra el formulario para crear un presupuesto.
         [HttpGet]

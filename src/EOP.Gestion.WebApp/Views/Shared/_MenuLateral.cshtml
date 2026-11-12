@@ -1,4 +1,6 @@
+
 @using EOP.Gestion.Core.Entidades.Usuarios
+
 @*
     Menú lateral de EOP (sección 7 de docs/diseno-visual.md).
 
@@ -24,7 +26,6 @@
     // Los tres roles pueden consultar el catálogo de materiales y el listado de proveedores.
     bool puedeVerAbastecimiento = esAdministrador || esSupervisor || esOperador;
 }
-
 
 @functions {
     // Devuelve "page" si el enlace pertenece a la sección que se está mostrando, y null si no.
@@ -73,7 +74,6 @@
                     </a>
                 </div>
 
-                
                 <div class="nav-grupo">
                     <div class="nav-grupo-titulo">Comercial</div>
 
@@ -84,23 +84,20 @@
                         <i class="bi bi-people" aria-hidden="true"></i>Clientes
                     </a>
 
-                    @* US-002: los tres roles pueden crear presupuestos.
-                       Por ahora el enlace lleva al formulario de creación.
-                       Cuando implementemos el listado (US-001),
-                       cambiaremos el destino a Index. *@
+                    @* US-001: los tres roles pueden consultar el listado
+                       de presupuestos. Desde el listado también pueden
+                       acceder al formulario de creación (US-002). *@
                     @if (esAdministrador || esSupervisor || esOperador)
                     {
                         <a class="@ClaseDelEnlace("Presupuestos")"
                            aria-current="@MarcaDeSeccionActual("Presupuestos")"
                            asp-controller="Presupuestos"
-                           asp-action="Crear">
+                           asp-action="Index">
                             <i class="bi bi-file-earmark-text" aria-hidden="true"></i>Presupuestos
                         </a>
                     }
                 </div>
 
-
-                
                 @* US-074: los tres roles pueden consultar el listado de proveedores.
                    El registro sigue reservado a Administrador y Supervisor. *@
                 @if (puedeVerAbastecimiento)
@@ -126,7 +123,6 @@
                     </div>
                 }
 
-                
                 @* US-045: solamente el Administrador puede acceder al
                    listado de usuarios. Desde ahí puede registrar usuarios
                    y realizar las acciones administrativas habilitadas. *@
@@ -143,7 +139,6 @@
                         </a>
                     </div>
                 }
-
             </nav>
         </div>
     </div>
