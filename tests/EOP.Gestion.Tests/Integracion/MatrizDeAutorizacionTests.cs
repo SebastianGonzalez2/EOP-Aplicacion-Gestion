@@ -70,6 +70,7 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["GET Usuarios/Registrar"] = SoloAdministrador,
         ["POST Usuarios/Registrar"] = SoloAdministrador,
         ["POST Usuarios/ModificarRol"] = SoloAdministrador,
+        ["POST Usuarios/CambiarEstado"] = SoloAdministrador,
     };
 
     private List<(string Accion, Endpoint Endpoint, ControllerActionDescriptor Descriptor)> ObtenerAccionesDeLaApp()

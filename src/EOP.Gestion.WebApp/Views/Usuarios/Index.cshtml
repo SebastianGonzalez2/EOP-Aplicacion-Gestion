@@ -73,48 +73,127 @@
                             </td>
 
                             <td class="col-acciones">
-                                @* La modificación del rol ya existe en US-044.
-                                   El formulario envía el Id y el nuevo rol al Controller. *@
-                                <form asp-controller="Usuarios"
-                                      asp-action="ModificarRol"
-                                      method="post"
-                                      class="d-flex align-items-center gap-2">
+                                <div class="d-flex align-items-center justify-content-end gap-2">
+                                    @* La modificación del rol ya existe en US-044.
+                                       El formulario envía el Id y el nuevo rol al Controller. *@
+                                    <form asp-controller="Usuarios"
+                                          asp-action="ModificarRol"
+                                          method="post"
+                                          class="d-flex align-items-center gap-2">
 
-                                    <input type="hidden"
-                                           name="UsuarioId"
-                                           value="@usuario.Id" />
+                                        <input type="hidden"
+                                               name="UsuarioId"
+                                               value="@usuario.Id" />
 
-                                    <select name="NuevoRol"
-                                            class="form-select form-select-sm"
-                                            aria-label="Nuevo rol de @usuario.NombreCompleto">
+                                        <select name="NuevoRol"
+                                                class="form-select form-select-sm"
+                                                aria-label="Nuevo rol de @usuario.NombreCompleto">
 
-                                        <option value="Administrador"
-                                                selected="@(usuario.Rol == RolUsuario.Administrador)">
-                                            Administrador
-                                        </option>
+                                            <option value="Administrador"
+                                                    selected="@(usuario.Rol == RolUsuario.Administrador)">
+                                                Administrador
+                                            </option>
 
-                                        <option value="Supervisor"
-                                                selected="@(usuario.Rol == RolUsuario.Supervisor)">
-                                            Supervisor
-                                        </option>
+                                            <option value="Supervisor"
+                                                    selected="@(usuario.Rol == RolUsuario.Supervisor)">
+                                                Supervisor
+                                            </option>
 
-                                        <option value="Operador"
-                                                selected="@(usuario.Rol == RolUsuario.Operador)">
-                                            Operador
-                                        </option>
-                                    </select>
+                                            <option value="Operador"
+                                                    selected="@(usuario.Rol == RolUsuario.Operador)">
+                                                Operador
+                                            </option>
+                                        </select>
 
-                                    <button type="submit"
-                                            class="btn btn-outline-secondary btn-sm">
-                                        Guardar
-                                    </button>
-                                </form>
+                                        <button type="submit"
+                                                class="btn btn-outline-secondary btn-sm">
+                                            Guardar
+                                        </button>
+                                    </form>
+
+                                    @* Cambio de estado (US-046 / RF-75).
+                                       Inactivar solo ABRE el diálogo de confirmación (más abajo): todavía no
+                                       se envía nada. Reactivar no pide confirmación porque RF-75 solo la
+                                       exige para pasar de Activo a Inactivo. *@
+                                    @if (usuario.Activo)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-outline-danger btn-sm"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#confirmarInactivar-@usuario.Id">
+                                            Inactivar
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <form asp-controller="Usuarios"
+                                              asp-action="CambiarEstado"
+                                              method="post">
+                                            <input type="hidden" name="UsuarioId" value="@usuario.Id" />
+                                            <input type="hidden" name="NuevoEstado" value="Activo" />
+
+                                            <button type="submit"
+                                                    class="btn btn-outline-secondary btn-sm"
+                                                    aria-label="Reactivar a @usuario.NombreCompleto">
+                                                Reactivar
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
+
+        @* Diálogos de confirmación para inactivar (RNF-1, docs/diseno-visual.md sección 18.1).
+           Hay uno por cada usuario activo. «Cancelar» y la X solo cierran el diálogo: no se envía
+           nada y el estado no cambia. Recién «Inactivar usuario» manda el POST al Controller. *@
+        @foreach (var usuario in Model.Where(u => u.Activo))
+        {
+            <div class="modal fade"
+                 id="confirmarInactivar-@usuario.Id"
+                 tabindex="-1"
+                 aria-labelledby="confirmarInactivarTitulo-@usuario.Id"
+                 aria-hidden="true">
+                <div class="modal-dialog">
+                    <form class="modal-content"
+                          asp-controller="Usuarios"
+                          asp-action="CambiarEstado"
+                          method="post">
+
+                        <input type="hidden" name="UsuarioId" value="@usuario.Id" />
+                        <input type="hidden" name="NuevoEstado" value="Inactivo" />
+
+                        <div class="modal-header">
+                            <h2 class="modal-title" id="confirmarInactivarTitulo-@usuario.Id">
+                                ¿Inactivar al usuario @usuario.NombreCompleto?
+                            </h2>
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="modal"
+                                    aria-label="Cancelar"></button>
+                        </div>
+
+                        <div class="modal-body">
+                            El usuario va a dejar de poder acceder a la aplicación. No se elimina:
+                            su información y sus relaciones históricas se conservan y se lo puede
+                            reactivar cuando haga falta.
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button"
+                                    class="btn btn-outline-secondary"
+                                    data-bs-dismiss="modal">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-danger">Inactivar usuario</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
 
         <div class="panel-pie">
             <span class="text-body-secondary small">

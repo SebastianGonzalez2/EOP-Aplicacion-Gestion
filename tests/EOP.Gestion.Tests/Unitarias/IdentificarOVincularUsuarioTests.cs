@@ -42,6 +42,8 @@ public class IdentificarOVincularUsuarioTests
 
         public Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+        public Task ActualizarEstadoAsync(int usuarioId, bool activo, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
         public Task<bool> AgregarSiCorreoDisponibleAsync(Usuario usuario, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task<Usuario?> ObtenerPorIdentidadExternaAsync(string entraObjectId, CancellationToken cancellationToken = default)

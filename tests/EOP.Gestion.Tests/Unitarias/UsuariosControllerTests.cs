@@ -46,6 +46,7 @@ public class UsuariosControllerTests : IDisposable
 
         _controller = new UsuariosController(
             new ModificarRolUsuario(_repositorio),
+            new CambiarEstadoUsuario(_repositorio),
             new RegistrarUsuario(_repositorio),
             new ConsultarUsuarios(_contexto))
         {
@@ -68,7 +69,7 @@ public class UsuariosControllerTests : IDisposable
     }
 
 
-    private void AgregarUsuario(int id, RolUsuario rol)
+    private void AgregarUsuario(int id, RolUsuario rol, bool activo = true)
     {
         _repositorio.Usuarios.Add(new Usuario
         {
@@ -76,7 +77,7 @@ public class UsuariosControllerTests : IDisposable
             NombreCompleto = "Usuario de prueba",
             CorreoCorporativo = $"usuario{id}@eop.com.uy",
             Rol = rol,
-            Activo = true
+            Activo = activo
         });
     }
 
@@ -142,6 +143,86 @@ public class UsuariosControllerTests : IDisposable
 
         AssertVuelveAlListado(respuesta);
         Assert.Equal("No se pudo modificar el rol: los datos enviados no son válidos.", _controller.TempData[MensajeError]);
+        Assert.Empty(_repositorio.Pasos);
+    }
+
+    // ---------- Cambio de estado (S2-T07 / US-046) ----------
+
+    private const string MensajeAdvertencia = "MensajeAdvertencia";
+
+    [Fact]
+    public async Task CambiarEstado_Inactivar_InformaElExitoYVuelveAlListado()
+    {
+        AgregarUsuario(1, RolUsuario.Administrador);
+        AgregarUsuario(2, RolUsuario.Operador);
+
+        IActionResult respuesta = await _controller.CambiarEstado(new CambiarEstadoViewModel { UsuarioId = 2, NuevoEstado = "Inactivo" });
+
+        AssertVuelveAlListado(respuesta);
+        Assert.StartsWith("El usuario se inactivó correctamente.", (string?)_controller.TempData[MensajeExito]);
+        Assert.Null(_controller.TempData[MensajeError]);
+        Assert.False(_repositorio.Usuarios.Single(u => u.Id == 2).Activo);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_Reactivar_InformaElExitoYVuelveAlListado()
+    {
+        AgregarUsuario(1, RolUsuario.Administrador);
+        AgregarUsuario(2, RolUsuario.Operador, activo: false);
+
+        IActionResult respuesta = await _controller.CambiarEstado(new CambiarEstadoViewModel { UsuarioId = 2, NuevoEstado = "Activo" });
+
+        AssertVuelveAlListado(respuesta);
+        Assert.Equal("El usuario se reactivó correctamente.", _controller.TempData[MensajeExito]);
+        Assert.True(_repositorio.Usuarios.Single(u => u.Id == 2).Activo);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_UsuarioQueYaTeniaEseEstado_AdvierteYNoCambiaNada()
+    {
+        AgregarUsuario(1, RolUsuario.Administrador);
+        AgregarUsuario(2, RolUsuario.Operador, activo: false);
+
+        IActionResult respuesta = await _controller.CambiarEstado(new CambiarEstadoViewModel { UsuarioId = 2, NuevoEstado = "Inactivo" });
+
+        AssertVuelveAlListado(respuesta);
+        Assert.Equal("El usuario ya se encontraba Inactivo. No se realizaron cambios.", _controller.TempData[MensajeAdvertencia]);
+        Assert.Null(_controller.TempData[MensajeExito]);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_UsuarioQueNoExiste_InformaElMotivoYVuelveAlListado()
+    {
+        IActionResult respuesta = await _controller.CambiarEstado(new CambiarEstadoViewModel { UsuarioId = 999, NuevoEstado = "Inactivo" });
+
+        AssertVuelveAlListado(respuesta);
+        Assert.Equal("No se pudo cambiar el estado: el usuario no existe.", _controller.TempData[MensajeError]);
+        Assert.Null(_controller.TempData[MensajeExito]);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_UltimoAdministradorActivo_InformaElMotivoYNoLoInactiva()
+    {
+        AgregarUsuario(1, RolUsuario.Administrador);
+
+        IActionResult respuesta = await _controller.CambiarEstado(new CambiarEstadoViewModel { UsuarioId = 1, NuevoEstado = "Inactivo" });
+
+        AssertVuelveAlListado(respuesta);
+        Assert.Equal("No se puede inactivar al usuario: es el último Administrador activo del sistema.", _controller.TempData[MensajeError]);
+        Assert.Null(_controller.TempData[MensajeExito]);
+        Assert.True(_repositorio.Usuarios.Single().Activo);
+    }
+
+    [Fact]
+    public async Task CambiarEstado_DatosInvalidos_NoLlamaAlCasoDeUso()
+    {
+        AgregarUsuario(1, RolUsuario.Operador);
+        _controller.ModelState.AddModelError(nameof(CambiarEstadoViewModel.NuevoEstado), "Seleccioná un estado válido.");
+
+        IActionResult respuesta = await _controller.CambiarEstado(new CambiarEstadoViewModel { UsuarioId = 1 });
+
+        AssertVuelveAlListado(respuesta);
+        Assert.Equal("No se pudo cambiar el estado: los datos enviados no son válidos.", _controller.TempData[MensajeError]);
         Assert.Empty(_repositorio.Pasos);
     }
 

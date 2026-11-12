@@ -22,7 +22,10 @@ internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuario
     public const string PasoObtenerPorCorreo = "ObtenerPorCorreo";
     public const string PasoAgregar = "Agregar";
 
+    public const string PasoActualizarEstado = "ActualizarEstado";
+
     private readonly Dictionary<int, RolUsuario> _rolesSinConfirmar = [];
+    private readonly Dictionary<int, bool> _estadosSinConfirmar = [];
 
     public List<Usuario> Usuarios { get; } = [];
 
@@ -93,6 +96,19 @@ internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuario
         return Task.CompletedTask;
     }
 
+    public Task ActualizarEstadoAsync(int usuarioId, bool activo, CancellationToken cancellationToken = default)
+    {
+        Pasos.Add(PasoActualizarEstado);
+
+        if (ErrorAlActualizar != null)
+        {
+            throw ErrorAlActualizar;
+        }
+
+        _estadosSinConfirmar[usuarioId] = activo;
+        return Task.CompletedTask;
+    }
+
     // La vinculación con Entra ID (T10) no se usa en estas pruebas.
     public Task<Usuario?> ObtenerPorIdentidadExternaAsync(string entraObjectId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
@@ -117,6 +133,13 @@ internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuario
             }
 
             _repositorio._rolesSinConfirmar.Clear();
+
+            foreach (KeyValuePair<int, bool> cambio in _repositorio._estadosSinConfirmar)
+            {
+                _repositorio.Usuarios.Single(u => u.Id == cambio.Key).Activo = cambio.Value;
+            }
+
+            _repositorio._estadosSinConfirmar.Clear();
             return Task.CompletedTask;
         }
 
@@ -124,6 +147,7 @@ internal sealed class RepositorioUsuariosConTurnoEnMemoria : IRepositorioUsuario
         {
             _repositorio.Pasos.Add(PasoLiberar);
             _repositorio._rolesSinConfirmar.Clear();
+            _repositorio._estadosSinConfirmar.Clear();
             return ValueTask.CompletedTask;
         }
     }

@@ -799,6 +799,8 @@ public class VinculacionInicioSesionTests
         public Task<int> ContarAdministradoresActivosAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
         public Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
+        public Task ActualizarEstadoAsync(int usuarioId, bool activo, CancellationToken cancellationToken = default) => throw new NotSupportedException();
     }
 
     // El registro de logs en memoria (RegistroDeLogsDePrueba y EntradaDeLog)

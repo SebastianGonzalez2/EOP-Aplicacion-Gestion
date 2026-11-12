@@ -20,13 +20,16 @@ namespace EOP.Gestion.WebApp.Controllers
 
         private readonly ModificarRolUsuario _modificarRolUsuario;
 
+        private readonly CambiarEstadoUsuario _cambiarEstadoUsuario;
+
         private readonly RegistrarUsuario _registrarUsuario;
 
         private readonly ConsultarUsuarios _consultarUsuarios;
 
-        public UsuariosController(ModificarRolUsuario modificarRolUsuario, RegistrarUsuario registrarUsuario, ConsultarUsuarios consultarUsuarios)
+        public UsuariosController(ModificarRolUsuario modificarRolUsuario, CambiarEstadoUsuario cambiarEstadoUsuario, RegistrarUsuario registrarUsuario, ConsultarUsuarios consultarUsuarios)
         {
             _modificarRolUsuario = modificarRolUsuario;
+            _cambiarEstadoUsuario = cambiarEstadoUsuario;
             _registrarUsuario = registrarUsuario;
             _consultarUsuarios = consultarUsuarios;
         }
@@ -135,6 +138,55 @@ namespace EOP.Gestion.WebApp.Controllers
 
                 case ResultadoModificarRol.UltimoAdministradorActivo:
                     TempData["MensajeError"] = "No se puede modificar el rol: es el último Administrador activo del sistema.";
+                    break;
+            }
+
+            return LocalRedirect(RutaListadoUsuarios);
+        }
+
+        // POST: /Usuarios/CambiarEstado
+        // Activa o inactiva a un usuario (US-046 / RF-75). Igual que el cambio de rol: POST con
+        // token antifalsificación y solo para Administradores. El diálogo de confirmación de la
+        // inactivación está en la pantalla; si el Administrador cancela, este POST nunca se envía.
+        [HttpPost]
+        [Authorize(Roles = "Administrador")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CambiarEstado(CambiarEstadoViewModel modelo)
+        {
+            // RNF-10: validamos en el servidor aunque el formulario solo ofrezca opciones válidas,
+            // porque cualquiera puede armar un pedido a mano.
+            if (!ModelState.IsValid)
+            {
+                TempData["MensajeError"] = "No se pudo cambiar el estado: los datos enviados no son válidos.";
+
+                return LocalRedirect(RutaListadoUsuarios);
+            }
+
+            // Después de la validación sabemos que el texto es "Activo" o "Inactivo".
+            bool nuevoEstadoActivo = modelo.NuevoEstado == CambiarEstadoViewModel.EstadoActivo;
+
+            ResultadoCambiarEstadoUsuario resultado = await _cambiarEstadoUsuario.EjecutarAsync(modelo.UsuarioId, nuevoEstadoActivo, HttpContext.RequestAborted);
+
+            switch (resultado)
+            {
+                case ResultadoCambiarEstadoUsuario.UsuarioInactivado:
+                    TempData["MensajeExito"] = "El usuario se inactivó correctamente. Su información y su historial se conservan.";
+                    break;
+
+                case ResultadoCambiarEstadoUsuario.UsuarioReactivado:
+                    TempData["MensajeExito"] = "El usuario se reactivó correctamente.";
+                    break;
+
+                case ResultadoCambiarEstadoUsuario.YaTeniaEseEstado:
+                    TempData["MensajeAdvertencia"] = $"El usuario ya se encontraba {modelo.NuevoEstado}. No se realizaron cambios.";
+                    break;
+
+                case ResultadoCambiarEstadoUsuario.UsuarioNoEncontrado:
+                    TempData["MensajeError"] = "No se pudo cambiar el estado: el usuario no existe.";
+                    break;
+
+                case ResultadoCambiarEstadoUsuario.UltimoAdministradorActivo:
+                    TempData["MensajeError"] = "No se puede inactivar al usuario: es el último Administrador activo del sistema.";
                     break;
             }
 

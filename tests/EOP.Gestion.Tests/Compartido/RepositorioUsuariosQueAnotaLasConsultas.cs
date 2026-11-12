@@ -60,5 +60,7 @@ internal sealed class RepositorioUsuariosQueAnotaLasConsultas : IRepositorioUsua
 
     public Task ActualizarRolAsync(int usuarioId, RolUsuario nuevoRol, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
+    public Task ActualizarEstadoAsync(int usuarioId, bool activo, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+
     public Task<bool> AgregarSiCorreoDisponibleAsync(Usuario usuario, CancellationToken cancellationToken = default) => throw new NotSupportedException();
 }
