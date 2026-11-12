@@ -180,5 +180,14 @@ public class DuplicadosMaterialesSqlServerTests : IAsyncLifetime
             await otroUsuarioGuarda();
             return await repositorioReal.AgregarSiNombreDisponibleAsync(material, primeraRelacion, cancellationToken);
         }
+
+        public Task<bool> ExistePorIdAsync(int materialId, CancellationToken cancellationToken = default) =>
+            repositorioReal.ExistePorIdAsync(materialId, cancellationToken);
+
+        public Task<bool> ExisteRelacionConProveedorAsync(int materialId, int proveedorId, CancellationToken cancellationToken = default) =>
+            repositorioReal.ExisteRelacionConProveedorAsync(materialId, proveedorId, cancellationToken);
+
+        public Task<bool> AgregarRelacionSiNoExisteAsync(MaterialProveedor relacion, CancellationToken cancellationToken = default) =>
+            repositorioReal.AgregarRelacionSiNoExisteAsync(relacion, cancellationToken);
     }
 }

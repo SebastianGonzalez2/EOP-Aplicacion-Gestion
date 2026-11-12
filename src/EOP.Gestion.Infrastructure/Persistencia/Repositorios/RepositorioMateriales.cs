@@ -23,6 +23,44 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales
             return await _context.Materiales.AnyAsync(material => material.NombreNormalizado == nombreNormalizado,cancellationToken);
         }
 
+        // S2-T19: comprueba si el material existe en el catálogo.
+        public async Task<bool> ExistePorIdAsync(int materialId,CancellationToken cancellationToken = default)
+        {
+            return await _context.Materiales.AnyAsync(material => material.Id == materialId,cancellationToken);
+        }
+
+        // S2-T19: comprueba si ya existe la combinación material-proveedor.
+        public async Task<bool> ExisteRelacionConProveedorAsync(int materialId,int proveedorId,CancellationToken cancellationToken = default)
+        {
+            return await _context.MaterialProveedores.AnyAsync(relacion => relacion.MaterialId == materialId && relacion.ProveedorId == proveedorId,cancellationToken);
+        }
+
+        // S2-T19: guarda la nueva relación. Es un solo SaveChanges, así que EF Core lo hace en una
+        // única transacción: o queda la relación completa o no queda nada.
+        //
+        // Pasa lo mismo que con el nombre del material: la consulta previa puede decir que la
+        // combinación está libre y, justo antes de guardar, otra persona crear la misma. El índice
+        // único (MaterialId, ProveedorId) deja entrar solo a la primera y a la otra le devolvemos
+        // false para mostrarle el mismo mensaje de duplicado.
+        public async Task<bool> AgregarRelacionSiNoExisteAsync(MaterialProveedor relacion,CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                _context.MaterialProveedores.Add(relacion);
+                await _context.SaveChangesAsync(cancellationToken);
+
+                return true;
+            }
+            catch (DbUpdateException excepcion) when (IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.MaterialProveedoresMaterialIdProveedorId))
+            {
+                // Sacamos la relación fallida de la lista de pendientes de EF para que otro
+                // SaveChanges del mismo pedido no intente insertarla otra vez.
+                _context.ChangeTracker.Clear();
+
+                return false;
+            }
+        }
+
         // Guarda el material y su primera relación con un proveedor.
         // Devuelve false si el nombre ya lo tenía otro material.
         //

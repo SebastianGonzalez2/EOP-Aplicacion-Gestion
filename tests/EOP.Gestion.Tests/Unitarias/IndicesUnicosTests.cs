@@ -20,6 +20,7 @@ public class IndicesUnicosTests
         { typeof(Proveedor), nameof(Proveedor.NombreNormalizado), IndicesUnicos.ProveedoresNombreNormalizado },
         { typeof(Proveedor), nameof(Proveedor.Rut), IndicesUnicos.ProveedoresRut },
         { typeof(Material), nameof(Material.NombreNormalizado), IndicesUnicos.MaterialesNombreNormalizado },
+        { typeof(MaterialProveedor), nameof(MaterialProveedor.MaterialId), IndicesUnicos.MaterialProveedoresMaterialIdProveedorId },
         { typeof(Usuario), nameof(Usuario.CorreoCorporativo), IndicesUnicos.UsuariosCorreoCorporativo },
     };
 
@@ -35,7 +36,7 @@ public class IndicesUnicosTests
 
         IIndex indice = modelo.FindEntityType(entidad)!
             .GetIndexes()
-            .Single(i => i.Properties.Count == 1 && i.Properties[0].Name == propiedad);
+            .Single(i => i.Properties[0].Name == propiedad);
 
         Assert.True(indice.IsUnique);
         Assert.Equal(nombreEsperado, indice.GetDatabaseName());

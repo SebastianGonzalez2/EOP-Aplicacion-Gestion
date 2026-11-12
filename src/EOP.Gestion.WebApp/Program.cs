@@ -58,6 +58,10 @@ builder.Services.AddScoped<RegistrarProveedor>();
 // los materiales con su primera relación material-proveedor.
 builder.Services.AddScoped<RegistrarMaterial>();
 
+// Registramos el caso de uso que agrega un proveedor
+// a un material que ya existe en el catálogo.
+builder.Services.AddScoped<AgregarProveedorAMaterial>();
+
 // Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
 builder.Services.AddScoped<IdentificarOVincularUsuario>();
 
