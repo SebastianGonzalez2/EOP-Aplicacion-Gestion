@@ -67,7 +67,8 @@ namespace EOP.Gestion.Tests.Integracion
             var controller = new PresupuestosController(
                 consultarClientes,
                 consultarTipos,
-                registrarPresupuesto)
+                registrarPresupuesto,
+                new ConsultarPresupuestos(contexto))
             {
                 ControllerContext = new ControllerContext
                 {
