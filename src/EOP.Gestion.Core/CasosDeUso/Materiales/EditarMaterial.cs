@@ -158,10 +158,12 @@ namespace EOP.Gestion.Core.CasosDeUso.Materiales
 
                 relacionesYaVistas.Add(referencia.RelacionId);
 
-                // El precio debe ser estrictamente mayor que cero.
-                if (!referencia.PrecioUnitario.HasValue || referencia.PrecioUnitario.Value <= 0)
+                // El precio debe ser mayor que cero y entrar en la columna (S2-T22).
+                string? errorDePrecio = ValidadorPrecioUnitario.ObtenerError(referencia.PrecioUnitario);
+
+                if (errorDePrecio != null)
                 {
-                    AgregarErrorSinRepetir(errores,"El precio unitario debe ser mayor que cero.");
+                    AgregarErrorSinRepetir(errores,errorDePrecio);
                 }
 
                 // Solamente UYU o USD.
