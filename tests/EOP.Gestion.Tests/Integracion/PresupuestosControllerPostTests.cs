@@ -8,6 +8,7 @@ using EOP.Gestion.Core.Interfaces.Presupuestos;
 using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 using EOP.Gestion.Infrastructure.Consultas.Clientes;
 using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
+using EOP.Gestion.Infrastructure.Consultas.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
 using EOP.Gestion.WebApp.Controllers;
@@ -103,7 +104,8 @@ public class PresupuestosControllerPostTests : IDisposable
             new ConsultarClientes(_contexto),
             new ConsultarTiposProyectoParaSeleccion(_contexto),
             casoDeUso,
-            new ConsultarPresupuestos(_contexto))
+            new ConsultarPresupuestos(_contexto),
+            new ConsultarUsuarios(_contexto))
         {
             ControllerContext = new ControllerContext
             {
