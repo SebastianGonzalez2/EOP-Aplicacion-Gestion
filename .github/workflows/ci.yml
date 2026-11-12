@@ -1,0 +1,66 @@
+
+name: Integración continua EOP
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compilar-y-probar:
+    runs-on: ubuntu-24.04
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: ${{ secrets.EOP_CI_SQLSERVER_PASSWORD }}
+          MSSQL_PID: "Developer"
+        ports:
+          - 1433:1433
+
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restaurar dependencias
+        run: dotnet restore EOP.Gestion.slnx
+
+      - name: Compilar la solución
+        run: dotnet build EOP.Gestion.slnx --configuration Release --no-restore
+
+      - name: Esperar a que SQL Server esté disponible
+        env:
+          SQL_PASSWORD: ${{ secrets.EOP_CI_SQLSERVER_PASSWORD }}
+        run: |
+          for intento in {1..40}; do
+            if docker exec "${{ job.services.sqlserver.id }}" \
+              /opt/mssql-tools18/bin/sqlcmd \
+              -S localhost -U sa -P "$SQL_PASSWORD" -C \
+              -Q "SELECT 1" -b -o /dev/null 2>/dev/null; then
+              echo "SQL Server está listo"
+              exit 0
+            fi
+
+            echo "Esperando a SQL Server (intento $intento de 40)"
+            sleep 3
+          done
+
+          echo "ERROR: SQL Server no está disponible"
+          exit 1
+
+      - name: Ejecutar pruebas automatizadas
+        env:
+          EOP_PRUEBAS_SQLSERVER: "Server=localhost,1433;User ID=sa;Password=${{ secrets.EOP_CI_SQLSERVER_PASSWORD }};Encrypt=True;TrustServerCertificate=True"
+        run: dotnet test EOP.Gestion.slnx --configuration Release --no-build --no-restore --logger "console;verbosity=normal"
