@@ -1,0 +1,181 @@
+@model EOP.Gestion.WebApp.ViewModels.Materiales.EditarMaterialViewModel
+@using EOP.Gestion.Core.Entidades.Catalogo
+
+@{
+    ViewData["Title"] = "Editar material";
+}
+
+<div class="encabezado">
+    <div>
+        <h1>Editar material</h1>
+        <p>Modificá el nombre, la unidad y los precios de los proveedores asociados.</p>
+    </div>
+</div>
+
+<partial name="_Mensajes" />
+
+<div class="row g-4">
+    <div class="col-xl-8">
+
+        <form asp-controller="Materiales"
+              asp-action="Editar"
+              method="post"
+              class="panel">
+
+            @Html.AntiForgeryToken()
+
+            <!-- Conservamos el identificador del material que se edita. -->
+            <input asp-for="MaterialId" type="hidden" />
+
+            <!-- Mostramos los errores generales del formulario. -->
+            <div asp-validation-summary="ModelOnly"
+                 class="resumen-errores"
+                 role="alert"></div>
+
+            <div class="seccion-form">
+                <h2>Datos del material</h2>
+
+                <div class="row g-3">
+
+                    <!-- Nombre -->
+                    <div class="col-md-8">
+                        <label asp-for="Nombre" class="form-label">
+                            Nombre del material
+                            <span class="obligatorio" aria-hidden="true">*</span>
+                        </label>
+
+                        <input asp-for="Nombre" class="form-control" aria-required="true" />
+
+                        <span asp-validation-for="Nombre" class="error-campo"></span>
+                    </div>
+
+                    <!-- Unidad de medida -->
+                    <div class="col-md-4">
+                        <label asp-for="Unidad" class="form-label">
+                            Unidad de medida
+                            <span class="obligatorio" aria-hidden="true">*</span>
+                        </label>
+
+                        <select asp-for="Unidad" class="form-select" aria-required="true">
+                            <option value="">Seleccioná una unidad</option>
+                            <optgroup label="Longitud">
+                                <option value="@((int)UnidadMedida.Milimetro)">mm</option>
+                                <option value="@((int)UnidadMedida.Centimetro)">cm</option>
+                                <option value="@((int)UnidadMedida.Metro)">m</option>
+                                <option value="@((int)UnidadMedida.Kilometro)">km</option>
+                            </optgroup>
+                            <optgroup label="Superficie">
+                                <option value="@((int)UnidadMedida.CentimetroCuadrado)">cm²</option>
+                                <option value="@((int)UnidadMedida.MetroCuadrado)">m²</option>
+                            </optgroup>
+                            <optgroup label="Volumen">
+                                <option value="@((int)UnidadMedida.CentimetroCubico)">cm³</option>
+                                <option value="@((int)UnidadMedida.MetroCubico)">m³</option>
+                                <option value="@((int)UnidadMedida.Mililitro)">ml</option>
+                                <option value="@((int)UnidadMedida.Litro)">litro</option>
+                            </optgroup>
+                            <optgroup label="Peso">
+                                <option value="@((int)UnidadMedida.Gramo)">g</option>
+                                <option value="@((int)UnidadMedida.Kilogramo)">kg</option>
+                                <option value="@((int)UnidadMedida.Tonelada)">t</option>
+                            </optgroup>
+                            <optgroup label="Por pieza">
+                                <option value="@((int)UnidadMedida.Unidad)">unidad</option>
+                            </optgroup>
+                        </select>
+
+                        <span asp-validation-for="Unidad" class="error-campo"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="seccion-form">
+                <h2>Precios por proveedor</h2>
+
+                <p class="descripcion">
+                    Podés cambiar el precio y la moneda de cada proveedor ya asociado. La fecha de
+                    actualización cambia solo cuando se modifica el precio o la moneda. Para asociar
+                    otro proveedor usá «Agregar proveedor» en el catálogo.
+                </p>
+
+                @if (Model.Referencias.Count == 0)
+                {
+                    <p class="sin-dato">Este material todavía no tiene proveedores asociados.</p>
+                }
+                else
+                {
+                    @for (int i = 0; i < Model.Referencias.Count; i++)
+                    {
+                        <div class="row g-3 align-items-start mb-3">
+
+                            <!-- Cuál relación material-proveedor es esta fila. -->
+                            <input asp-for="Referencias[i].RelacionId" type="hidden" />
+
+                            <!-- El proveedor se muestra pero no se modifica. -->
+                            <div class="col-md-4">
+                                <span class="form-label d-block">Proveedor</span>
+                                <p class="fw-semibold mb-0">@Model.Referencias[i].ProveedorNombre</p>
+                                <span class="text-body-secondary small">
+                                    Última actualización: @Model.Referencias[i].FechaUltimaActualizacion.ToString("dd/MM/yyyy HH:mm")
+                                </span>
+                            </div>
+
+                            <!-- Precio unitario -->
+                            <div class="col-md-4">
+                                <label asp-for="Referencias[i].PrecioUnitario" class="form-label">
+                                    Precio unitario
+                                    <span class="obligatorio" aria-hidden="true">*</span>
+                                </label>
+
+                                <input asp-for="Referencias[i].PrecioUnitario"
+                                       type="number"
+                                       step="any"
+                                       class="form-control"
+                                       aria-required="true" />
+
+                                <span asp-validation-for="Referencias[i].PrecioUnitario" class="error-campo"></span>
+                            </div>
+
+                            <!-- Moneda -->
+                            <div class="col-md-4">
+                                <label asp-for="Referencias[i].Moneda" class="form-label">
+                                    Moneda
+                                    <span class="obligatorio" aria-hidden="true">*</span>
+                                </label>
+
+                                <select asp-for="Referencias[i].Moneda"
+                                        class="form-select"
+                                        aria-required="true">
+                                    <option value="">Seleccioná una moneda</option>
+                                    <option value="UYU">UYU - Pesos uruguayos</option>
+                                    <option value="USD">USD - Dólares estadounidenses</option>
+                                </select>
+
+                                <span asp-validation-for="Referencias[i].Moneda" class="error-campo"></span>
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="panel-pie d-flex justify-content-end gap-2">
+
+                <!-- Volvemos al catálogo sin guardar cambios. -->
+                <a asp-controller="Materiales"
+                   asp-action="Index"
+                   class="btn btn-outline-secondary">
+                    Cancelar
+                </a>
+
+                <button type="submit" class="btn btn-primary">
+                    Guardar cambios
+                </button>
+            </div>
+
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

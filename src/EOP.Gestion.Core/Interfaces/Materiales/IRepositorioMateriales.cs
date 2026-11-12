@@ -30,5 +30,24 @@ namespace EOP.Gestion.Core.Interfaces.Materiales
         // al mismo tiempo, no guarda nada y devuelve false. Cualquier otro problema de la base
         // sí es una excepción.
         Task<bool> AgregarRelacionSiNoExisteAsync(MaterialProveedor relacion,CancellationToken cancellationToken = default);
+
+        // S2-T20 (US-071): comprueba si OTRO material (distinto al que se está editando)
+        // ya usa ese nombre normalizado. El propio material no cuenta como duplicado.
+        Task<bool> ExisteOtroConNombreNormalizadoAsync(string nombreNormalizado,int materialId,CancellationToken cancellationToken = default);
+
+        // S2-T20: devuelve el material con seguimiento de cambios de EF Core, o null si no existe.
+        // Lo que el caso de uso le modifique se guarda con GuardarEdicionSiNombreDisponibleAsync.
+        Task<Material?> ObtenerParaEdicionAsync(int materialId,CancellationToken cancellationToken = default);
+
+        // S2-T20: devuelve las relaciones del material con seguimiento de cambios, para
+        // poder actualizarles el precio y la moneda sin recrearlas.
+        Task<List<MaterialProveedor>> ObtenerRelacionesParaEdicionAsync(int materialId,CancellationToken cancellationToken = default);
+
+        // S2-T20: guarda de una sola vez los cambios hechos sobre el material y sus relaciones
+        // (una única transacción: o se guarda todo o no se guarda nada).
+        //
+        // Devuelve true si se guardó. Si otro material tomó ese nombre justo antes, no guarda
+        // nada y devuelve false. Cualquier otro problema de la base sí es una excepción.
+        Task<bool> GuardarEdicionSiNombreDisponibleAsync(CancellationToken cancellationToken = default);
     }
 }

@@ -62,6 +62,10 @@ builder.Services.AddScoped<RegistrarMaterial>();
 // a un material que ya existe en el catálogo.
 builder.Services.AddScoped<AgregarProveedorAMaterial>();
 
+// Registramos el caso de uso que modifica un material existente
+// y los precios de sus relaciones con proveedores.
+builder.Services.AddScoped<EditarMaterial>();
+
 // Registramos el caso de uso para identificar o vincular usuarios con Entra ID.
 builder.Services.AddScoped<IdentificarOVincularUsuario>();
 

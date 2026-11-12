@@ -189,5 +189,17 @@ public class DuplicadosMaterialesSqlServerTests : IAsyncLifetime
 
         public Task<bool> AgregarRelacionSiNoExisteAsync(MaterialProveedor relacion, CancellationToken cancellationToken = default) =>
             repositorioReal.AgregarRelacionSiNoExisteAsync(relacion, cancellationToken);
+
+        public Task<bool> ExisteOtroConNombreNormalizadoAsync(string nombreNormalizado, int materialId, CancellationToken cancellationToken = default) =>
+            repositorioReal.ExisteOtroConNombreNormalizadoAsync(nombreNormalizado, materialId, cancellationToken);
+
+        public Task<Material?> ObtenerParaEdicionAsync(int materialId, CancellationToken cancellationToken = default) =>
+            repositorioReal.ObtenerParaEdicionAsync(materialId, cancellationToken);
+
+        public Task<List<MaterialProveedor>> ObtenerRelacionesParaEdicionAsync(int materialId, CancellationToken cancellationToken = default) =>
+            repositorioReal.ObtenerRelacionesParaEdicionAsync(materialId, cancellationToken);
+
+        public Task<bool> GuardarEdicionSiNombreDisponibleAsync(CancellationToken cancellationToken = default) =>
+            repositorioReal.GuardarEdicionSiNombreDisponibleAsync(cancellationToken);
     }
 }

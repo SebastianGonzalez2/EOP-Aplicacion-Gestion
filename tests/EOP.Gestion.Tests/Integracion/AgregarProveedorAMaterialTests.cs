@@ -78,7 +78,8 @@ public class AgregarProveedorAMaterialTests : IAsyncLifetime
             new ConsultarProveedoresParaSeleccion(_contexto),
             new RegistrarMaterial(new RepositorioMateriales(_contexto), new RepositorioProveedores(_contexto)),
             new ConsultarMateriales(_contexto),
-            new AgregarProveedorAMaterial(new RepositorioMateriales(_contexto), new RepositorioProveedores(_contexto)))
+            new AgregarProveedorAMaterial(new RepositorioMateriales(_contexto), new RepositorioProveedores(_contexto)),
+            new EditarMaterial(new RepositorioMateriales(_contexto)))
         {
             ControllerContext = new ControllerContext { HttpContext = httpContext },
             TempData = new TempDataDictionary(httpContext, new ProveedorTempDataDePrueba())

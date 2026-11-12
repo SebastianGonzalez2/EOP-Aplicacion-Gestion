@@ -32,6 +32,18 @@ public class RegistrarMaterialTests
 
         public Task<bool> AgregarRelacionSiNoExisteAsync(MaterialProveedor relacion, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
+
+        public Task<bool> ExisteOtroConNombreNormalizadoAsync(string nombreNormalizado, int materialId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<Material?> ObtenerParaEdicionAsync(int materialId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<List<MaterialProveedor>> ObtenerRelacionesParaEdicionAsync(int materialId, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<bool> GuardarEdicionSiNombreDisponibleAsync(CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
     }
 
     private sealed class RepositorioProveedoresFalso : IRepositorioProveedores

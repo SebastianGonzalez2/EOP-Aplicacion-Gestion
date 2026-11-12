@@ -54,6 +54,8 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["POST Materiales/Registrar"] = AdministradorOSupervisor,
         ["GET Materiales/AgregarProveedor"] = AdministradorOSupervisor,
         ["POST Materiales/AgregarProveedor"] = AdministradorOSupervisor,
+        ["GET Materiales/Editar"] = AdministradorOSupervisor,
+        ["POST Materiales/Editar"] = AdministradorOSupervisor,
 
 
         // US-074: los tres roles pueden consultar proveedores.

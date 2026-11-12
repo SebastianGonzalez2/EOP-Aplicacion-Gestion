@@ -8,6 +8,7 @@ using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Infrastructure.Consultas.Materiales;
 using EOP.Gestion.Core.Entidades.Catalogo;
+using EOP.Gestion.Core.DTOs.Materiales;
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -26,13 +27,17 @@ namespace EOP.Gestion.WebApp.Controllers
         // Caso de uso que valida y guarda una nueva relación material-proveedor.
         private readonly AgregarProveedorAMaterial _agregarProveedorAMaterial;
 
+        // Caso de uso que valida y guarda la edición de un material existente (US-071).
+        private readonly EditarMaterial _editarMaterial;
+
         public MaterialesController(ConsultarProveedoresParaSeleccion consultarProveedores, RegistrarMaterial registrarMaterial, ConsultarMateriales consultarMateriales,
-                                    AgregarProveedorAMaterial agregarProveedorAMaterial)
+                                    AgregarProveedorAMaterial agregarProveedorAMaterial, EditarMaterial editarMaterial)
         {
             _consultarProveedores = consultarProveedores;
             _registrarMaterial = registrarMaterial;
             _consultarMateriales = consultarMateriales;
             _agregarProveedorAMaterial = agregarProveedorAMaterial;
+            _editarMaterial = editarMaterial;
         }
 
 
@@ -270,6 +275,132 @@ namespace EOP.Gestion.WebApp.Controllers
             TempData["MensajeExito"] = "Proveedor agregado correctamente al material.";
 
             return RedirectToAction(nameof(Index));
+        }
+
+
+
+        // GET: muestra el formulario con los datos actuales del material (US-071).
+        // Solamente Supervisor y Administrador pueden editar: el Operador solo consulta.
+        [HttpGet]
+        [Authorize(Roles = "Supervisor,Administrador")]
+        public async Task<IActionResult> Editar(int materialId)
+        {
+            MaterialEdicionDto? material = await _consultarMateriales.ObtenerParaEdicionAsync(materialId, HttpContext.RequestAborted);
+
+            // Si el material no existe, devolvemos un error 404.
+            if (material == null)
+            {
+                return NotFound();
+            }
+
+            EditarMaterialViewModel modelo = new EditarMaterialViewModel
+            {
+                MaterialId = material.Id,
+                Nombre = material.Nombre,
+                Unidad = material.Unidad
+            };
+
+            foreach (ReferenciaEdicionDto referencia in material.Referencias)
+            {
+                modelo.Referencias.Add(new EditarReferenciaPrecioViewModel
+                {
+                    RelacionId = referencia.RelacionId,
+                    ProveedorNombre = referencia.ProveedorNombre,
+                    FechaUltimaActualizacion = referencia.FechaUltimaActualizacion,
+                    PrecioUnitario = referencia.PrecioUnitario,
+                    Moneda = referencia.Moneda.ToString()
+                });
+            }
+
+            return View(modelo);
+        }
+
+        // POST: guarda los cambios del material y de sus referencias de precio (US-071).
+        // El [Authorize] va también acá: ocultar el botón no alcanza (RNF-4).
+        [HttpPost]
+        [Authorize(Roles = "Supervisor,Administrador")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Editar(EditarMaterialViewModel modelo)
+        {
+            // El nombre de los proveedores y las fechas no viajan en el formulario (son BindNever).
+            // Los volvemos a buscar para poder mostrar de nuevo la pantalla si hay errores.
+            MaterialEdicionDto? material = await _consultarMateriales.ObtenerParaEdicionAsync(modelo.MaterialId, HttpContext.RequestAborted);
+
+            if (material == null)
+            {
+                return NotFound();
+            }
+
+            CompletarDatosDeSoloLectura(modelo, material);
+
+            // Comprobamos las validaciones definidas en el ViewModel.
+            if (!ModelState.IsValid)
+            {
+                return View(modelo);
+            }
+
+            // Pasamos el formulario al formato que espera el caso de uso. Una moneda que no sea
+            // UYU ni USD queda en null, y el caso de uso la rechaza con su mensaje.
+            List<CambioReferenciaPrecio> cambios = new List<CambioReferenciaPrecio>();
+
+            foreach (EditarReferenciaPrecioViewModel referencia in modelo.Referencias)
+            {
+                Moneda? moneda = null;
+
+                if (referencia.Moneda == "UYU")
+                {
+                    moneda = Moneda.UYU;
+                }
+                else if (referencia.Moneda == "USD")
+                {
+                    moneda = Moneda.USD;
+                }
+
+                cambios.Add(new CambioReferenciaPrecio
+                {
+                    RelacionId = referencia.RelacionId,
+                    PrecioUnitario = referencia.PrecioUnitario,
+                    Moneda = moneda
+                });
+            }
+
+            List<string> errores = await _editarMaterial.EjecutarAsync(
+                modelo.MaterialId,
+                modelo.Nombre,
+                modelo.Unidad,
+                cambios,
+                HttpContext.RequestAborted);
+
+            if (errores.Count > 0)
+            {
+                foreach (string error in errores)
+                {
+                    ModelState.AddModelError(string.Empty, error);
+                }
+
+                return View(modelo);
+            }
+
+            TempData["MensajeExito"] = "Material actualizado correctamente.";
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        // Pone en cada fila del formulario el proveedor y la fecha que figuran en la base.
+        // Se cruzan por el Id de la relación, no por la posición, para que un formulario
+        // manipulado no pueda mostrar el proveedor equivocado.
+        private static void CompletarDatosDeSoloLectura(EditarMaterialViewModel modelo, MaterialEdicionDto material)
+        {
+            foreach (EditarReferenciaPrecioViewModel referencia in modelo.Referencias)
+            {
+                ReferenciaEdicionDto? referenciaGuardada = material.Referencias.FirstOrDefault(r => r.RelacionId == referencia.RelacionId);
+
+                if (referenciaGuardada != null)
+                {
+                    referencia.ProveedorNombre = referenciaGuardada.ProveedorNombre;
+                    referencia.FechaUltimaActualizacion = referenciaGuardada.FechaUltimaActualizacion;
+                }
+            }
         }
 
 

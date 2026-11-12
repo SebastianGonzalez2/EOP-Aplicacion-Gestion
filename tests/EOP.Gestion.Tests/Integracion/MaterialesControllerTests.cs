@@ -63,7 +63,8 @@ namespace EOP.Gestion.Tests.Integracion
                 consulta,
                 registrarMaterial,
                 consultarMateriales,
-                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)),
+                new EditarMaterial(new RepositorioMateriales(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -130,7 +131,8 @@ namespace EOP.Gestion.Tests.Integracion
                 consulta,
                 registrarMaterial,
                 consultarMateriales,
-                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)),
+                new EditarMaterial(new RepositorioMateriales(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -190,7 +192,8 @@ namespace EOP.Gestion.Tests.Integracion
                 consulta,
                 registrarMaterial,
                 consultarMateriales,
-                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)),
+                new EditarMaterial(new RepositorioMateriales(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -265,7 +268,8 @@ namespace EOP.Gestion.Tests.Integracion
                 consulta,
                 registrarMaterial,
                 consultarMateriales,
-                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)),
+                new EditarMaterial(new RepositorioMateriales(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
@@ -397,7 +401,8 @@ namespace EOP.Gestion.Tests.Integracion
                 consulta,
                 registrarMaterial,
                 consultarMateriales,
-                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)))
+                new AgregarProveedorAMaterial(new RepositorioMateriales(contexto), new RepositorioProveedores(contexto)),
+                new EditarMaterial(new RepositorioMateriales(contexto)))
             {
                 ControllerContext = new ControllerContext
                 {
