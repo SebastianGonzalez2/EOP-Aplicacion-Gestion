@@ -200,7 +200,7 @@
                         <th scope="col">Moneda</th>
                         <th scope="col">Última actualización</th>
 
-                        @* Solo los usuarios autorizados pueden agregar proveedores. *@
+                        @* Solo los usuarios autorizados pueden editar materiales y agregar proveedores. *@
                         @if (puedeRegistrar)
                         {
                             <th scope="col" class="text-end">Acciones</th>
@@ -225,6 +225,12 @@
                                 @if (puedeRegistrar)
                                 {
                                     <td class="text-end">
+                                        <a asp-controller="Materiales"
+                                           asp-action="Editar"
+                                           asp-route-materialId="@material.Id"
+                                           class="btn btn-outline-secondary btn-sm">
+                                            Editar
+                                        </a>
                                         <a asp-controller="Materiales"
                                            asp-action="AgregarProveedor"
                                            asp-route-materialId="@material.Id"
@@ -251,6 +257,12 @@
                                     @if (puedeRegistrar)
                                     {
                                         <td class="text-end">
+                                            <a asp-controller="Materiales"
+                                               asp-action="Editar"
+                                               asp-route-materialId="@material.Id"
+                                               class="btn btn-outline-secondary btn-sm">
+                                                Editar
+                                            </a>
                                             <a asp-controller="Materiales"
                                                asp-action="AgregarProveedor"
                                                asp-route-materialId="@material.Id"

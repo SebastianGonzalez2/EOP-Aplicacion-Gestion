@@ -124,6 +124,47 @@ namespace EOP.Gestion.Infrastructure.Consultas.Materiales
             return material;
         }
 
+        // S2-T20 (US-071): trae el material con sus relaciones (incluido el Id de cada una) para
+        // mostrar el formulario de edición con los datos actuales. Devuelve null si no existe.
+        public async Task<MaterialEdicionDto?> ObtenerParaEdicionAsync(int materialId,CancellationToken cancellationToken = default)
+        {
+            if (materialId <= 0)
+            {
+                return null;
+            }
+
+            MaterialEdicionDto? material = await _context.Materiales.AsNoTracking().Where(material => material.Id == materialId).Select(material => new MaterialEdicionDto
+                {
+                    Id = material.Id,
+                    Nombre = material.Nombre,
+                    Unidad = material.Unidad
+                }).FirstOrDefaultAsync(cancellationToken);
+
+            if (material == null)
+            {
+                return null;
+            }
+
+            // Las referencias, ordenadas por proveedor como en el listado.
+            material.Referencias = await (
+                from relacion in _context.MaterialProveedores.AsNoTracking()
+                join proveedor in _context.Proveedores.AsNoTracking()
+                    on relacion.ProveedorId equals proveedor.Id
+                where relacion.MaterialId == materialId
+                orderby proveedor.Nombre
+                select new ReferenciaEdicionDto
+                {
+                    RelacionId = relacion.Id,
+                    ProveedorNombre = proveedor.Nombre,
+                    PrecioUnitario = relacion.PrecioUnitario,
+                    Moneda = relacion.Moneda,
+                    FechaUltimaActualizacion = relacion.FechaUltimaActualizacion
+                }
+            ).ToListAsync(cancellationToken);
+
+            return material;
+        }
+
 
     }
 }

@@ -61,6 +61,48 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios.Materiales
             }
         }
 
+        // S2-T20: comprueba si otro material (con distinto Id) ya tiene ese nombre normalizado.
+        public async Task<bool> ExisteOtroConNombreNormalizadoAsync(string nombreNormalizado,int materialId,CancellationToken cancellationToken = default)
+        {
+            return await _context.Materiales.AnyAsync(material => material.NombreNormalizado == nombreNormalizado && material.Id != materialId,cancellationToken);
+        }
+
+        // S2-T20: a propósito SIN AsNoTracking. EF Core se queda mirando la entidad y, cuando el caso
+        // de uso le cambia el nombre o la unidad, sabe que tiene que hacer un UPDATE de ese mismo registro.
+        public async Task<Material?> ObtenerParaEdicionAsync(int materialId,CancellationToken cancellationToken = default)
+        {
+            return await _context.Materiales.FirstOrDefaultAsync(material => material.Id == materialId,cancellationToken);
+        }
+
+        // S2-T20: lo mismo con las relaciones: con seguimiento, para actualizarlas en su lugar.
+        public async Task<List<MaterialProveedor>> ObtenerRelacionesParaEdicionAsync(int materialId,CancellationToken cancellationToken = default)
+        {
+            return await _context.MaterialProveedores.Where(relacion => relacion.MaterialId == materialId).ToListAsync(cancellationToken);
+        }
+
+        // S2-T20: un solo SaveChanges guarda el material y todas las relaciones modificadas, y EF Core
+        // lo ejecuta en una única transacción: si algo falla, no queda ningún cambio a medias.
+        //
+        // Es el mismo problema de concurrencia que al registrar: otra persona pudo tomar el nombre
+        // entre la consulta previa y este guardado. El índice único deja pasar a una sola y a la
+        // otra le devolvemos false para mostrarle el mismo mensaje de duplicado.
+        public async Task<bool> GuardarEdicionSiNombreDisponibleAsync(CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+
+                return true;
+            }
+            catch (DbUpdateException excepcion) when (IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.MaterialesNombreNormalizado))
+            {
+                // Descartamos los cambios que EF tenía pendientes, así no se reintentan en otro SaveChanges.
+                _context.ChangeTracker.Clear();
+
+                return false;
+            }
+        }
+
         // Guarda el material y su primera relación con un proveedor.
         // Devuelve false si el nombre ya lo tenía otro material.
         //
