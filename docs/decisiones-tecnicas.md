@@ -197,6 +197,8 @@ De esta manera combinamos pruebas prácticas para el desarrollo cotidiano con ot
 
 **Decisión:** El precio, la moneda y la fecha de actualización no se guardan en `Material`, sino en `MaterialProveedor`, que tiene un registro por cada combinación de material y proveedor. Ese registro guarda solamente el precio **actual**. Cuando un concepto de presupuesto use una referencia, va a **copiar** el precio y la moneda a sus propias columnas, en lugar de leerlos del catálogo cada vez.
 
+**Ampliación aprobada por EOP (14/11/2026):** el concepto no copia solo el precio y la moneda. Cuando el usuario selecciona expresamente una referencia de material y proveedor, el concepto conserva **cuatro datos históricos**: el nombre del material, la unidad de medida, el precio unitario y la moneda (ver «Decisión aprobada con EOP: datos históricos completos del concepto»).
+
 En la revisión del modelo de datos de S2-T29 comprobamos que el esquema actual cumple estas reglas, por lo que lo mantuvimos sin cambios.
 
 **Justificación:** Un mismo material se le puede comprar a varios proveedores, y cada uno tiene su propio precio, moneda y fecha de actualización (US-040, RF-19). Si el precio estuviera en `Material`, solo podríamos guardar uno. Por eso es una relación muchos a muchos, resuelta con una tabla intermedia que además tiene datos propios.
@@ -214,13 +216,39 @@ Hay dos reglas que la base no puede controlar por su cuenta, porque una restricc
 - Guardar precio y moneda en `Material`: no permite que un mismo material tenga distintos proveedores.
 - Que el concepto del presupuesto lea el precio desde `MaterialProveedor`: los presupuestos cambiarían cada vez que se actualiza el catálogo.
 - Guardar un historial de precios en el catálogo: RF-21 no lo pide y, aun así, cada presupuesto necesitaría saber qué precio usó.
+- Conservar en el concepto solamente el precio y la moneda (la opción B de la consulta a EOP): US-071 permite cambiar el nombre y la unidad de un material, así que un presupuesto ya enviado o aprobado mostraría el nombre y la unidad nuevos junto a un precio calculado con los anteriores. EOP eligió la opción A.
+
+**Decisión aprobada con EOP: datos históricos completos del concepto**
+
+Durante S2-T29 quedó pendiente consultar con EOP si el concepto debía conservar solo el precio y la moneda, o también el nombre y la unidad del material. EOP ya respondió y aprobó la **opción A**. No requiere otra consulta.
+
+Cuando el usuario seleccione **expresamente** una referencia de material y proveedor para un concepto del presupuesto, el sistema copia al concepto:
+
+1. el nombre del material en ese momento;
+2. la unidad de medida utilizada en ese momento;
+3. el precio unitario de la referencia seleccionada;
+4. la moneda de ese precio.
+
+Estos valores pertenecen al concepto. Cambiar después el nombre, la unidad, el precio o la moneda en el catálogo (US-071, RF-21) **no actualiza** los conceptos ya guardados. Ejemplo: un presupuesto con «Cable eléctrico 2,5 mm²», unidad Metro, cantidad 10 y precio unitario USD 3 (subtotal USD 30) conserva exactamente esos datos aunque el catálogo cambie el nombre, la unidad o el precio del material.
+
+Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre manual y expresa (incluso cuando hay un solo proveedor), los valores copiados no se editan desde la tabla del presupuesto y una misma combinación material-proveedor no puede repetirse dentro del mismo presupuesto. RF-20 y US-010A hoy nombran solo el precio y la moneda: esta decisión los amplía, y el anteproyecto original en Word debe ajustarse para que coincida.
+
+**Estado de la implementación.** Al 14/11/2026 no existen `ConceptoPresupuesto` ni su persistencia (US-007, US-010A, US-011 y US-012 son de sprints posteriores). Por eso esta decisión se documenta pero no se adelantó ninguna entidad, tabla ni migración. Hoy el catálogo guarda su precio y su fecha en `MaterialProveedor`, y eso no cambia.
+
+**Qué comprobar cuando se implemente `ConceptoPresupuesto`:**
+
+- La unidad copiada usa el mismo tipo y la misma restricción que `Material` (`UnidadMedida`, las 14 opciones fijas), y el nombre copiado admite como mínimo los 200 caracteres del nombre del material.
+- El precio copiado usa `decimal(28,10)` y la moneda tiene el mismo CHECK (UYU o USD) que el catálogo.
+- Al seleccionar la referencia se copian los cuatro datos en la misma operación, y después se leen siempre desde el concepto, nunca desde `Material` ni `MaterialProveedor`.
+- Prueba de regresión con SQL Server: guardar un concepto, modificar en el catálogo el nombre, la unidad, el precio y la moneda, y comprobar que el concepto conserva los cuatro valores originales y su subtotal.
+- Prueba de que los listados y vistas del presupuesto muestran los valores del concepto y no los actuales del catálogo.
 
 **Para tener en cuenta en tareas posteriores:**
 
 - El precio copiado al concepto tiene que usar la misma precisión que el catálogo (`decimal(28,10)`) para no perder decimales.
 - La regla de que una combinación material-proveedor no se repita dentro de un presupuesto (RF-20) se puede garantizar con un índice único **filtrado**. Si el concepto apunta a `MaterialProveedorId`, como plantea el MER, alcanza con `(PresupuestoId, MaterialProveedorId) WHERE MaterialProveedorId IS NOT NULL`, porque cada `MaterialProveedor` ya es una combinación única. El filtro hace falta porque, en un índice único, SQL Server trata los NULL como valores iguales: sin él no podría haber dos filas de mano de obra en el mismo presupuesto. La regla de un único Margen por presupuesto se resuelve de la misma forma.
-- Hay que consultar con EOP si el concepto también debe conservar la unidad y el nombre del material: US-071 permite cambiarlos en el catálogo, y RF-20 solo menciona el precio y la moneda. El MER ya prevé una unidad propia en `ConceptoPresupuesto`, pero no aclara si se copia del material.
-- En la revisión también detectamos que las fechas se guardan en UTC y se muestran y comparan sin pasarlas a la hora de Uruguay (UTC−3). Por ejemplo, un presupuesto creado a las 22:00 recibe en su código la fecha del día siguiente. No es un problema del esquema y quedó para una tarea aparte.
+- La consulta a EOP sobre conservar también la unidad y el nombre del material ya está resuelta: se conservan (ver «Decisión aprobada con EOP» más arriba). El MER ya prevé una unidad propia en `ConceptoPresupuesto`, y ahora queda aclarado que se copia del material al seleccionar la referencia.
+- En la revisión también detectamos que las fechas se guardaban en UTC y se mostraban y comparaban sin pasarlas a la hora de Uruguay (UTC−3). Por ejemplo, un presupuesto creado a las 22:00 recibía en su código la fecha del día siguiente. No era un problema del esquema y se corrigió en una tarea aparte (FIX-UTC-FECHAS): las fechas siguen guardándose en UTC, y `ZonaHorariaUruguay` (en `Core/Comun`) las convierte para el código `PRES-AAAAMMDD-...`, para mostrarlas y para interpretar el día elegido en los filtros. Cualquier fecha nueva que se muestre o se filtre por día debe pasar por esa clase.
 
 **Comparación con el MER del anteproyecto (sección 2.9.2):**
 
@@ -244,7 +272,7 @@ Hay dos reglas que la base no puede controlar por su cuenta, porque una restricc
    - `CostoAdicional`, `FacturaCompra` y `FacturaVenta`.
 
    Cuando se implemente la relación Presupuesto–Proyecto, que en el MER es la clave foránea `ProyectoId` dentro de Presupuesto, la regla de "como máximo un presupuesto por proyecto y viceversa" va a necesitar un índice único filtrado sobre `ProyectoId`.
-4. **Problemas detectados.** No encontramos errores en lo ya implementado. El único problema pendiente es el manejo de fechas en UTC mencionado arriba.
+4. **Problemas detectados.** No encontramos errores en el esquema ni en lo ya implementado. El único problema detectado fue el manejo de fechas en UTC mencionado arriba, que se corrigió en FIX-UTC-FECHAS.
 
 ---
 

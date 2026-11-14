@@ -205,7 +205,9 @@ Editables: Borrador, Para revisión interna, Solicitud de modificación del clie
 
 **Monedas.** Importes y monedas originales se conservan siempre. Las conversiones usan cotización histórica válida de datosUruguay. Si no hay cotización utilizable, se rechaza el guardado y se informa el motivo — no se guardan conversiones pendientes.
 
-**Precios del catálogo.** Al tomar un precio para un presupuesto, se copia como valor histórico de ese presupuesto. Actualizar el catálogo después no modifica presupuestos anteriores.
+**Precios del catálogo.** Al tomar un precio para un presupuesto, se copia como valor histórico de ese presupuesto. Actualizar el catálogo después no modifica presupuestos anteriores. EOP aprobó que el concepto conserve cuatro datos históricos: nombre del material, unidad, precio unitario y moneda (DT-11).
+
+**Fechas y zona horaria.** Las fechas se guardan en UTC. Para mostrarlas, armar el código del presupuesto o filtrar por día se convierten a la hora de Uruguay (`America/Montevideo`) con `ZonaHorariaUruguay` (`Core/Comun`), una sola vez y nunca con la zona horaria del servidor.
 
 ---
 
