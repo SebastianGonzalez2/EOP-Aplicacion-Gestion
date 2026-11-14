@@ -191,6 +191,39 @@ De esta manera combinamos pruebas prácticas para el desarrollo cotidiano con ot
 
 ---
 
+## DT-11 — Precios actuales en el catálogo y valores históricos en el presupuesto
+
+**Fecha:** 14/11/2026 · **Sprint:** 2
+
+**Decisión:** El precio, la moneda y la fecha de actualización no se guardan en `Material`, sino en `MaterialProveedor`, que tiene un registro por cada combinación de material y proveedor. Ese registro guarda solamente el precio **actual**. Cuando un concepto de presupuesto use una referencia, va a **copiar** el precio y la moneda a sus propias columnas, en lugar de leerlos del catálogo cada vez.
+
+En la revisión del modelo de datos de S2-T29 comprobamos que el esquema actual cumple estas reglas, por lo que lo mantuvimos sin cambios.
+
+**Justificación:** Un mismo material se le puede comprar a varios proveedores, y cada uno tiene su propio precio, moneda y fecha de actualización (US-040, RF-19). Si el precio estuviera en `Material`, solo podríamos guardar uno. Por eso es una relación muchos a muchos, resuelta con una tabla intermedia que además tiene datos propios.
+
+El índice único sobre `(MaterialId, ProveedorId)` impide registrar dos veces la misma combinación (RF-22, US-010B), incluso cuando dos usuarios lo intentan al mismo tiempo. Las restricciones CHECK exigen un precio mayor que cero y la moneda UYU o USD.
+
+El catálogo no guarda un historial de precios, porque RF-21 no lo exige. La historia queda en cada presupuesto: al seleccionar una referencia se copian su precio y su moneda (RF-20, US-010A). Si el concepto leyera el precio del catálogo, actualizar una referencia cambiaría presupuestos ya enviados o aprobados, que es justamente lo que prohíben RF-20, RF-21 y US-071.
+
+Todas las claves foráneas de estas tablas usan `Restrict`. Ningún requerimiento permite eliminar materiales, proveedores ni sus relaciones, y con `Cascade`, borrar un proveedor se llevaría sin aviso sus cuentas bancarias y sus referencias de precio.
+
+Hay dos reglas que la base no puede controlar por su cuenta, porque una restricción CHECK solo mira su propia fila: que todo proveedor tenga al menos una cuenta bancaria y que todo material tenga al menos una referencia de precio. Las controlan los casos de uso, y el material se guarda junto con su primera referencia en una única transacción.
+
+**Alternativas descartadas:**
+
+- Guardar precio y moneda en `Material`: no permite que un mismo material tenga distintos proveedores.
+- Que el concepto del presupuesto lea el precio desde `MaterialProveedor`: los presupuestos cambiarían cada vez que se actualiza el catálogo.
+- Guardar un historial de precios en el catálogo: RF-21 no lo pide y, aun así, cada presupuesto necesitaría saber qué precio usó.
+
+**Para tener en cuenta en tareas posteriores:**
+
+- El precio copiado al concepto tiene que usar la misma precisión que el catálogo (`decimal(28,10)`) para no perder decimales.
+- La regla de que una combinación material-proveedor no se repita dentro de un presupuesto (RF-20) se puede garantizar con un índice único **filtrado**, `(PresupuestoId, MaterialId, ProveedorId) WHERE MaterialId IS NOT NULL`. El filtro hace falta porque, en un índice único, SQL Server trata los NULL como valores iguales: sin él no podría haber dos filas de mano de obra en el mismo presupuesto. La regla de un único Margen por presupuesto se resuelve de la misma forma.
+- Hay que consultar con EOP si el concepto también debe conservar la unidad y el nombre del material: US-071 permite cambiarlos en el catálogo, y RF-20 solo menciona el precio y la moneda.
+- En la revisión también detectamos que las fechas se guardan en UTC y se muestran y comparan sin pasarlas a la hora de Uruguay (UTC−3). Por ejemplo, un presupuesto creado a las 22:00 recibe en su código la fecha del día siguiente. No es un problema del esquema y quedó para una tarea aparte.
+
+---
+
 <!--
 Formato para las próximas:
 
