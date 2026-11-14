@@ -231,7 +231,7 @@ Cuando el usuario seleccione **expresamente** una referencia de material y prove
 
 Estos valores pertenecen al concepto. Cambiar después el nombre, la unidad, el precio o la moneda en el catálogo (US-071, RF-21) **no actualiza** los conceptos ya guardados. Ejemplo: un presupuesto con «Cable eléctrico 2,5 mm²», unidad Metro, cantidad 10 y precio unitario USD 3 (subtotal USD 30) conserva exactamente esos datos aunque el catálogo cambie el nombre, la unidad o el precio del material.
 
-Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre manual y expresa (incluso cuando hay un solo proveedor), los valores copiados no se editan desde la tabla del presupuesto y una misma combinación material-proveedor no puede repetirse dentro del mismo presupuesto. RF-20 y US-010A hoy nombran solo el precio y la moneda: esta decisión los amplía, y el anteproyecto original en Word debe ajustarse para que coincida.
+Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre manual y expresa (incluso cuando hay un solo proveedor), los valores copiados no se editan desde la tabla del presupuesto y una misma combinación material-proveedor no puede repetirse dentro del mismo presupuesto. RF-20 y US-010A nombraban solo el precio y la moneda: esta decisión los amplió, y el anteproyecto en Word y las copias de `docs/` ya se ajustaron para que coincidan (S2-T30).
 
 **Estado de la implementación.** Al 14/11/2026 no existen `ConceptoPresupuesto` ni su persistencia (US-007, US-010A, US-011 y US-012 son de sprints posteriores). Por eso esta decisión se documenta pero no se adelantó ninguna entidad, tabla ni migración. Hoy el catálogo guarda su precio y su fecha en `MaterialProveedor`, y eso no cambia.
 
@@ -305,12 +305,7 @@ S2-T30 volvió sobre lo anterior con otra pregunta: ¿las reglas compartidas se 
 
 *Inconsistencias en la documentación:*
 
-1. **RF-020 y US-010A siguen nombrando solo el precio y la moneda**, mientras que DT-11 y la decisión aprobada por EOP son cuatro datos. Es la única contradicción de fondo. Como los archivos de `docs/` se regeneran desde el Word, el cambio hay que hacerlo en el anteproyecto y no solo acá, para que no se pierda en la próxima regeneración. Texto propuesto:
-   - **RF-020, Descripción:** «…copiar su precio actual y moneda al concepto del presupuesto» pasa a «…copiar al concepto del presupuesto el nombre del material, su unidad de medida, el precio unitario y la moneda de la referencia».
-   - **RF-020, primer párrafo siguiente y regla 3:** «El precio y la moneda copiados serán valores históricos propios de ese concepto» y «el precio y la moneda se copiarán al concepto» pasan a nombrar los cuatro datos. Agregar que cambiar después el nombre o la unidad del material en el catálogo (RF-108) tampoco modifica los conceptos guardados.
-   - **RF-020, título:** «conservar precio histórico» pasa a «conservar valores históricos».
-   - **US-010A, título, PARA, DESCRIPCIÓN y el escenario «selección manual de referencia»:** reemplazar «precio y moneda» por los cuatro datos. El escenario «conservar historia económica» agrega: «y se cambia el nombre o la unidad del material».
-   - **alcance.md (US-010A):** «Tomar proveedor/precio/moneda…» pasa a incluir nombre y unidad del material.
+1. **RF-020 y US-010A nombraban solo el precio y la moneda**, mientras que DT-11 y la decisión aprobada por EOP son cuatro datos. Era la única contradicción de fondo. EOP ya corrigió el anteproyecto en Word, y en S2-T30 se llevó el mismo cambio a las copias de `docs/`: el título, la descripción y las reglas de conservación y de no edición de RF-020 (`requerimientos-funcionales.md`); el PARA, la descripción, las reglas y tres escenarios de US-010A (`user-stories.md`); y la fila de US-010A en `alcance.md`.
 2. **RF-021, RF-108, RF-019, US-071 y RF-31 no se contradicen.** Hablan de «precios y monedas» o de «valores históricos» en general, y RF-108 ya dice «ni otros valores históricos». Quedan completos con lo de arriba, aunque conviene que RF-021 («conservarán precios y monedas históricos») se lea también como nombre y unidad.
 3. **RF-020 y RF-28 se leen distinto sin chocar.** RF-28 habla de «una modificación del precio utilizado», pero RF-020 prohíbe editarlo desde la tabla. Es consistente porque la única forma de cambiarlo es una nueva selección expresa de la referencia (RF-020, último párrafo de la descripción). Esa nueva selección vuelve a copiar los cuatro datos; hoy lo dice DT-11 de forma implícita («al seleccionar… se copian»).
 
@@ -327,7 +322,7 @@ S2-T30 volvió sobre lo anterior con otra pregunta: ¿las reglas compartidas se 
 - El nombre del proveedor se guarda tal como se escribió, con los espacios de los extremos, mientras que Material y Presupuesto lo guardan sin ellos (criterio de S1-T27). La comparación de duplicados no se ve afectada porque usa el nombre normalizado.
 - `RegistrarMaterial`, `AgregarProveedorAMaterial` y `EditarMaterial` toman la hora con `DateTime.UtcNow`, mientras `RegistrarPresupuesto` usa el reloj inyectable (`TimeProvider`). Es correcto, porque en ambos casos queda en UTC, pero esas fechas no se pueden fijar en las pruebas. Los casos de uso nuevos con fechas deberían usar `TimeProvider`.
 
-*Conclusión.* El diseño y lo implementado cumplen DT-11, los requerimientos de catálogo y presupuesto y las reglas transversales de `AGENTS.md`. No hay nada que corregir en el código para cerrar S2-T30. Lo que queda es ajustar RF-020, US-010A y `alcance.md` en el anteproyecto en Word, y llevar los cuatro puntos sin definir a las tareas que implementen `ConceptoPresupuesto` y el envío del presupuesto.
+*Conclusión.* El diseño y lo implementado cumplen DT-11, los requerimientos de catálogo y presupuesto y las reglas transversales de `AGENTS.md`. No hay nada que corregir en el código para cerrar S2-T30. Las copias de RF-020, US-010A y `alcance.md` ya quedaron alineadas con el Word. Lo que queda es llevar los cuatro puntos sin definir a las tareas que implementen `ConceptoPresupuesto` y el envío del presupuesto.
 
 ---
 

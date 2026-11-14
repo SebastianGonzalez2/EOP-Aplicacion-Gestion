@@ -19,7 +19,7 @@ Tabla 9. Alcance funcional incluido
 | US-006 | Generar tabla desde relevamiento | IA interpreta conceptos; resultados editables, sin vinculación automática al catálogo. |
 | US-007 | Vincular materiales | Búsqueda y selección manual de materiales ya registrados. |
 | US-009 | Seleccionar proveedores | Elegir proveedores existentes; altas solo desde la sección Proveedores. |
-| US-010A | Seleccionar referencia de precio | Tomar proveedor/precio/moneda del catálogo y conservar los valores históricos del presupuesto. |
+| US-010A | Seleccionar referencia de precio | Tomar proveedor, nombre del material, unidad, precio y moneda del catálogo y conservarlos como valores históricos del presupuesto. |
 | US-010B | Crear relación material-proveedor | Alta explícita de nueva relación y precio desde catálogo; solo proveedores existentes. |
 | US-011 | Agregar conceptos | Materiales, mano de obra y otros conceptos mediante edición manual de la tabla. |
 | US-012 | Calcular importes | Subtotales, márgenes, monedas y conversiones según reglas económicas vigentes. |

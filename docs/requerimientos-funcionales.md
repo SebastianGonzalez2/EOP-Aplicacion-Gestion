@@ -704,15 +704,15 @@ Necesidad asociada: N-01 / N-02.
 
 Prioridad: Alta.
 
-## RF-020 — Seleccionar referencia de proveedor y conservar precio histórico
+## RF-020 — Seleccionar referencia de proveedor y conservar valores históricos
 
 
 **Descripción**
 
 
-El sistema deberá permitir seleccionar, para un material de catálogo ya elegido, una referencia de proveedor previamente registrada y copiar su precio actual y moneda al concepto del presupuesto.
+El sistema deberá permitir seleccionar, para un material de catálogo ya elegido, una referencia de proveedor previamente registrada y copiar al concepto del presupuesto el nombre del material, su unidad de medida, el precio unitario y la moneda de la referencia seleccionada.
 
-El precio y la moneda copiados serán valores históricos propios de ese concepto y no podrán editarse desde la tabla del presupuesto. Para actualizarlos se modificará el catálogo y, si se desea aplicar la referencia actualizada, el usuario deberá realizar una nueva selección.
+El nombre, la unidad, el precio unitario y la moneda copiados serán valores históricos propios de ese concepto y no podrán editarse desde la tabla del presupuesto. Para actualizarlos se modificará el catálogo y, si se desea aplicar la referencia actualizada, el usuario deberá realizar una nueva selección.
 
 
 **Reglas de negocio**
@@ -722,9 +722,9 @@ Antes de seleccionar una referencia deberán mostrarse proveedor, precio, moneda
 
 La referencia de precio será seleccionada expresamente por el usuario, incluso cuando exista una única opción; no se seleccionará automáticamente por cantidad de proveedores.
 
-Una vez seleccionada, el precio y la moneda se copiarán al concepto del presupuesto y deberán conservarse aunque el catálogo cambie posteriormente.
+Una vez seleccionada, el nombre del material, la unidad de medida, el precio unitario y la moneda se copiarán al concepto del presupuesto y deberán conservarse aunque el catálogo cambie posteriormente, incluso si luego se modifica el nombre o la unidad del material, o el precio o la moneda de la referencia.
 
-No se permitirá modificar precio ni moneda del concepto provenientes de la referencia de catálogo directamente desde la tabla del presupuesto.
+No se permitirá modificar nombre, unidad, precio ni moneda del concepto provenientes de la referencia de catálogo directamente desde la tabla del presupuesto.
 
 La selección de una referencia no actualizará el catálogo ni alterará las demás referencias del mismo material.
 Dentro de un presupuesto no podrá registrarse más de una fila de tipo Material con la misma combinación de material y proveedor. La restricción se verificará al seleccionar o modificar el material o el proveedor de una fila, independientemente de si la fila fue generada mediante IA o agregada manualmente; se admitirá el mismo material con proveedores diferentes.
