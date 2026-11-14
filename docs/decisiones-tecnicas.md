@@ -191,6 +191,63 @@ De esta manera combinamos pruebas prácticas para el desarrollo cotidiano con ot
 
 ---
 
+## DT-11 — Precios actuales en el catálogo y valores históricos en el presupuesto
+
+**Fecha:** 14/11/2026 · **Sprint:** 2
+
+**Decisión:** El precio, la moneda y la fecha de actualización no se guardan en `Material`, sino en `MaterialProveedor`, que tiene un registro por cada combinación de material y proveedor. Ese registro guarda solamente el precio **actual**. Cuando un concepto de presupuesto use una referencia, va a **copiar** el precio y la moneda a sus propias columnas, en lugar de leerlos del catálogo cada vez.
+
+En la revisión del modelo de datos de S2-T29 comprobamos que el esquema actual cumple estas reglas, por lo que lo mantuvimos sin cambios.
+
+**Justificación:** Un mismo material se le puede comprar a varios proveedores, y cada uno tiene su propio precio, moneda y fecha de actualización (US-040, RF-19). Si el precio estuviera en `Material`, solo podríamos guardar uno. Por eso es una relación muchos a muchos, resuelta con una tabla intermedia que además tiene datos propios.
+
+El índice único sobre `(MaterialId, ProveedorId)` impide registrar dos veces la misma combinación (RF-22, US-010B), incluso cuando dos usuarios lo intentan al mismo tiempo. Las restricciones CHECK exigen un precio mayor que cero y la moneda UYU o USD.
+
+El catálogo no guarda un historial de precios, porque RF-21 no lo exige. La historia queda en cada presupuesto: al seleccionar una referencia se copian su precio y su moneda (RF-20, US-010A). Si el concepto leyera el precio del catálogo, actualizar una referencia cambiaría presupuestos ya enviados o aprobados, que es justamente lo que prohíben RF-20, RF-21 y US-071.
+
+Todas las claves foráneas de estas tablas usan `Restrict`. Ningún requerimiento permite eliminar materiales, proveedores ni sus relaciones, y con `Cascade`, borrar un proveedor se llevaría sin aviso sus cuentas bancarias y sus referencias de precio.
+
+Hay dos reglas que la base no puede controlar por su cuenta, porque una restricción CHECK solo mira su propia fila: que todo proveedor tenga al menos una cuenta bancaria y que todo material tenga al menos una referencia de precio. Las controlan los casos de uso, y el material se guarda junto con su primera referencia en una única transacción.
+
+**Alternativas descartadas:**
+
+- Guardar precio y moneda en `Material`: no permite que un mismo material tenga distintos proveedores.
+- Que el concepto del presupuesto lea el precio desde `MaterialProveedor`: los presupuestos cambiarían cada vez que se actualiza el catálogo.
+- Guardar un historial de precios en el catálogo: RF-21 no lo pide y, aun así, cada presupuesto necesitaría saber qué precio usó.
+
+**Para tener en cuenta en tareas posteriores:**
+
+- El precio copiado al concepto tiene que usar la misma precisión que el catálogo (`decimal(28,10)`) para no perder decimales.
+- La regla de que una combinación material-proveedor no se repita dentro de un presupuesto (RF-20) se puede garantizar con un índice único **filtrado**. Si el concepto apunta a `MaterialProveedorId`, como plantea el MER, alcanza con `(PresupuestoId, MaterialProveedorId) WHERE MaterialProveedorId IS NOT NULL`, porque cada `MaterialProveedor` ya es una combinación única. El filtro hace falta porque, en un índice único, SQL Server trata los NULL como valores iguales: sin él no podría haber dos filas de mano de obra en el mismo presupuesto. La regla de un único Margen por presupuesto se resuelve de la misma forma.
+- Hay que consultar con EOP si el concepto también debe conservar la unidad y el nombre del material: US-071 permite cambiarlos en el catálogo, y RF-20 solo menciona el precio y la moneda. El MER ya prevé una unidad propia en `ConceptoPresupuesto`, pero no aclara si se copia del material.
+- En la revisión también detectamos que las fechas se guardan en UTC y se muestran y comparan sin pasarlas a la hora de Uruguay (UTC−3). Por ejemplo, un presupuesto creado a las 22:00 recibe en su código la fecha del día siguiente. No es un problema del esquema y quedó para una tarea aparte.
+
+**Comparación con el MER del anteproyecto (sección 2.9.2):**
+
+1. **Qué verificamos.** Comparamos las entidades, las claves y las relaciones del MER con lo implementado en Proveedor, CuentaBancaria, Material, MaterialProveedor, Presupuesto, TipoProyecto, Cliente y Usuario. Coinciden las relaciones principales:
+   - Proveedor 1 → N CuentaBancaria;
+   - Material N ↔ N Proveedor a través de `MaterialProveedor`, con precio, moneda y fecha de actualización;
+   - Presupuesto con claves foráneas a Cliente, TipoProyecto y Usuario Responsable.
+
+   El MER también confirma esta decisión: `ConceptoPresupuesto` tiene sus propios `PrecioUnitario` y `Moneda`, además de las referencias a `MaterialId` y `MaterialProveedorId`.
+2. **Diferencias y su justificación.** Son una evolución del diseño preliminar, no errores:
+   - Las unidades de medida son el enum `UnidadMedida` y no la tabla `Unidad`, porque son 14 opciones fijas validadas con EOP (RF-68) y su administración quedó fuera del alcance (US-063 a US-065).
+   - Moneda, Banco, Estado y Rol se guardan como números con restricciones CHECK, en vez de texto libre, para que la base rechace valores inválidos (DT-08).
+   - Agregamos `NombreNormalizado` en Material y Proveedor, y `NumeroCorrelativo` en Presupuesto, para que los índices únicos garanticen los nombres sin duplicados (RF-68, US-009) y el correlativo global del código (RF-01).
+   - Los nombres de texto tienen 200 caracteres y no 256, por el criterio común de S1-T27.
+   - Hay diferencias de nombres sin efecto en el modelo: `NombreProyecto` por `NombreTrabajo`, `ResponsableId` por `ResponsableUsuarioId`, `CuentasBancarias` por `CuentaBancariaProveedor` y `Id` por `<Entidad>Id`.
+3. **Qué sigue pendiente.** Corresponde a funcionalidades de otros sprints:
+   - `ConceptoPresupuesto`, `TipoConcepto` y `MargenBaseTipo` (US-007, US-010A, US-011, US-012);
+   - `Relevamiento`;
+   - los datos de envío, vencimiento, rechazo y confirmación económica del Presupuesto;
+   - `Proyecto`, `ProyectoParticipante`, `Tarea` y `DocumentoProyecto` con `TipoDocumento`;
+   - `CostoAdicional`, `FacturaCompra` y `FacturaVenta`.
+
+   Cuando se implemente la relación Presupuesto–Proyecto, que en el MER es la clave foránea `ProyectoId` dentro de Presupuesto, la regla de "como máximo un presupuesto por proyecto y viceversa" va a necesitar un índice único filtrado sobre `ProyectoId`.
+4. **Problemas detectados.** No encontramos errores en lo ya implementado. El único problema pendiente es el manejo de fechas en UTC mencionado arriba.
+
+---
+
 <!--
 Formato para las próximas:
 
