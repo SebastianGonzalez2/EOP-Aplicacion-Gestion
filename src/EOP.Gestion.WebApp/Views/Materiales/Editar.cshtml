@@ -116,7 +116,7 @@
                                 <span class="form-label d-block">Proveedor</span>
                                 <p class="fw-semibold mb-0">@Model.Referencias[i].ProveedorNombre</p>
                                 <span class="text-body-secondary small">
-                                    Última actualización: @Model.Referencias[i].FechaUltimaActualizacion.ToString("dd/MM/yyyy HH:mm")
+                                    Última actualización: @ZonaHorariaUruguay.ConvertirUtcALocal(Model.Referencias[i].FechaUltimaActualizacion).ToString("dd/MM/yyyy HH:mm")
                                 </span>
                             </div>
 

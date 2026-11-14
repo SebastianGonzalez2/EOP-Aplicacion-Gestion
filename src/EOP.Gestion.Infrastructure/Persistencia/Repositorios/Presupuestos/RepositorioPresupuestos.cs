@@ -23,7 +23,8 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos
             int correlativo = await ObtenerSiguienteCorrelativoAsync(cancellationToken);
 
             presupuesto.NumeroCorrelativo = correlativo;
-            presupuesto.Codigo = GeneradorCodigoPresupuesto.Generar(
+            // FechaCreacion está en UTC; el generador la pasa a hora de Uruguay para el AAAAMMDD.
+            presupuesto.Codigo = GeneradorCodigoPresupuesto.GenerarDesdeFechaUtc(
                 presupuesto.FechaCreacion,
                 presupuesto.NombreProyecto,
                 correlativo);

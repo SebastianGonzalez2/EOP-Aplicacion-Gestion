@@ -135,6 +135,23 @@ public class PresupuestosSqlServerTests : IAsyncLifetime
         Assert.Equal(new DateTime(2026, 11, 9, 15, 30, 0), leido.FechaCreacion);
     }
 
+    // FIX-UTC-FECHAS: cerca de la medianoche la fecha UTC ya es el día siguiente, pero el código
+    // tiene que llevar el día de Uruguay. La fecha se guarda y se lee en UTC, sin cambios.
+    [FactConSqlServer]
+    public async Task CercaDeLaMedianoche_ElCodigoUsaElDiaDeUruguayYLaFechaQuedaEnUtc()
+    {
+        Presupuesto presupuesto = CrearPresupuesto("Obra tarde");
+        presupuesto.FechaCreacion = new DateTime(2026, 11, 15, 1, 0, 0, DateTimeKind.Utc);
+
+        await AgregarConContextoNuevoAsync(presupuesto);
+
+        using EopDbContext contexto = CrearContexto();
+        Presupuesto leido = await contexto.Presupuestos.SingleAsync();
+
+        Assert.Equal("PRES-20261114-OBRA TARDE-0001", leido.Codigo);
+        Assert.Equal(new DateTime(2026, 11, 15, 1, 0, 0), leido.FechaCreacion);
+    }
+
     [FactConSqlServer]
     public async Task ElCorrelativoEsGlobal_SigueAunqueCambienFechaClienteTipoONombre()
     {
@@ -155,7 +172,8 @@ public class PresupuestosSqlServerTests : IAsyncLifetime
         Presupuesto tercero = CrearPresupuesto("Obra sur");
         tercero.ClienteId = otroCliente.Id;
         tercero.TipoProyectoId = otroTipo.Id;
-        tercero.FechaCreacion = new DateTime(2027, 1, 2);
+        // Al mediodía UTC para que el día en Uruguay sea el 2; a las 00:00 UTC todavía sería el 1.
+        tercero.FechaCreacion = new DateTime(2027, 1, 2, 12, 0, 0);
         await AgregarConContextoNuevoAsync(tercero);
 
         Assert.Equal([1, 2, 3], [primero.NumeroCorrelativo, segundo.NumeroCorrelativo, tercero.NumeroCorrelativo]);

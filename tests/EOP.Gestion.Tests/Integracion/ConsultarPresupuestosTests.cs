@@ -165,7 +165,8 @@ namespace EOP.Gestion.Tests.Integracion
             var registrarPresupuesto = new RegistrarPresupuesto(
                 new RepositorioPresupuestos(contexto),
                 new ConsultaReferenciasPresupuesto(contexto),
-                new RepositorioUsuarios(contexto));
+                new RepositorioUsuarios(contexto),
+                TimeProvider.System);
 
             var controller = new PresupuestosController(
                 new ConsultarClientes(contexto),

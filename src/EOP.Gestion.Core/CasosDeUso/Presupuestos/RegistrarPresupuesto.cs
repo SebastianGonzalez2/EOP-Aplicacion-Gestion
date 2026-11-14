@@ -11,14 +11,17 @@ namespace EOP.Gestion.Core.CasosDeUso.Presupuestos
         private readonly IRepositorioPresupuestos _repositorioPresupuestos;
         private readonly IConsultaReferenciasPresupuesto _consultaReferencias;
         private readonly IRepositorioUsuarios _repositorioUsuarios;
+        private readonly TimeProvider _relojDelSistema;
 
         // Recibimos los servicios que necesitamos para validar
-        // los datos y guardar el presupuesto.
-        public RegistrarPresupuesto(IRepositorioPresupuestos repositorioPresupuestos,IConsultaReferenciasPresupuesto consultaReferencias,IRepositorioUsuarios repositorioUsuarios)
+        // los datos y guardar el presupuesto. El reloj viene de afuera (en producción es
+        // TimeProvider.System) para poder fijar la fecha en las pruebas.
+        public RegistrarPresupuesto(IRepositorioPresupuestos repositorioPresupuestos,IConsultaReferenciasPresupuesto consultaReferencias,IRepositorioUsuarios repositorioUsuarios,TimeProvider relojDelSistema)
         {
             _repositorioPresupuestos = repositorioPresupuestos;
             _consultaReferencias = consultaReferencias;
             _repositorioUsuarios = repositorioUsuarios;
+            _relojDelSistema = relojDelSistema;
         }
 
         // Valida los datos del presupuesto y, si son correctos,
@@ -107,7 +110,8 @@ namespace EOP.Gestion.Core.CasosDeUso.Presupuestos
             presupuesto.NombreProyecto = nombreProyecto;
             presupuesto.ResponsableId = usuario.Id;
             presupuesto.Estado = EstadoPresupuesto.Borrador;
-            presupuesto.FechaCreacion = DateTime.UtcNow;
+            // La fecha se guarda en UTC; recién al mostrarla o armar el código se pasa a hora de Uruguay.
+            presupuesto.FechaCreacion = _relojDelSistema.GetUtcNow().UtcDateTime;
 
             // El repositorio guarda el presupuesto y genera
             // automáticamente su código interno único.

@@ -8,6 +8,7 @@ using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Usuarios;
+using EOP.Gestion.Tests.Compartido;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,7 +29,7 @@ public class RegistrarPresupuestoTests
             CancellationToken cancellationToken = default)
         {
             presupuesto.NumeroCorrelativo = 1;
-            presupuesto.Codigo = GeneradorCodigoPresupuesto.Generar(
+            presupuesto.Codigo = GeneradorCodigoPresupuesto.GenerarDesdeFechaUtc(
                 presupuesto.FechaCreacion,
                 presupuesto.NombreProyecto,
                 1);
@@ -96,7 +97,8 @@ public class RegistrarPresupuestoTests
         return new RegistrarPresupuesto(
             repositorio,
             new ConsultaReferenciasPresupuesto(contexto),
-            new RepositorioUsuarios(contexto));
+            new RepositorioUsuarios(contexto),
+            TimeProvider.System);
     }
 
     private static Presupuesto CrearPresupuestoValido(
@@ -143,6 +145,33 @@ public class RegistrarPresupuestoTests
         Assert.Equal("Instalación solar", presupuesto.NombreProyecto);
         Assert.StartsWith("PRES-", presupuesto.Codigo);
         Assert.NotEqual(default, presupuesto.FechaCreacion);
+    }
+
+    // FIX-UTC-FECHAS: la fecha de creación se guarda en UTC y el código usa el día de Uruguay.
+    [Fact]
+    public async Task FechaDeCreacion_SeGuardaEnUtcYElCodigoUsaElDiaDeUruguay()
+    {
+        var datos = await PrepararDatosAsync();
+        using var conexion = datos.Conexion;
+        using var contexto = datos.Contexto;
+
+        // 22:00 del 14/11 en Uruguay = 01:00 UTC del 15/11.
+        var instante = new DateTimeOffset(2026, 11, 15, 1, 0, 0, TimeSpan.Zero);
+        var repositorio = new RepositorioPresupuestosFalso();
+        var casoDeUso = new RegistrarPresupuesto(
+            repositorio,
+            new ConsultaReferenciasPresupuesto(contexto),
+            new RepositorioUsuarios(contexto),
+            new RelojFijo(instante));
+        var presupuesto = CrearPresupuestoValido(datos.ClienteId, datos.TipoProyectoId);
+
+        var errores = await casoDeUso.EjecutarAsync(presupuesto, IdentidadMicrosoft);
+
+        Assert.Empty(errores);
+        Assert.Equal(new DateTime(2026, 11, 15, 1, 0, 0), presupuesto.FechaCreacion);
+        Assert.Equal(DateTimeKind.Utc, presupuesto.FechaCreacion.Kind);
+
+        Assert.Equal("PRES-20261114-INSTALACIÓN SOLAR-0001", presupuesto.Codigo);
     }
 
     [Fact]

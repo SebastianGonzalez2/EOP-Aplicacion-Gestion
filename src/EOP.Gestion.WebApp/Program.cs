@@ -44,6 +44,10 @@ builder.Services.AddScoped<ValidarDatosCliente>();
 // los nuevos clientes en la base de datos.
 builder.Services.AddScoped<RegistrarCliente>();
 
+// Registramos el reloj del sistema. Los casos de uso piden la hora a este reloj
+// (y no a DateTime.UtcNow) para que las pruebas puedan fijar la fecha que quieran.
+builder.Services.AddSingleton(TimeProvider.System);
+
 // Registramos el caso de uso encargado de validar
 // y guardar los presupuestos nuevos.
 builder.Services.AddScoped<RegistrarPresupuesto>();
