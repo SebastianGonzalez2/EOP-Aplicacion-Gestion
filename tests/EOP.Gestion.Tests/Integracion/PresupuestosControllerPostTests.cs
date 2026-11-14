@@ -82,7 +82,8 @@ public class PresupuestosControllerPostTests : IDisposable
         var casoDeUso = new RegistrarPresupuesto(
             _repositorio,
             new ConsultaReferenciasPresupuesto(_contexto),
-            new RepositorioUsuarios(_contexto));
+            new RepositorioUsuarios(_contexto),
+            TimeProvider.System);
 
         // Simulamos la identidad autenticada por Microsoft.
         var identidad = new ClaimsIdentity(

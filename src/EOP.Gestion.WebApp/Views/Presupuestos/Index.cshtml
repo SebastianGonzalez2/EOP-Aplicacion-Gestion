@@ -339,7 +339,7 @@
                             <td>@presupuesto.NombreCliente</td>
 
                             <td>
-                                @presupuesto.FechaCreacion.ToString("dd/MM/yyyy")
+                                @ZonaHorariaUruguay.ConvertirUtcALocal(presupuesto.FechaCreacion).ToString("dd/MM/yyyy")
                             </td>
 
                             <td>

@@ -251,7 +251,7 @@
                                     <td>@referencia.ProveedorNombre</td>
                                     <td class="text-end">@referencia.PrecioUnitario</td>
                                     <td>@referencia.Moneda</td>
-                                    <td>@referencia.FechaUltimaActualizacion.ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>@ZonaHorariaUruguay.ConvertirUtcALocal(referencia.FechaUltimaActualizacion).ToString("dd/MM/yyyy HH:mm")</td>
 
                                     @* Permite asociar otro proveedor al material existente. *@
                                     @if (puedeRegistrar)

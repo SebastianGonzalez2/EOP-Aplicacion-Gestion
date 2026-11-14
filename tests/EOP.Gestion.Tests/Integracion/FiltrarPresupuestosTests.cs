@@ -234,6 +234,66 @@ namespace EOP.Gestion.Tests.Integracion
             Assert.Equal("Obra C", presupuesto.NombreProyecto);
         }
 
+        // FIX-UTC-FECHAS: el filtro interpreta el día elegido en hora de Uruguay (UTC-3),
+        // con inicio inclusivo (00:00 locales = 03:00 UTC) y fin exclusivo (00:00 del día siguiente).
+        [Theory]
+        [InlineData(2026, 11, 14, 2, 59, false, false)] // 23:59 del 13 en Uruguay: es del día 13, no aparece en ninguno
+        [InlineData(2026, 11, 14, 3, 0, true, false)]   // 00:00 del 14: primer instante del día 14
+        [InlineData(2026, 11, 15, 1, 0, true, false)]   // 22:00 del 14: es del día 14 aunque en UTC ya sea el 15
+        [InlineData(2026, 11, 15, 2, 59, true, false)]  // 23:59 del 14: último instante del día 14
+        [InlineData(2026, 11, 15, 3, 0, false, true)]   // 00:00 del 15: ya es el día siguiente (fin exclusivo)
+        public async Task FiltrarPorFecha_UsaLosLimitesDelDiaEnUruguay(int anio, int mes, int dia, int hora, int minuto, bool apareceEl14, bool apareceEl15)
+        {
+            var datos = await CrearBaseAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+
+            // Dejamos solo el presupuesto de este caso, con su fecha guardada en UTC.
+            contexto.Presupuestos.RemoveRange(contexto.Presupuestos);
+            await contexto.SaveChangesAsync();
+
+            int tipoProyectoId = await contexto.TiposProyecto.Select(tipo => tipo.Id).FirstAsync();
+            int clienteId = await contexto.Clientes.Select(cliente => cliente.Id).FirstAsync();
+            int responsableId = await contexto.Usuarios.Select(usuario => usuario.Id).FirstAsync();
+
+            contexto.Presupuestos.Add(new Presupuesto
+            {
+                Codigo = "PRES-LIMITE-0001",
+                NumeroCorrelativo = 1,
+                NombreProyecto = "Obra límite",
+                ClienteId = clienteId,
+                ResponsableId = responsableId,
+                TipoProyectoId = tipoProyectoId,
+                PlazoVigenciaDias = 30,
+                FechaCreacion = new DateTime(anio, mes, dia, hora, minuto, 0, DateTimeKind.Utc),
+                Estado = EstadoPresupuesto.Borrador
+            });
+            await contexto.SaveChangesAsync();
+
+            var consulta = new ConsultarPresupuestos(contexto);
+
+            var del14 = await consulta.EjecutarAsync(fecha: new DateTime(2026, 11, 14));
+            var del15 = await consulta.EjecutarAsync(fecha: new DateTime(2026, 11, 15));
+
+            Assert.Equal(apareceEl14, del14.Count == 1);
+            Assert.Equal(apareceEl15, del15.Count == 1);
+        }
+
+        [Fact]
+        public async Task FiltrarPorFecha_ElListadoDevuelveLaFechaEnUtcSinConvertir()
+        {
+            var datos = await CrearBaseAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+
+            var consulta = new ConsultarPresupuestos(contexto);
+
+            var resultado = await consulta.EjecutarAsync(fecha: new DateTime(2026, 11, 4));
+
+            // La conversión a hora de Uruguay se hace una sola vez, al mostrar la fecha en la vista.
+            Assert.Equal(new DateTime(2026, 11, 4, 14, 30, 0), Assert.Single(resultado).FechaCreacion);
+        }
+
         [Fact]
         public async Task FiltrarPorResponsable_DevuelveSoloSusPresupuestos()
         {

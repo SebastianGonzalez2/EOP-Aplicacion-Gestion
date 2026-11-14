@@ -1,4 +1,5 @@
 ﻿
+using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia;
@@ -60,12 +61,16 @@ namespace EOP.Gestion.Infrastructure.Consultas.Presupuestos
             }
 
             // Comparamos el día completo, sin importar la hora.
+            // El usuario elige el día según la hora de Uruguay, pero en la base las fechas están en UTC.
+            // Por eso primero pasamos los límites de ese día a UTC: desde el inicio (inclusive)
+            // hasta el inicio del día siguiente (exclusive).
             if (fecha.HasValue)
             {
-                DateTime inicioDia = fecha.Value.Date;
-                DateTime finDia = inicioDia.AddDays(1);
+                var intervalo = ZonaHorariaUruguay.ObtenerIntervaloUtcDelDia(fecha.Value);
+                DateTime inicioDiaUtc = intervalo.InicioUtc;
+                DateTime finDiaUtc = intervalo.FinUtcExclusivo;
 
-                consulta = consulta.Where(dato => dato.Presupuesto.FechaCreacion >= inicioDia && dato.Presupuesto.FechaCreacion < finDia);
+                consulta = consulta.Where(dato => dato.Presupuesto.FechaCreacion >= inicioDiaUtc && dato.Presupuesto.FechaCreacion < finDiaUtc);
             }
 
             // Filtramos por el usuario responsable del presupuesto.

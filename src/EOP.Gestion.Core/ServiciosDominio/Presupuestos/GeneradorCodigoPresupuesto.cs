@@ -1,4 +1,5 @@
 using System.Globalization;
+using EOP.Gestion.Core.Comun;
 
 namespace EOP.Gestion.Core.ServiciosDominio.Presupuestos
 {
@@ -12,6 +13,17 @@ namespace EOP.Gestion.Core.ServiciosDominio.Presupuestos
         // El correlativo tiene cuatro cifras, así que el último es el 9999.
         public const int CorrelativoMaximo = 9999;
 
+        // Arma el código a partir de la fecha de creación tal como se guarda en la base (UTC):
+        // la pasa a hora de Uruguay antes de tomar el día. Si no, un presupuesto creado el 14/11
+        // a las 22:00 en Uruguay (01:00 UTC del 15/11) saldría con la fecha del 15.
+        public static string GenerarDesdeFechaUtc(DateTime fechaCreacionUtc, string nombreProyecto, int correlativo)
+        {
+            DateTime fechaCreacionEnUruguay = ZonaHorariaUruguay.ConvertirUtcALocal(fechaCreacionUtc);
+
+            return Generar(fechaCreacionEnUruguay, nombreProyecto, correlativo);
+        }
+
+        // Recibe la fecha que va escrita en el código, o sea, el día en Uruguay.
         public static string Generar(DateTime fechaCreacion, string nombreProyecto, int correlativo)
         {
             if (string.IsNullOrWhiteSpace(nombreProyecto))

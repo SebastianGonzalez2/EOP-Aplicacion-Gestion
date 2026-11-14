@@ -76,4 +76,31 @@ public class GeneradorCodigoPresupuestoTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => GeneradorCodigoPresupuesto.Generar(Fecha, "Obra", correlativo));
     }
+
+    // FIX-UTC-FECHAS: la fecha del código es el día en Uruguay, aunque la base guarde UTC.
+    [Theory]
+    [InlineData(2026, 11, 9, 15, 30, "20261109")]   // 12:30 en Uruguay: mismo día
+    [InlineData(2026, 11, 9, 3, 0, "20261109")]     // 00:00 en Uruguay: primer instante del día
+    [InlineData(2026, 11, 9, 2, 59, "20261108")]    // 23:59 en Uruguay: todavía es el día anterior
+    [InlineData(2026, 11, 15, 1, 0, "20261114")]    // 22:00 en Uruguay (el ejemplo del pedido)
+    [InlineData(2027, 1, 1, 2, 0, "20261231")]      // cruza el cambio de año
+    [InlineData(2026, 11, 14, 23, 59, "20261114")]  // 20:59 en Uruguay
+    public void GenerarDesdeFechaUtc_UsaElDiaDeUruguay(int anio, int mes, int dia, int hora, int minuto, string fechaEsperada)
+    {
+        var fechaUtc = new DateTime(anio, mes, dia, hora, minuto, 0, DateTimeKind.Utc);
+
+        string codigo = GeneradorCodigoPresupuesto.GenerarDesdeFechaUtc(fechaUtc, "Obra", 1);
+
+        Assert.Equal($"PRES-{fechaEsperada}-OBRA-0001", codigo);
+    }
+
+    [Fact]
+    public void GenerarDesdeFechaUtc_AceptaLaFechaSinKindQueDevuelveEfCore()
+    {
+        var fechaSinKind = new DateTime(2026, 11, 15, 1, 0, 0);
+
+        string codigo = GeneradorCodigoPresupuesto.GenerarDesdeFechaUtc(fechaSinKind, "Instalación solar", 7);
+
+        Assert.Equal("PRES-20261114-INSTALACIÓN SOLAR-0007", codigo);
+    }
 }
