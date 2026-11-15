@@ -13,6 +13,7 @@ regeneran a partir de él cuando cambia.
 | [`alcance.md`](./alcance.md) | Funcionalidades incluidas y excluidas de la primera versión |
 | [`decisiones-tecnicas.md`](./decisiones-tecnicas.md) | Decisiones de diseño con su motivo y alternativas descartadas |
 | [`azure-blob-storage.md`](./azure-blob-storage.md) | Configuración de almacenamiento privado Azure Blob Storage, verificaciones, servicio de la aplicación y pendientes (S2-T02, S2-T03) |
+| [`revision-integracion-tecnica.md`](./revision-integracion-tecnica.md) | Revisión de diseño de Azure SQL, Azure Blob Storage y GitHub Actions; evidencias, riesgos y pendientes (S2-T31) |
 | [`uso-de-ia.md`](./uso-de-ia.md) | Registro de uso de IA generativa |
 
 ## Cómo usarlos
