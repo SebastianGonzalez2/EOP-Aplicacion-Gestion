@@ -231,7 +231,7 @@ Cuando el usuario seleccione **expresamente** una referencia de material y prove
 
 Estos valores pertenecen al concepto. Cambiar después el nombre, la unidad, el precio o la moneda en el catálogo (US-071, RF-21) **no actualiza** los conceptos ya guardados. Ejemplo: un presupuesto con «Cable eléctrico 2,5 mm²», unidad Metro, cantidad 10 y precio unitario USD 3 (subtotal USD 30) conserva exactamente esos datos aunque el catálogo cambie el nombre, la unidad o el precio del material.
 
-Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre manual y expresa (incluso cuando hay un solo proveedor), los valores copiados no se editan desde la tabla del presupuesto y una misma combinación material-proveedor no puede repetirse dentro del mismo presupuesto. RF-20 y US-010A hoy nombran solo el precio y la moneda: esta decisión los amplía, y el anteproyecto original en Word debe ajustarse para que coincida.
+Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre manual y expresa (incluso cuando hay un solo proveedor), los valores copiados no se editan desde la tabla del presupuesto y una misma combinación material-proveedor no puede repetirse dentro del mismo presupuesto. RF-20 y US-010A nombraban solo el precio y la moneda: esta decisión los amplió, y el anteproyecto en Word y las copias de `docs/` ya se ajustaron para que coincidan (S2-T30).
 
 **Estado de la implementación.** Al 14/11/2026 no existen `ConceptoPresupuesto` ni su persistencia (US-007, US-010A, US-011 y US-012 son de sprints posteriores). Por eso esta decisión se documenta pero no se adelantó ninguna entidad, tabla ni migración. Hoy el catálogo guarda su precio y su fecha en `MaterialProveedor`, y eso no cambia.
 
@@ -242,6 +242,7 @@ Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre
 - Al seleccionar la referencia se copian los cuatro datos en la misma operación, y después se leen siempre desde el concepto, nunca desde `Material` ni `MaterialProveedor`.
 - Prueba de regresión con SQL Server: guardar un concepto, modificar en el catálogo el nombre, la unidad, el precio y la moneda, y comprobar que el concepto conserva los cuatro valores originales y su subtotal.
 - Prueba de que los listados y vistas del presupuesto muestran los valores del concepto y no los actuales del catálogo.
+- Lo mismo para todo lo que se arma a partir del concepto: el cálculo del subtotal (RF-28), el resumen previo (RF-31, US-013), la planilla Excel (RF-37, RF-38, US-014) y los indicadores del proyecto que salen del presupuesto vinculado (RF-103). Ninguno puede leer nombre, unidad, precio ni moneda de `Material` o `MaterialProveedor`. Se agregó en S2-T30: la lista anterior solo nombraba «los listados y vistas».
 
 **Para tener en cuenta en tareas posteriores:**
 
@@ -273,6 +274,55 @@ Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre
 
    Cuando se implemente la relación Presupuesto–Proyecto, que en el MER es la clave foránea `ProyectoId` dentro de Presupuesto, la regla de "como máximo un presupuesto por proyecto y viceversa" va a necesitar un índice único filtrado sobre `ProyectoId`.
 4. **Problemas detectados.** No encontramos errores en el esquema ni en lo ya implementado. El único problema detectado fue el manejo de fechas en UTC mencionado arriba, que se corrigió en FIX-UTC-FECHAS.
+
+**Revisión de reglas y dependencias (S2-T30, 14/11/2026)**
+
+S2-T30 volvió sobre lo anterior con otra pregunta: ¿las reglas compartidas se cumplen igual en todos lados, se controlan en el servidor y concuerdan con los requerimientos? Fue un análisis; no se modificó código. Se corrió toda la suite contra SQL Server real: 1434 pruebas, 0 fallidas y 0 omitidas.
+
+*Qué se verificó y dónde está la evidencia:*
+
+| Regla | Dónde se cumple | Prueba que lo respalda |
+|---|---|---|
+| El catálogo guarda solo el precio actual por material-proveedor | `MaterialProveedor` (sin historial, ninguna otra tabla de precios) | `RelacionMaterialProveedorSqlServerTests` |
+| Una combinación material-proveedor no se repite | Consulta previa en `AgregarProveedorAMaterial` + índice único `(MaterialId, ProveedorId)` + `IndicesUnicos` | `AgregarProveedorAMaterialTests`, `Base_DebeRechazarDosRelaciones…` |
+| Precio > 0, con máximo de 18 enteros y 10 decimales, y moneda UYU o USD | `ValidadorPrecioUnitario` y `Enum.IsDefined` en los tres casos de uso, repetidos en los tres ViewModels; CHECK y `decimal(28,10)` en la base | S2-T22 y `RelacionMaterialProveedorSqlServerTests` |
+| Catálogo y presupuestos nunca se borran físicamente | Todas las claves foráneas son `Restrict` | `Base_NoDebePermitirBorrar…` |
+| Código `PRES-AAAAMMDD-NOMBRE-####` generado por el sistema, único, global y que no cambia | `GeneradorCodigoPresupuesto` + `SecuenciaPresupuestos` (1 a 9999, sin ciclo) + índices únicos de `Codigo` y `NumeroCorrelativo` | `PresupuestosSqlServerTests` (correlativo global, altas simultáneas, código estable, agotamiento en 9999) |
+| El día del código y de los filtros es el de Uruguay | `ZonaHorariaUruguay` en el generador, en `ConsultarPresupuestos` y en las tres vistas que muestran fechas | `ZonaHorariaUruguayTests`, `FiltrarPresupuestosTests`, `CercaDeLaMedianoche_…` |
+| Permisos de Presupuestos, Materiales y Proveedores controlados en el servidor | `[Authorize(Roles = …)]` en cada acción GET y POST, con token antifalsificación en los POST | `MatrizDeAutorizacionTests` (coincide con RF-73) |
+| Nombre de material único y obligatorio, unidad de la lista fija | `RegistrarMaterial` y `EditarMaterial` + índice único + CHECK | `UnidadesMaterialSqlServerTests`, `DuplicadosMaterialesSqlServerTests` |
+| Proveedor: nombre y RUT únicos, RUT válido, teléfono, un correo como mínimo y cuenta bancaria completa | `ValidarDatosProveedor` + índices únicos + CHECK | `RegistroValidarDatosProveedorTests`, `RegistrarProveedorSqlServerTests` |
+
+*Sobre FIX-UTC-FECHAS:* no quedó ningún lugar sin convertir. Los únicos tipos de fecha del sistema son `Presupuesto.FechaCreacion` y `MaterialProveedor.FechaUltimaActualizacion`; las dos se guardan en UTC, y todo lo que las muestra, filtra o usa para el código pasa por `ZonaHorariaUruguay`. No se duplicó nada.
+
+*Dependencias con sprints posteriores:*
+
+- **US-007, US-010A y US-011** crean `ConceptoPresupuesto` y copian los cuatro datos. Necesitan lo que ya existe: `UnidadMedida`, `Moneda`, el precio `decimal(28,10)` y el índice único del catálogo.
+- **RF-28, RF-31, RF-37 y RF-103** (subtotal, resumen, Excel e indicadores del proyecto) dependen de que el concepto sea la única fuente de esos valores. Se agregaron a la lista de comprobaciones de arriba.
+- **RF-34 y RF-36** (envío y vencimiento) usan el plazo de vigencia que hoy guarda el presupuesto. Ver el segundo punto de «Aspectos sin definir».
+- **RF-102 y RF-109** (agregar cuenta bancaria y editar proveedor) van a reutilizar `ValidadorCuentaBancaria` y las reglas de `ValidarDatosProveedor`. La comprobación de duplicados de hoy no excluye al propio proveedor, así que para la edición hará falta una variante «excepto este Id», como la que ya usa `EditarMaterial` con los materiales.
+- **RF-53** (crear presupuesto desde un proyecto) y la regla de un presupuesto por proyecto necesitan el índice único filtrado sobre `ProyectoId` ya descrito arriba.
+
+*Inconsistencias en la documentación:*
+
+1. **RF-020 y US-010A nombraban solo el precio y la moneda**, mientras que DT-11 y la decisión aprobada por EOP son cuatro datos. Era la única contradicción de fondo. EOP ya corrigió el anteproyecto en Word, y en S2-T30 se llevó el mismo cambio a las copias de `docs/`: el título, la descripción y las reglas de conservación y de no edición de RF-020 (`requerimientos-funcionales.md`); el PARA, la descripción, las reglas y tres escenarios de US-010A (`user-stories.md`); y la fila de US-010A en `alcance.md`.
+2. **RF-021, RF-108, RF-019, US-071 y RF-31 no se contradicen.** Hablan de «precios y monedas» o de «valores históricos» en general, y RF-108 ya dice «ni otros valores históricos». Quedan completos con lo de arriba, aunque conviene que RF-021 («conservarán precios y monedas históricos») se lea también como nombre y unidad.
+3. **RF-020 y RF-28 se leen distinto sin chocar.** RF-28 habla de «una modificación del precio utilizado», pero RF-020 prohíbe editarlo desde la tabla. Es consistente porque la única forma de cambiarlo es una nueva selección expresa de la referencia (RF-020, último párrafo de la descripción). Esa nueva selección vuelve a copiar los cuatro datos; hoy lo dice DT-11 de forma implícita («al seleccionar… se copian»).
+
+*Aspectos sin definir en los requerimientos.* Se anotan para consultarlos cuando se implementen; no se inventó ninguna regla:
+
+1. Qué pasa con los cuatro valores copiados cuando el usuario cambia el material de una fila que ya tenía una referencia seleccionada (RF-013 permite sustituir la selección mientras el presupuesto sea editable). Lo razonable sería descartarlos y exigir una nueva selección, pero ningún requerimiento lo dice. También falta definir si una fila con material y sin referencia seleccionada puede guardarse y qué subtotal tendría.
+2. El plazo de vigencia no tiene máximo (hoy acepta hasta 2.147.483.647 días). Al implementar RF-34 y RF-36, «fecha de envío más plazo» daría una fecha imposible y una excepción si el plazo es enorme. Hace falta un tope técnico, parecido al que S2-T22 puso a los precios, y conviene confirmarlo con EOP.
+3. Qué debe pasar cuando se agoten los correlativos del 0001 al 9999 (RF-01 exige cuatro cifras). Hoy SQL Server rechaza el siguiente número con un error y la aplicación lo muestra con la pantalla de error general; hay una prueba que lo documenta.
+4. Dos personas que editan a la vez el mismo material: gana el último que guarda y los campos que el otro cambió se pisan sin aviso. Ningún requerimiento pide control de concurrencia para el catálogo (solo DT-09 lo pide, para los administradores).
+
+*Observaciones menores, sin cambios:*
+
+- `ValidarDatosProveedor` no controla los largos máximos (nombre 200, cuenta 50, titular 200, correos 254). Los controla el ViewModel del lado del servidor y, en último lugar, la base, así que hoy no se puede guardar un dato mal. Pero Materiales y Presupuestos sí lo hacen dentro del caso de uso. Cuando RF-102 y RF-109 reutilicen estas reglas desde otra pantalla, conviene mover esos largos al caso de uso para que valgan para cualquier entrada.
+- El nombre del proveedor se guarda tal como se escribió, con los espacios de los extremos, mientras que Material y Presupuesto lo guardan sin ellos (criterio de S1-T27). La comparación de duplicados no se ve afectada porque usa el nombre normalizado.
+- `RegistrarMaterial`, `AgregarProveedorAMaterial` y `EditarMaterial` toman la hora con `DateTime.UtcNow`, mientras `RegistrarPresupuesto` usa el reloj inyectable (`TimeProvider`). Es correcto, porque en ambos casos queda en UTC, pero esas fechas no se pueden fijar en las pruebas. Los casos de uso nuevos con fechas deberían usar `TimeProvider`.
+
+*Conclusión.* El diseño y lo implementado cumplen DT-11, los requerimientos de catálogo y presupuesto y las reglas transversales de `AGENTS.md`. No hay nada que corregir en el código para cerrar S2-T30. Las copias de RF-020, US-010A y `alcance.md` ya quedaron alineadas con el Word. Lo que queda es llevar los cuatro puntos sin definir a las tareas que implementen `ConceptoPresupuesto` y el envío del presupuesto.
 
 ---
 
