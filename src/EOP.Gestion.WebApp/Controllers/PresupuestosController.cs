@@ -25,6 +25,9 @@ namespace EOP.Gestion.WebApp.Controllers
         // Consulta que obtiene los presupuestos para el listado.
         private readonly ConsultarPresupuestos _consultarPresupuestos;
 
+        // Consulta para obtener la información de un presupuesto.
+        private readonly ConsultarPresupuestoDetalle _consultarPresupuestoDetalle;
+
         // Consultamos los usuarios para ofrecerlos
         // como responsables en el filtro de presupuestos.
         private readonly ConsultarUsuarios _consultarUsuarios;
@@ -32,13 +35,16 @@ namespace EOP.Gestion.WebApp.Controllers
 
         // Recibimos los servicios que consultan los clientes
         // y los tipos de proyecto disponibles.
-        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto, RegistrarPresupuesto registrarPresupuesto, ConsultarPresupuestos consultarPresupuestos, ConsultarUsuarios consultarUsuarios)
+        public PresupuestosController(ConsultarClientes consultarClientes,ConsultarTiposProyectoParaSeleccion consultarTiposProyecto,
+            RegistrarPresupuesto registrarPresupuesto, ConsultarPresupuestos consultarPresupuestos, ConsultarUsuarios consultarUsuarios,
+            ConsultarPresupuestoDetalle consultarPresupuestoDetalle)
         {
             _consultarClientes = consultarClientes;
             _consultarTiposProyecto = consultarTiposProyecto;
             _registrarPresupuesto = registrarPresupuesto;
             _consultarPresupuestos = consultarPresupuestos;
             _consultarUsuarios = consultarUsuarios;
+            _consultarPresupuestoDetalle = consultarPresupuestoDetalle;
         }
 
 
@@ -178,5 +184,26 @@ namespace EOP.Gestion.WebApp.Controllers
 
             return RedirectToAction(nameof(Crear));
         }
+
+
+        // GET: /Presupuestos/Detalle/5
+        // Muestra la información de un presupuesto seleccionado (US-001).
+        [HttpGet]
+        public async Task<IActionResult> Detalle(int id)
+        {
+            // Buscamos el presupuesto utilizando el ID recibido.
+            var presupuesto = await _consultarPresupuestoDetalle.EjecutarAsync(id,HttpContext.RequestAborted);
+
+            // Si no existe, devolvemos una respuesta 404.
+            if (presupuesto == null)
+            {
+                return NotFound();
+            }
+
+            // Enviamos los datos a la vista Detalle.cshtml.
+            return View(presupuesto);
+        }
+
+
     }
 }

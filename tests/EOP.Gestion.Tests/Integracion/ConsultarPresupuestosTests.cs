@@ -173,7 +173,8 @@ namespace EOP.Gestion.Tests.Integracion
                 new ConsultarTiposProyectoParaSeleccion(contexto),
                 registrarPresupuesto,
                 new ConsultarPresupuestos(contexto),
-                new ConsultarUsuarios(contexto))
+                new ConsultarUsuarios(contexto),
+                new ConsultarPresupuestoDetalle(contexto))
             {
                 ControllerContext = new ControllerContext
                 {

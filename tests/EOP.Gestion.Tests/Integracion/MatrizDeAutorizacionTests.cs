@@ -49,6 +49,12 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         // el listado de presupuestos.
         ["GET Presupuestos/Index"] = "Administrador,Operador,Supervisor",
 
+
+        // US-001 y RF-73: los tres roles pueden acceder
+        // al detalle de un presupuesto para consultarlo.
+        ["GET Presupuestos/Detalle"] = "Administrador,Operador,Supervisor",
+
+
         // RF-67 y RF-73: los tres roles pueden consultar materiales.
         // Solamente Supervisor y Administrador pueden registrarlos.
 

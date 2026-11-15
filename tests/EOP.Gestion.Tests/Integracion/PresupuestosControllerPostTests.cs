@@ -106,7 +106,8 @@ public class PresupuestosControllerPostTests : IDisposable
             new ConsultarTiposProyectoParaSeleccion(_contexto),
             casoDeUso,
             new ConsultarPresupuestos(_contexto),
-            new ConsultarUsuarios(_contexto))
+            new ConsultarUsuarios(_contexto),
+            new ConsultarPresupuestoDetalle(_contexto))
         {
             ControllerContext = new ControllerContext
             {
