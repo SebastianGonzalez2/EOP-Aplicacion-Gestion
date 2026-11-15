@@ -66,6 +66,7 @@ namespace EOP.Gestion.Infrastructure.Consultas.Materiales
                 join proveedor in _context.Proveedores.AsNoTracking()
                     on relacion.ProveedorId equals proveedor.Id
                 where materialesIds.Contains(relacion.MaterialId)
+                && (!proveedorId.HasValue || relacion.ProveedorId == proveedorId.Value)
                 orderby proveedor.Nombre
                 select new
                 {

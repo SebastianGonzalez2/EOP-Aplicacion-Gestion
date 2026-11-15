@@ -249,7 +249,7 @@
                                     <td>@material.Nombre</td>
                                     <td>@unidades[material.Unidad]</td>
                                     <td>@referencia.ProveedorNombre</td>
-                                    <td class="text-end">@referencia.PrecioUnitario</td>
+                                    <td class="text-end">@referencia.PrecioUnitario.ToString("#,##0.00########")</td>
                                     <td>@referencia.Moneda</td>
                                     <td>@ZonaHorariaUruguay.ConvertirUtcALocal(referencia.FechaUltimaActualizacion).ToString("dd/MM/yyyy HH:mm")</td>
 
