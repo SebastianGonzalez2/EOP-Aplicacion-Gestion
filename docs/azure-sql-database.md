@@ -1,0 +1,276 @@
+# Azure SQL Database en EOP — guía de configuración y uso (S2-T36)
+
+**Fecha:** 16/11/2026. **Tarea:** [S2-T36](https://trello.com/c/E4LOqFwO).  
+**Objetivo:** explicar para qué usamos Azure SQL Database, cómo se conecta nuestra aplicación y qué revisar si necesitamos configurar, comprobar o recuperar la base de datos.
+
+**Importante:** esta guía mezcla dos tipos de información, que vamos a distinguir siempre:
+- **Comprobado:** se puede verificar en el código, en los documentos anteriores o en los registros de trabajo.
+- **Pendiente de comprobar:** todavía tenemos que mirar el recurso real en Azure Portal. No vamos a inventar valores de configuración.
+
+Para redactar esta versión no se modificó Azure ni se hizo una conexión nueva al portal. **Nunca agregamos al repositorio contraseñas, cadenas de conexión completas, tokens ni direcciones IP personales.**
+
+## 1. ¿Qué es Azure SQL Database y para qué lo usamos?
+
+Una **base de datos** es el lugar donde guardamos información organizada. En EOP, por ejemplo, necesitamos guardar los datos de clientes, proveedores, usuarios, materiales y presupuestos.
+
+**SQL Server** es el sistema que permite guardar y consultar esos datos. **Azure SQL Database** es un servicio de Microsoft que ofrece esa base de datos desde la nube, sin que tengamos que mantener instalado un servidor SQL en una de nuestras computadoras.
+
+Esto nos sirve para que la información no dependa de la computadora de un único integrante y para que varias instalaciones autorizadas de nuestra aplicación puedan consultar la misma base de datos. **No significa que cualquier persona pueda entrar:** sigue siendo necesario tener una conexión y permisos válidos.
+
+Hay tres elementos diferentes que conviene no confundir:
+
+| Elemento | Qué significa en nuestro proyecto |
+|---|---|
+| **Azure SQL Database** | La base de datos de la aplicación, donde se guardan los registros. |
+| **Servidor SQL de Azure** | El recurso de Azure que administra la conexión a esa base y sus reglas de acceso. No es una computadora física que tengamos que administrar nosotros. |
+| **Azure Portal** | La página web de Microsoft donde podemos ver y configurar esos recursos. |
+
+Los documentos PDF, imágenes y otros archivos **no** van dentro de SQL: para eso el proyecto prevé [Azure Blob Storage](./azure-blob-storage.md). La base SQL guarda los datos organizados y, cuando corresponda, la referencia al archivo.
+
+## 2. ¿Qué se hizo hasta ahora?
+
+La tarea [S2-T01 — Configurar Azure SQL Database](https://trello.com/c/GvRlOZix) figura como terminada en Trello. Su objetivo era preparar la base y verificar una conexión segura. **El 16/11/2026 se revisaron además las pantallas de información general del servidor y la base en Azure Portal.** Los valores observados se registran a continuación.
+
+En el repositorio comprobamos que:
+
+- La aplicación usa **Entity Framework Core (EF Core)** para comunicarse con SQL Server. EF Core es una herramienta que nos permite trabajar con datos desde C#, sin escribir manualmente todas las consultas SQL.
+- La clase **`EopDbContext`** representa el acceso a las tablas de la aplicación. Está en `src/EOP.Gestion.Infrastructure/Persistencia/EopDbContext.cs`.
+- El archivo `src/EOP.Gestion.Infrastructure/InyeccionDeDependencias.cs` configura EF Core mediante `UseSqlServer` y obtiene la cadena de conexión desde una configuración externa.
+- Los cambios de estructura de la base se guardan como **migraciones** en `src/EOP.Gestion.Infrastructure/Persistencia/Migraciones/`.
+
+**Lo que todavía no verificamos en esta tarea:** el nombre y las características actuales del recurso en Azure, su método de conexión real, las reglas de red y la política de recuperación. Tampoco está resuelta la causa de los fallos intermitentes de conexión observados durante el desarrollo.
+
+## 3. ¿Cómo está organizada nuestra configuración de Azure SQL?
+
+Una **suscripción** es la cuenta de facturación y administración que agrupa recursos de Azure. Dentro de una suscripción hay **grupos de recursos**, que funcionan como carpetas para organizar servicios. En uno de esos grupos están el servidor SQL y la base.
+
+Estos son los datos que observamos en las pantallas de **Información general** del servidor y de la base en Azure Portal el **16/11/2026**. Una captura registra cómo estaba configurado en ese momento, pero no garantiza que siga igual si se modifica en el futuro.
+
+| Dato que necesitamos | Configuración observada |
+|---|---|
+| Suscripción donde está Azure SQL | **Azure for Students** |
+| Grupo de recursos | **`eop-dev`** |
+| Nombre del servidor SQL | **`eop-sql-dev`** |
+| Nombre de la base de datos | **`eop-db-dev`** |
+| Región (ubicación del servicio) | **Brazil South** |
+| Plan o capacidad contratada | **Gratis, uso general, sin servidor (Serverless), serie Gen5, 2 núcleos virtuales** |
+| Oferta gratuita aplicada | **Sí (Free database offer: Applied)** |
+| Límite máximo de CPU | **2 núcleos virtuales (vCores)** |
+| Mínimo configurado de CPU | **0,5 núcleos virtuales (vCores)** |
+| Tamaño máximo configurado para datos | **32 GB** |
+| Consumo por encima del límite gratuito | **Deshabilitado (Overage billing: Disabled)** |
+| Acción al agotar la oferta gratuita mensual | **Pausar hasta el mes siguiente**, sin facturación adicional |
+| Cupo mensual de procesamiento | **100.000 segundos de núcleo virtual gratuitos**, según Microsoft |
+| Saldo de procesamiento observado en Información general | **92.689 segundos de núcleo virtual restantes** en la captura; valor variable |
+| Pausa automática por inactividad en esta oferta | **15 minutos**, según la documentación vigente de Microsoft; no se configura desde esta pantalla |
+| Estado de la base al consultar el portal | **Pausada (Paused)** |
+| Administrador de Microsoft Entra del servidor | **Configurado**, sin documentar el identificador personal |
+| Tipo de autenticación usado por la conexión de la aplicación | **Por comprobar**; la existencia del administrador Entra no confirma qué método usa `EopDb` |
+| Acceso público al servidor SQL | **Redes seleccionadas**: solo direcciones autorizadas por reglas de firewall |
+| Reglas IP de firewall del servidor | **4 reglas**, cada una permite una única dirección IP; **no se incluyen las IP** en Git |
+| IP de cliente observada en la pantalla de Azure | **No coincidía** con ninguna de las cuatro reglas al revisar la captura (valor no registrado) |
+| Redes virtuales autorizadas en «Acceso público» | **No se observan reglas configuradas** en la lista visible |
+| Excepción «Permitir que los servicios y recursos de Azure accedan a este servidor» | **Deshabilitada**, casilla sin seleccionar |
+| Acceso privado / puntos de conexión privados | **Ninguno configurado**, comprobado en «Seguridad → Redes → Acceso privado» el 16/11/2026 |
+| Directiva de conexión | **Predeterminada**: redirección para clientes dentro de Azure (con excepciones) y proxy para clientes externos |
+| TLS mínimo admitido por el servidor | **TLS 1.2** |
+| Restricciones adicionales de redes de salida | **Deshabilitadas** |
+| Punto de restauración más antiguo indicado en la pantalla | **10/11/2026, 16:12 UTC**, dato puntual de esa captura |
+| Política efectiva de retención de copias de seguridad | **Por comprobar**; el punto de restauración mostrado no prueba por sí solo una política fija de 7 días |
+
+### ¿Cómo está protegido el acceso desde las redes?
+
+En el servidor `eop-sql-dev`, en **Seguridad → Redes → Acceso público**, vimos seleccionado **«Redes seleccionadas»**. Eso significa que no basta con conocer el nombre del servidor: para intentar conectarse desde Internet, la dirección IP de origen tiene que estar autorizada en las reglas del firewall. Además, el usuario o la aplicación debe tener credenciales y permisos válidos.
+
+Al revisar esta sección el 16/11/2026 encontramos **cuatro reglas de firewall**, cada una para una dirección IP distinta. La dirección de cliente que mostraba el portal en ese momento **no estaba en ninguna de las cuatro reglas**. Esto puede suceder si usamos otra red o si la dirección pública cambia.
+
+**¿Por qué importa para EOP?** Una computadora cuya IP pública no figure entre las permitidas podría abrir el portal de Azure, pero **no conectarse directamente** a SQL Server desde Visual Studio o la aplicación local. Es una explicación posible de algunos errores de conexión, junto con la pausa por inactividad; no tenemos todavía un diagnóstico confirmado. La IP que ve el portal no demuestra por sí sola cuál es la IP de origen usada por cada instalación de EOP.
+
+No se vieron reglas de **red virtual** en la lista presentada, y la opción general **«Permitir que los servicios y recursos de Azure accedan a este servidor»** estaba desmarcada. Esa configuración es independiente de la pestaña **Acceso privado**, que se comprobó posteriormente.
+
+**Acceso privado comprobado:** al abrir la pestaña **«Acceso privado»** del servidor SQL, Azure mostró **«No se encontraron puntos de conexión privados»**. Esto confirma que no hay ninguna conexión privada registrada en esa pantalla. Para el desarrollo actual se usa la configuración pública restringida descrita arriba. No necesitamos crear una conexión privada como parte de S2-T36; la conectividad real del futuro Azure App Service tendrá que evaluarse antes de desplegarlo.
+
+**No cambiamos estas opciones.** Si un desarrollador necesita conexión desde una nueva IP, primero debe comprobar el origen real de la conexión y decidir si corresponde autorizar **esa IP concreta**, en lugar de abrir el servidor a todo Internet. Autorizar una IP no sustituye las credenciales ni habilita por sí mismo el futuro App Service.
+
+Referencia técnica: [Microsoft Learn — Reglas de firewall de Azure SQL](https://learn.microsoft.com/en-us/azure/azure-sql/database/firewall-configure).
+
+### ¿Cómo se protegen las conexiones con SQL?
+
+El 16/11/2026 revisamos **`eop-sql-dev` → Seguridad → Redes → Conectividad** sin modificar nada. La pantalla mostró:
+
+- **Versión mínima de TLS: 1.2.** TLS sirve para cifrar la información que viaja entre una aplicación y el servidor. El servidor no acepta versiones inferiores a la configurada.
+- **Directiva de conexión: Predeterminada.** Azure utiliza **Redirect (redirección)** como mecanismo habitual para conexiones originadas dentro de Azure, salvo las excepciones indicadas en el portal, y **Proxy (intermediario)** para las originadas fuera de Azure. No necesitamos cambiar esta opción para documentar el entorno.
+- **Restricciones de redes de salida: deshabilitadas.** No se han añadido restricciones para ese tipo de comunicaciones salientes. **Esto no desactiva el firewall de entrada** ni permite conectarse a cualquier usuario.
+
+**Qué comprobamos:** el servidor exige TLS 1.2 como mínimo. **Qué no comprobamos:** los parámetros efectivos de la cadena `ConnectionStrings:EopDb` que utiliza EOP, incluido si valida correctamente el certificado del servidor. Tampoco se ha verificado todavía qué método de autenticación usa esa cadena. No debemos publicar su contenido real en la documentación.
+
+Esta revisión del transporte SQL es independiente de **RNF-009**, que también exige HTTPS entre el navegador del usuario y la aplicación web.
+
+### ¿Por qué aparece «Pausada»?
+
+Hay **dos pausas distintas**, y es importante no confundirlas:
+
+1. **Pausa normal por inactividad.** Microsoft indica que las bases de la oferta gratuita se suspenden después de **15 minutos sin actividad**. Al recibir una nueva conexión, deben reactivarse. Esa reanudación puede demorar. Esta es una **explicación posible** para algunos errores al primer intento de conexión, pero **no tenemos pruebas de que sea la causa exacta** de los errores observados en EOP.
+2. **Pausa por agotar el límite gratuito.** En «Proceso y almacenamiento» vimos seleccionada la opción **“Auto-pause the database until next month”**. Esta opción significa que **si se agota la cantidad mensual gratuita** de procesamiento o almacenamiento, la base deja de estar accesible hasta que se renueve el cupo el mes siguiente. Está deshabilitada la opción de seguir consumiendo recursos con cargos adicionales.
+
+En la captura anterior había **92.689 segundos de núcleo virtual restantes**. Eso indica que **no estaba agotado el cupo de procesamiento** al momento de esa captura. No sabemos por el estado «Paused» solamente si la base estaba pausada por inactividad o por otra condición: para determinarlo necesitamos una prueba de conexión y/o los eventos de Azure.
+
+**¿Qué son los vCores?** Son una forma de medir la capacidad de procesamiento asignada a SQL. Tener un máximo de 2 no significa que la base utilice 2 continuamente; el servicio ajusta su capacidad entre el mínimo y máximo configurados.
+
+**Fuentes de Microsoft:** [oferta gratuita y pausa por inactividad](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-tier) y [preguntas frecuentes sobre límites y recuperación](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-tier-faq). Estas explicaciones son generales del producto; los valores de esta base se tomaron de las pantallas del portal.
+
+**Cómo encontrarlo:** entrar a [Azure Portal](https://portal.azure.com), buscar **SQL databases**, seleccionar la base de EOP y abrir **Overview / Información general**. Desde allí se puede identificar el servidor asociado y consultar otras opciones.
+
+No asumimos que Azure SQL está en la misma suscripción que Blob Storage. En [la guía de Blob](./azure-blob-storage.md) ya se documentó esa infraestructura por separado.
+
+## 4. ¿Cómo se conecta nuestra aplicación a la base?
+
+Cuando iniciamos la aplicación, ocurren estas cosas:
+
+1. **`Program.cs` prepara los servicios.** Llama a `AgregarInfraestructura` para dejar configurado el acceso a la base de datos.
+2. **La aplicación busca una cadena de conexión.** Es un texto privado que indica a qué servidor y base conectarse y cómo autenticarse. La configuración se llama `ConnectionStrings:EopDb`.
+3. **EF Core prepara el acceso mediante `EopDbContext`.** Cuando una funcionalidad consulta o guarda datos, EF Core utiliza esa configuración para intentar comunicarse con SQL.
+4. **SQL Server responde** si la conexión, la red y los permisos son correctos. Que la aplicación haya iniciado no significa necesariamente que ya pudo consultar la base.
+
+Por ejemplo, cuando registramos un cliente, nuestro código trabaja con el repositorio y EF Core para guardar el registro en SQL Server.
+
+### Situación actual durante el desarrollo (informada por el equipo el 16/11/2026)
+
+Durante la preparación de Azure SQL, la WebApp llegó a utilizar una cadena de conexión apuntando a la base de Azure. **Actualmente, el equipo volvió a configurarla para trabajar con SQL Server LocalDB en la computadora de desarrollo.** Este último dato fue informado por un integrante; **no se inspeccionó el contenido de User Secrets**, y no hace falta hacerlo para documentar Azure.
+
+**¿Qué cambia al usar LocalDB?** Al ejecutar EOP localmente, las operaciones se realizan contra la base local indicada en la cadena de conexión vigente. Esto no elimina la base `eop-db-dev` de Azure ni cambia sus políticas de red o respaldo, que verificamos en el portal.
+
+**Qué no sabemos:** no se conserva en Git la cadena anterior de Azure, por razones de seguridad, y no se recuerda su método de autenticación exacto. Por tanto, **no podemos afirmar** si esa conexión utilizaba usuario/contraseña de SQL o algún mecanismo de identidad de Microsoft Entra. La sección sobre conectividad de Azure describe la configuración del **servidor**, no certifica cómo estaba configurada la aplicación.
+
+**Cuando volvamos a conectar EOP a Azure:** tendremos que configurar una conexión segura apropiada para el entorno, verificar que el firewall permita el origen y comprobar la conexión en una prueba controlada. También habrá que revisar las migraciones de EF Core y los datos de cada base: **LocalDB y Azure SQL no se sincronizan automáticamente** por cambiar la cadena. No hace falta cambiar la conexión ahora para completar esta tarea de documentación.
+
+### ¿Dónde guardamos la cadena de conexión?
+
+**En desarrollo:** usamos el mecanismo **User Secrets** de .NET, que permite guardar datos privados fuera del repositorio. El proyecto espera la configuración `ConnectionStrings:EopDb`. Un ejemplo de cómo establecerla (con una cadena propia, no para copiar un valor real al documento) es:
+
+```bash
+dotnet user-secrets set "ConnectionStrings:EopDb" "<cadena-privada>" --project src/EOP.Gestion.WebApp
+```
+
+Este comando es una **instrucción de configuración**, no una prueba de que la conexión funciona. Antes de ejecutarlo hay que confirmar el entorno al que apuntamos.
+
+**En producción, cuando utilicemos Azure App Service:** la cadena se configurará en las opciones privadas del servicio que ejecute la WebApp, usando el nombre `EopDb` o la clave `ConnectionStrings__EopDb`, según el mecanismo elegido. **Todavía no tenemos verificada esa conexión.**
+
+La conexión debe cifrar la comunicación y validar el certificado del servidor. No corresponde quitar controles de seguridad para intentar que una conexión fallida funcione.
+
+### ¿Qué relación tiene Microsoft Entra ID?
+
+**Microsoft Entra ID** se encarga de verificar quién intenta iniciar sesión. **Azure SQL Database**, en cambio, guarda el usuario de EOP, su estado y otros datos de la aplicación.
+
+Son pasos distintos: Microsoft puede haber autenticado correctamente a alguien y, aun así, la aplicación no permitirle entrar porque no pudo consultar SQL para comprobar si ese usuario está habilitado.
+
+## 5. ¿Qué son las migraciones?
+
+Una **migración** es un cambio controlado en la estructura de la base de datos. Por ejemplo, si agregamos una propiedad nueva a la entidad Cliente, es posible que necesitemos crear una columna nueva en la tabla correspondiente.
+
+En vez de cambiar las tablas manualmente cada vez, EF Core permite registrar esos cambios en archivos de migración, que guardamos en Git junto con el código.
+
+Los comandos relevantes son:
+
+| Comando | Para qué sirve |
+|---|---|
+| `dotnet ef migrations list` | Consultar las migraciones reconocidas por EF Core. |
+| `dotnet ef database update` | **Aplicar cambios** a la base configurada. No usarlo sin revisar a qué base apunta. |
+| `dotnet ef migrations script --idempotent` | Preparar un script SQL para revisarlo antes de un cambio de esquema. |
+
+Para ejecutarlos en esta solución hay que indicar el proyecto de Infrastructure, el proyecto de inicio WebApp y el contexto `EopDbContext`. Por ejemplo, este comando **solo lista** migraciones y no aplica cambios:
+
+```bash
+dotnet ef migrations list --project src/EOP.Gestion.Infrastructure --startup-project src/EOP.Gestion.WebApp --context EopDbContext
+```
+
+El comando `database update` sí modifica la base configurada: antes de usarlo, verificar el destino, revisar los cambios y contar con la autorización y protección de datos necesarias. **No debemos ejecutar migraciones de producción automáticamente por abrir un PR.** El repositorio también contiene pruebas que comprueban el comportamiento de las migraciones en SQL Server.
+
+## 6. ¿Cómo comprobamos que funciona?
+
+Para una verificación real, sin cambiar datos:
+
+1. En Azure Portal, abrir la base de datos y comprobar que el recurso esté disponible.
+2. Abrir el **servidor SQL** asociado y revisar la sección **Networking / Redes**, donde se controlan los accesos permitidos. Una red o dirección IP no autorizada puede impedir la conexión. **No habilitar acceso general** como solución rápida.
+3. Verificar qué método de autenticación usa la conexión y si la identidad tiene los permisos necesarios. No copiar contraseñas al informe.
+4. Desde un equipo autorizado, comprobar la conexión a SQL mediante una consulta sencilla de lectura, como `SELECT 1`. Si devuelve `1`, esa consulta llegó a ejecutarse; **no demuestra por sí sola que todas las funciones de EOP estén bien**.
+5. Probar una operación de la aplicación y comprobar el resultado. Registrar la fecha, el entorno utilizado y si la prueba funcionó o falló.
+6. Si se revisan las migraciones aplicadas, consultar el registro `__EFMigrationsHistory`, sin modificarlo manualmente.
+
+**Resultado por ahora:** S2-T01 figura como completada, pero la revisión actual de S2-T36 todavía no incluye una prueba nueva contra Azure SQL. La conexión desde el futuro App Service tampoco se ha verificado.
+
+## 7. ¿Qué hacemos si aparece el error de inicio de sesión?
+
+En las pruebas del equipo se observaron fallas en las que el primer inicio de sesión no siempre funcionaba, aunque después pudiera entrar. **Todavía no sabemos la causa exacta.**
+
+Para investigarlo sin adivinar:
+
+1. Anotar **cuándo** ocurrió y si la página mostró un error antes o después del inicio de sesión con Microsoft.
+2. Revisar los registros de la aplicación. El código de `Program.cs` puede rechazar el inicio de sesión cuando falla la consulta que comprueba al usuario en SQL.
+3. Comprobar el estado de la base, los errores de conexión y las reglas de red de Azure.
+4. Verificar si el error se repite al conectar directamente desde una herramienta autorizada, sin pasar por la pantalla de inicio de sesión de la aplicación.
+5. Registrar solo el tipo de error y datos técnicos que no revelen contraseñas, identificadores personales ni información de clientes.
+
+Una interrupción temporal, una configuración de red o una pausa/reanudación del servicio **son posibilidades para investigar, no causas confirmadas**.
+
+## 8. ¿Cómo protegemos los datos y cómo se recuperan?
+
+Azure SQL Database realiza **copias de seguridad automáticas** de los datos. Estas permiten intentar recuperar una base al estado que tenía en un momento anterior.
+
+### Lo que vimos en Azure Portal el 16/11/2026
+
+Abrimos **`eop-db-dev` → Restaurar**, sin confirmar ni ejecutar ninguna restauración. El formulario mostró:
+
+| Elemento | Configuración observada |
+|---|---|
+| Base original | `eop-db-dev` |
+| Tipo de restauración | **A un momento dado** (*Point-in-Time Restore*, PITR) |
+| Punto de restauración más antiguo disponible | **10/11/2026, 16:12 UTC** |
+| Destino propuesto | **Crear otra base de datos con otro nombre**, en `eop-sql-dev` |
+| Recursos propuestos para la base restaurada | Uso general, Serverless, Gen5, 2 núcleos virtuales, máximo 32 GB |
+| Redundancia de copias de seguridad seleccionada en el formulario | **Local (LRS)** |
+| Clave de cifrado a nivel de base de datos | Se muestra «No configurado»; **no significa que el cifrado de datos esté desactivado** |
+| Resultado de la operación | **No ejecutada**; solo se revisó la pantalla |
+
+**¿Qué significa restaurar a un momento dado?** Si cometemos un error y necesitamos recuperar los datos anteriores, podemos elegir una fecha y una hora **dentro de los puntos que Azure permita recuperar**. La restauración propuesta crea una base **distinta** de la original, para no sobrescribirla directamente.
+
+**¿Qué significa redundancia local (LRS)?** Las copias se conservan con redundancia dentro de la misma región. Eso no equivale a tener copias independientes en otras regiones. La oferta gratuita con pausa al alcanzar el límite solo admite este tipo de redundancia para sus backups.
+
+**Importante sobre el plan gratuito:** Microsoft señala que la retención PITR de esta oferta está **limitada a 7 días** y que **no se puede restaurar una base existente directamente a una nueva base con la oferta gratuita**. Por lo tanto, una restauración de prueba podría requerir un destino **facturable**. Antes de realizarla habrá que revisar el precio, el destino y la autorización del equipo. **No se creó ninguna base nueva durante S2-T36.** La fecha más antigua mostrada por el formulario confirma una ventana recuperable concreta, **no certifica por sí sola la política de retención configurada**.
+
+### Política de retención confirmada en el portal (16/11/2026)
+
+Después de revisar el formulario de restauración, entramos a **`eop-sql-dev` → Copias de seguridad → Directivas de retención** y comprobamos los valores aplicados a `eop-db-dev`:
+
+| Opción | Valor que aparece en el portal |
+|---|---|
+| **PITR (restauración a un momento dado)** | **7 días** |
+| Inmutabilidad PITR | **7 días (predeterminado)** |
+| Frecuencia de copia de seguridad indicada | **12 horas** |
+| Retención a largo plazo (LTR) semanal, mensual y anual | **No configurada** (guiones en las tres columnas) |
+| Inmutabilidad basada en tiempo | **Deshabilitada** |
+
+**¿Qué significa?** Se puede solicitar una recuperación a una fecha y hora anteriores dentro de la ventana de restauración de siete días que permita Azure. **La política de retención de siete días quedó confirmada** para esta base; no tenemos que inferirla de la fecha más antigua visible. No es lo mismo que haber probado una restauración.
+
+**RNF-007:** el valor configurado coincide con los **7 días** previstos para las copias administradas. La captura corresponde al entorno `eop-db-dev`; antes de producción habrá que verificar la política del entorno que efectivamente se despliegue.
+
+### Qué falta comprobar
+
+Según **RNF-008**, antes de la puesta en producción corresponde **restaurar de manera controlada a una base de prueba separada**, sin sobrescribir datos existentes. Luego debe repetirse una comprobación al menos cada seis meses. **Esa prueba todavía está pendiente** y no debe confundirse con haber abierto el formulario de restauración.
+
+La aplicación también debe usar conexiones seguras, mantener las credenciales fuera del código y controlar los permisos. Las copias de SQL protegen los datos estructurados; los documentos de [Azure Blob Storage](./azure-blob-storage.md) tienen protecciones y procedimientos distintos.
+
+Fuentes de Microsoft: [preguntas frecuentes de Azure SQL gratuito](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer-faq) y [configuración de copias de seguridad automáticas](https://learn.microsoft.com/en-us/azure/azure-sql/database/automated-backups-change-settings).
+
+## 9. Qué nos falta completar con Azure Portal
+
+- **Identificados el 16/11/2026:** suscripción, grupo, servidor, base, región, oferta gratuita, capacidad de procesamiento, tamaño máximo y política de no facturar excesos. Confirmar los ajustes solo si cambia el plan.
+- **Comprobado el 16/11/2026:** acceso público limitado a redes seleccionadas, cuatro reglas IP, ninguna regla de red virtual visible y opción de acceso general a servicios Azure deshabilitada. **Comprobado:** no hay puntos de conexión privados registrados. **Confirmado en el servidor:** TLS mínimo 1.2, directiva predeterminada y sin restricciones adicionales de salida. **No verificable por ahora:** el método de autenticación y los parámetros de certificado de la antigua cadena de Azure, ya que el equipo volvió a usar LocalDB. Se comprobarán cuando se vuelva a configurar la conexión a Azure.
+- **Confirmado:** oferta gratuita Serverless y base pausada al consultar Información general; Microsoft documenta pausa por inactividad a los 15 minutos. **Falta comprobar la causa concreta** de los errores intermitentes mediante registros y una prueba de conexión.
+- Registrar el resultado de una **prueba nueva de conexión y consulta**, sin incluir datos sensibles.
+- **Revisado el formulario de restauración** el 16/11/2026: PITR disponible, punto más antiguo visible y redundancia local seleccionada; no se creó ninguna base. **Confirmado:** la política PITR de `eop-db-dev` es de **7 días**. **Pendiente:** antes de producción, autorizar y realizar una prueba real de recuperación considerando los costos; comprobar también la política del futuro entorno productivo.
+- Cuando se despliegue Azure App Service, comprobar su acceso real a la base. El acceso desde nuestra computadora no alcanza para darlo por validado.
+
+**Documentos relacionados:** [reglas técnicas del proyecto](../AGENTS.md), [requerimientos no funcionales](./requerimientos-no-funcionales.md), [revisión de integraciones S2-T31](./revision-integracion-tecnica.md), [Azure Blob Storage](./azure-blob-storage.md) e [integración continua](./integracion-continua.md).
+
+**Mantenimiento:** si se cambia la configuración o se realiza una nueva prueba, actualizar esta guía con lo comprobado mediante una rama y un Pull Request.

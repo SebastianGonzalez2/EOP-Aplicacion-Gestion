@@ -408,7 +408,6 @@ La planificación y la implementación deben basarse en los requerimientos (RF/R
 
 ## Pendiente de definir
 
-Se completa a medida que avance el sprint 1:
-
 - Convención de nombres de las pruebas
-- Configuración de GitHub Actions
+
+La integración continua ya está implementada en [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) y se explica en [`docs/integracion-continua.md`](./docs/integracion-continua.md) (S2-T36).
