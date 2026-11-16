@@ -120,6 +120,8 @@ namespace EOP.Gestion.Tests.Integracion
             var material = Assert.Single(resultado);
 
             Assert.Equal("Cable de cobre", material.Nombre);
+            Assert.Single(material.Referencias);
+            Assert.Equal("Fivisa", material.Referencias[0].ProveedorNombre);
         }
 
 
@@ -135,12 +137,12 @@ namespace EOP.Gestion.Tests.Integracion
             var resultado = await consulta.EjecutarAsync(
                 "Cable de cobre",
                 null,
-                datos.FivisaId);
+                null);
 
             var material = Assert.Single(resultado);
 
-            // Aunque filtramos por Fivisa, el material debe conservar
-            // todas sus referencias de precios registradas.
+            // Sin filtrar por proveedor, mostramos todas las
+            // referencias de precios que tiene el material.
             Assert.Equal(2, material.Referencias.Count);
 
             var referenciaFivisa = Assert.Single(
@@ -162,6 +164,39 @@ namespace EOP.Gestion.Tests.Integracion
             Assert.Equal(
                 new DateTime(2026, 11, 2, 11, 0, 0),
                 referenciaBarraca.FechaUltimaActualizacion);
+        }
+
+
+        [Fact]
+        public async Task FiltrarPorProveedor_MuestraSoloLaReferenciaDelProveedorSeleccionado()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+
+            var consulta = new ConsultarMateriales(contexto);
+
+            // Buscamos el material filtrando por Fivisa.
+            var resultado = await consulta.EjecutarAsync(
+                "Cable de cobre",
+                null,
+                datos.FivisaId);
+
+            // Debe encontrar el material.
+            var material = Assert.Single(resultado);
+
+            Assert.Equal("Cable de cobre", material.Nombre);
+
+            // Debe mostrar solamente la referencia de Fivisa.
+            var referencia = Assert.Single(material.Referencias);
+
+            Assert.Equal("Fivisa", referencia.ProveedorNombre);
+            Assert.Equal(150m, referencia.PrecioUnitario);
+            Assert.Equal(Moneda.UYU, referencia.Moneda);
+
+            Assert.Equal(
+                new DateTime(2026, 11, 1, 10, 0, 0),
+                referencia.FechaUltimaActualizacion);
         }
 
 
@@ -191,7 +226,8 @@ namespace EOP.Gestion.Tests.Integracion
             using var conexion = datos.Conexion;
             using var contexto = datos.Contexto;
 
-            var resultado = await new ConsultarMateriales(contexto).EjecutarAsync("Cable de cobre", null, null);
+            var resultado = await new ConsultarMateriales(contexto)
+                .EjecutarAsync("Cable de cobre", null, null);
 
             var material = Assert.Single(resultado);
 
@@ -208,7 +244,12 @@ namespace EOP.Gestion.Tests.Integracion
             using var conexion = datos.Conexion;
             using var contexto = datos.Contexto;
 
-            contexto.Materiales.Add(new Material { Nombre = "Cinta aisladora", Unidad = UnidadMedida.Unidad });
+            contexto.Materiales.Add(new Material
+            {
+                Nombre = "Cinta aisladora",
+                Unidad = UnidadMedida.Unidad
+            });
+
             await contexto.SaveChangesAsync();
 
             var consulta = new ConsultarMateriales(contexto);
@@ -217,7 +258,9 @@ namespace EOP.Gestion.Tests.Integracion
             var material = Assert.Single(sinFiltros);
             Assert.Empty(material.Referencias);
 
-            var porProveedor = await consulta.EjecutarAsync("Cinta", null, datos.FivisaId);
+            var porProveedor = await consulta.EjecutarAsync(
+                "Cinta", null, datos.FivisaId);
+
             Assert.Empty(porProveedor);
         }
 
@@ -229,7 +272,8 @@ namespace EOP.Gestion.Tests.Integracion
             using var conexion = datos.Conexion;
             using var contexto = datos.Contexto;
 
-            var proveedores = await new ConsultarProveedoresParaSeleccion(contexto).EjecutarAsync();
+            var proveedores = await new ConsultarProveedoresParaSeleccion(contexto)
+                .EjecutarAsync();
 
             Assert.Equal(
                 new[] { "Barraca Central", "Fivisa" },
