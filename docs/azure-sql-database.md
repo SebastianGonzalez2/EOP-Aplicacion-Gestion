@@ -54,6 +54,15 @@ Estos son los datos que observamos en las pantallas de **Información general** 
 | Nombre de la base de datos | **`eop-db-dev`** |
 | Región (ubicación del servicio) | **Brazil South** |
 | Plan o capacidad contratada | **Gratis, uso general, sin servidor (Serverless), serie Gen5, 2 núcleos virtuales** |
+| Oferta gratuita aplicada | **Sí (Free database offer: Applied)** |
+| Límite máximo de CPU | **2 núcleos virtuales (vCores)** |
+| Mínimo configurado de CPU | **0,5 núcleos virtuales (vCores)** |
+| Tamaño máximo configurado para datos | **32 GB** |
+| Consumo por encima del límite gratuito | **Deshabilitado (Overage billing: Disabled)** |
+| Acción al agotar la oferta gratuita mensual | **Pausar hasta el mes siguiente**, sin facturación adicional |
+| Cupo mensual de procesamiento | **100.000 segundos de núcleo virtual gratuitos**, según Microsoft |
+| Saldo de procesamiento observado en Información general | **92.689 segundos de núcleo virtual restantes** en la captura; valor variable |
+| Pausa automática por inactividad en esta oferta | **15 minutos**, según la documentación vigente de Microsoft; no se configura desde esta pantalla |
 | Estado de la base al consultar el portal | **Pausada (Paused)** |
 | Administrador de Microsoft Entra del servidor | **Configurado**, sin documentar el identificador personal |
 | Tipo de autenticación usado por la conexión de la aplicación | **Por comprobar**; la existencia del administrador Entra no confirma qué método usa `EopDb` |
@@ -61,7 +70,18 @@ Estos son los datos que observamos en las pantallas de **Información general** 
 | Punto de restauración más antiguo indicado en la pantalla | **10/11/2026, 16:12 UTC**, dato puntual de esa captura |
 | Política efectiva de retención de copias de seguridad | **Por comprobar**; el punto de restauración mostrado no prueba por sí solo una política fija de 7 días |
 
-**¿Qué significa «Pausada»?** La modalidad Serverless puede suspender la base si tiene habilitada la pausa automática. Volver a activarla al recibir una conexión puede demorar; es **una hipótesis** para investigar los errores intermitentes, no una causa confirmada. Debemos revisar la sección **Configuración → Proceso y almacenamiento** antes de sacar conclusiones.
+### ¿Por qué aparece «Pausada»?
+
+Hay **dos pausas distintas**, y es importante no confundirlas:
+
+1. **Pausa normal por inactividad.** Microsoft indica que las bases de la oferta gratuita se suspenden después de **15 minutos sin actividad**. Al recibir una nueva conexión, deben reactivarse. Esa reanudación puede demorar. Esta es una **explicación posible** para algunos errores al primer intento de conexión, pero **no tenemos pruebas de que sea la causa exacta** de los errores observados en EOP.
+2. **Pausa por agotar el límite gratuito.** En «Proceso y almacenamiento» vimos seleccionada la opción **“Auto-pause the database until next month”**. Esta opción significa que **si se agota la cantidad mensual gratuita** de procesamiento o almacenamiento, la base deja de estar accesible hasta que se renueve el cupo el mes siguiente. Está deshabilitada la opción de seguir consumiendo recursos con cargos adicionales.
+
+En la captura anterior había **92.689 segundos de núcleo virtual restantes**. Eso indica que **no estaba agotado el cupo de procesamiento** al momento de esa captura. No sabemos por el estado «Paused» solamente si la base estaba pausada por inactividad o por otra condición: para determinarlo necesitamos una prueba de conexión y/o los eventos de Azure.
+
+**¿Qué son los vCores?** Son una forma de medir la capacidad de procesamiento asignada a SQL. Tener un máximo de 2 no significa que la base utilice 2 continuamente; el servicio ajusta su capacidad entre el mínimo y máximo configurados.
+
+**Fuentes de Microsoft:** [oferta gratuita y pausa por inactividad](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-tier) y [preguntas frecuentes sobre límites y recuperación](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-tier-faq). Estas explicaciones son generales del producto; los valores de esta base se tomaron de las pantallas del portal.
 
 **Cómo encontrarlo:** entrar a [Azure Portal](https://portal.azure.com), buscar **SQL databases**, seleccionar la base de EOP y abrir **Overview / Información general**. Desde allí se puede identificar el servidor asociado y consultar otras opciones.
 
@@ -159,9 +179,9 @@ La aplicación también deberá usar conexiones seguras, mantener las credencial
 
 ## 9. Qué nos falta completar con Azure Portal
 
-- **Ya identificados el 16/11/2026:** suscripción, grupo, servidor, base, región y plan. Falta comprobar el detalle de cómputo y pausa automática en **Proceso y almacenamiento**.
+- **Identificados el 16/11/2026:** suscripción, grupo, servidor, base, región, oferta gratuita, capacidad de procesamiento, tamaño máximo y política de no facturar excesos. Confirmar los ajustes solo si cambia el plan.
 - Comprobar los ajustes de **red, autenticación y conexión cifrada**.
-- **Confirmado el plan Serverless y la base pausada** en Información general. Falta verificar los ajustes exactos de pausa automática y reanudación, que podrían afectar la disponibilidad.
+- **Confirmado:** oferta gratuita Serverless y base pausada al consultar Información general; Microsoft documenta pausa por inactividad a los 15 minutos. **Falta comprobar la causa concreta** de los errores intermitentes mediante registros y una prueba de conexión.
 - Registrar el resultado de una **prueba nueva de conexión y consulta**, sin incluir datos sensibles.
 - Comprobar el **respaldo** configurado y, cuando corresponda antes de producción, registrar la prueba de restauración.
 - Cuando se despliegue Azure App Service, comprobar su acceso real a la base. El acceso desde nuestra computadora no alcanza para darlo por validado.
