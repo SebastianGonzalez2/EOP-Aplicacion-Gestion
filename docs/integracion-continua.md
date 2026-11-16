@@ -83,6 +83,17 @@ En ese SQL Server de pruebas se usa una contraseña. GitHub la guarda como un **
 
 En la configuración del contenedor de pruebas aparece `TrustServerCertificate=True`: se utiliza allí para la conexión cifrada al SQL Server temporal. **No debemos copiar esta excepción a la configuración de producción de Azure SQL**, donde se debe validar el certificado.
 
+### ¿Cómo se prepara esta configuración en el repositorio?
+
+En nuestro caso ya está creada, pero si alguien del equipo necesita entender **cómo se dejó funcionando**, estos son sus componentes:
+
+1. El archivo `.github/workflows/ci.yml` contiene el nombre, los eventos que lo activan y los pasos que debe ejecutar GitHub. Por eso no hace falta iniciar manualmente cada compilación.
+2. En **Settings → Secrets and variables → Actions** se configura el secreto `EOP_CI_SQLSERVER_PASSWORD`, sin escribir su contraseña dentro del archivo. Desde esa pantalla se puede comprobar que existe.
+3. El workflow usa ese secreto para iniciar la base SQL Server de pruebas, comprueba que esté disponible y después ejecuta `dotnet test`.
+4. Al abrir un PR hacia `main`, revisamos que aparezca una ejecución en **Actions** y comprobamos el resultado.
+
+La existencia del YAML y las ejecuciones exitosas están verificadas. **La política exacta de permisos y protección de la rama en la configuración de GitHub sigue pendiente de comprobar**; no hay que afirmar que el repositorio impide automáticamente todos los merges fallidos.
+
 ## 5. ¿Cómo sabemos que está funcionando?
 
 Además de revisar el archivo, se comprobó una **ejecución real** en GitHub:
