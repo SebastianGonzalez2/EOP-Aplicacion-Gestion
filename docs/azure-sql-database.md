@@ -213,9 +213,23 @@ Abrimos **`eop-db-dev` → Restaurar**, sin confirmar ni ejecutar ninguna restau
 
 **Importante sobre el plan gratuito:** Microsoft señala que la retención PITR de esta oferta está **limitada a 7 días** y que **no se puede restaurar una base existente directamente a una nueva base con la oferta gratuita**. Por lo tanto, una restauración de prueba podría requerir un destino **facturable**. Antes de realizarla habrá que revisar el precio, el destino y la autorización del equipo. **No se creó ninguna base nueva durante S2-T36.** La fecha más antigua mostrada por el formulario confirma una ventana recuperable concreta, **no certifica por sí sola la política de retención configurada**.
 
-### Qué falta comprobar
+### Política de retención confirmada en el portal (16/11/2026)
 
-Según **RNF-007**, el objetivo aprobado para producción es una retención inicial de **7 días**, dentro de lo permitido por el plan. Para verificar el valor configurado, ir al **servidor `eop-sql-dev` → Backups / Copias de seguridad → Retention policies / Políticas de retención**, seleccionar `eop-db-dev` y **leer** la política de restauración a un momento dado, sin modificarla.
+Después de revisar el formulario de restauración, entramos a **`eop-sql-dev` → Copias de seguridad → Directivas de retención** y comprobamos los valores aplicados a `eop-db-dev`:
+
+| Opción | Valor que aparece en el portal |
+|---|---|
+| **PITR (restauración a un momento dado)** | **7 días** |
+| Inmutabilidad PITR | **7 días (predeterminado)** |
+| Frecuencia de copia de seguridad indicada | **12 horas** |
+| Retención a largo plazo (LTR) semanal, mensual y anual | **No configurada** (guiones en las tres columnas) |
+| Inmutabilidad basada en tiempo | **Deshabilitada** |
+
+**¿Qué significa?** Se puede solicitar una recuperación a una fecha y hora anteriores dentro de la ventana de restauración de siete días que permita Azure. **La política de retención de siete días quedó confirmada** para esta base; no tenemos que inferirla de la fecha más antigua visible. No es lo mismo que haber probado una restauración.
+
+**RNF-007:** el valor configurado coincide con los **7 días** previstos para las copias administradas. La captura corresponde al entorno `eop-db-dev`; antes de producción habrá que verificar la política del entorno que efectivamente se despliegue.
+
+### Qué falta comprobar
 
 Según **RNF-008**, antes de la puesta en producción corresponde **restaurar de manera controlada a una base de prueba separada**, sin sobrescribir datos existentes. Luego debe repetirse una comprobación al menos cada seis meses. **Esa prueba todavía está pendiente** y no debe confundirse con haber abierto el formulario de restauración.
 
@@ -229,7 +243,7 @@ Fuentes de Microsoft: [preguntas frecuentes de Azure SQL gratuito](https://learn
 - **Comprobado el 16/11/2026:** acceso público limitado a redes seleccionadas, cuatro reglas IP, ninguna regla de red virtual visible y opción de acceso general a servicios Azure deshabilitada. **Comprobado:** no hay puntos de conexión privados registrados. **Pendiente:** autenticación efectiva de la conexión y cifrado.
 - **Confirmado:** oferta gratuita Serverless y base pausada al consultar Información general; Microsoft documenta pausa por inactividad a los 15 minutos. **Falta comprobar la causa concreta** de los errores intermitentes mediante registros y una prueba de conexión.
 - Registrar el resultado de una **prueba nueva de conexión y consulta**, sin incluir datos sensibles.
-- **Revisado el formulario de restauración** el 16/11/2026: PITR disponible, punto más antiguo visible y redundancia local seleccionada; no se creó ninguna base. **Pendiente:** leer la política de retención efectiva en el servidor y, antes de producción, autorizar y realizar una prueba real de recuperación considerando los costos.
+- **Revisado el formulario de restauración** el 16/11/2026: PITR disponible, punto más antiguo visible y redundancia local seleccionada; no se creó ninguna base. **Confirmado:** la política PITR de `eop-db-dev` es de **7 días**. **Pendiente:** antes de producción, autorizar y realizar una prueba real de recuperación considerando los costos; comprobar también la política del futuro entorno productivo.
 - Cuando se despliegue Azure App Service, comprobar su acceso real a la base. El acceso desde nuestra computadora no alcanza para darlo por validado.
 
 **Documentos relacionados:** [reglas técnicas del proyecto](../AGENTS.md), [requerimientos no funcionales](./requerimientos-no-funcionales.md), [revisión de integraciones S2-T31](./revision-integracion-tecnica.md), [Azure Blob Storage](./azure-blob-storage.md) e [integración continua](./integracion-continua.md).
