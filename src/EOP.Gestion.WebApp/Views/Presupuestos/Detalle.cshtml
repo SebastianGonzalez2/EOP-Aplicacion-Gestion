@@ -1,0 +1,166 @@
+﻿@using EOP.Gestion.Core.Comun
+@using EOP.Gestion.Core.Entidades.Presupuestos
+@model EOP.Gestion.Core.DTOs.Presupuestos.PresupuestoDetalleDto
+
+@{
+    ViewData["Title"] = "Detalle del presupuesto";
+
+    // Preparamos el nombre y el estilo del estado
+    // para mostrarlo correctamente en la pantalla.
+    string nombreEstado;
+    string claseEstado;
+
+    switch (Model.Estado)
+    {
+        case EstadoPresupuesto.Borrador:
+            nombreEstado = "Borrador";
+            claseEstado = "estado-neutro";
+            break;
+
+        case EstadoPresupuesto.ParaRevisionInterna:
+            nombreEstado = "Para revisión interna";
+            claseEstado = "estado-atencion";
+            break;
+
+        case EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente:
+            nombreEstado = "Enviado / pendiente de respuesta del cliente";
+            claseEstado = "estado-atencion";
+            break;
+
+        case EstadoPresupuesto.Aprobado:
+            nombreEstado = "Aprobado";
+            claseEstado = "estado-exito";
+            break;
+
+        case EstadoPresupuesto.Rechazado:
+            nombreEstado = "Rechazado";
+            claseEstado = "estado-negativo";
+            break;
+
+        case EstadoPresupuesto.SolicitudDeModificacionDelCliente:
+            nombreEstado = "Solicitud de modificación del cliente";
+            claseEstado = "estado-neutro";
+            break;
+
+        case EstadoPresupuesto.Vencido:
+            nombreEstado = "Vencido";
+            claseEstado = "estado-cerrado";
+            break;
+
+        case EstadoPresupuesto.Cancelado:
+            nombreEstado = "Cancelado";
+            claseEstado = "estado-negativo";
+            break;
+
+        default:
+            nombreEstado = "Estado desconocido";
+            claseEstado = "estado-neutro";
+            break;
+    }
+}
+
+@* Pantalla de consulta de un presupuesto (US-001).
+   Mostramos la información guardada sin modificarla. *@
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            <a asp-controller="Presupuestos" asp-action="Index">
+                Presupuestos
+            </a>
+        </li>
+
+        <li class="breadcrumb-item active" aria-current="page">
+            Detalle del presupuesto
+        </li>
+    </ol>
+</nav>
+
+<div class="encabezado">
+    <div>
+        <h1>@Model.NombreProyecto</h1>
+        <p>Código: @Model.Codigo</p>
+    </div>
+
+    <span class="estado @claseEstado fs-6 px-3 py-2">
+        @nombreEstado
+    </span>
+</div>
+
+<section class="panel" aria-label="Información del presupuesto">
+    <div class="panel-cuerpo">
+
+        <h2 class="h5 mb-4">Información general</h2>
+
+        <dl class="row mb-0">
+
+            <dt class="col-sm-4 mb-2">
+                Código del presupuesto
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                @Model.Codigo
+            </dd>
+
+            <dt class="col-sm-4 mb-2">
+                Nombre del proyecto
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                @Model.NombreProyecto
+            </dd>
+
+            <dt class="col-sm-4 mb-2">
+                Cliente
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                @Model.NombreCliente
+            </dd>
+
+            <dt class="col-sm-4 mb-2">
+                Tipo de proyecto
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                @Model.NombreTipoProyecto
+            </dd>
+
+            <dt class="col-sm-4 mb-2">
+                Responsable
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                @Model.NombreResponsable
+            </dd>
+
+            <dt class="col-sm-4 mb-2">
+                Fecha de creación
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                @ZonaHorariaUruguay.ConvertirUtcALocal(Model.FechaCreacion).ToString("dd/MM/yyyy")
+            </dd>
+
+            <dt class="col-sm-4 mb-2">
+                Plazo de vigencia
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                @Model.PlazoVigenciaDias días
+            </dd>
+
+            <dt class="col-sm-4 mb-2">
+                Estado actual
+            </dt>
+            <dd class="col-sm-8 mb-3">
+                <span class="estado @claseEstado">
+                    @nombreEstado
+                </span>
+            </dd>
+
+        </dl>
+    </div>
+
+    <div class="panel-pie">
+        <a asp-controller="Presupuestos"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>
+            Volver al listado
+        </a>
+    </div>
+</section>

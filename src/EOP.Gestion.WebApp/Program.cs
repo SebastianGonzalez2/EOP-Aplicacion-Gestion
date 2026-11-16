@@ -100,6 +100,10 @@ builder.Services.AddScoped<ConsultarUsuarios>();
 // existentes para mostrarlos en el listado.
 builder.Services.AddScoped<ConsultarPresupuestos>();
 
+// Registramos la consulta que obtiene la información
+// de un presupuesto seleccionado.
+builder.Services.AddScoped<ConsultarPresupuestoDetalle>();
+
 // ================================
 // AUTENTICACIÓN CON MICROSOFT ENTRA ID
 // ================================
