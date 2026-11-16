@@ -24,6 +24,7 @@
         <p>Ingresá los datos básicos del nuevo presupuesto.</p>
     </div>
 </div>
+
 @* Mostramos el mensaje de éxito después de guardar el presupuesto. *@
 <partial name="_Mensajes" />
 
@@ -180,4 +181,17 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        // Personalizamos los mensajes de validación del formulario.
+        // Así evitamos que jQuery muestre mensajes en inglés.
+        if (window.jQuery && $.validator) {
+            $.extend($.validator.messages, {
+                min: $.validator.format("El valor debe ser mayor o igual a {0}."),
+                max: $.validator.format("El valor debe ser menor o igual a {0}."),
+                number: "Ingresá un número válido.",
+                step: $.validator.format("Ingresá un múltiplo válido de {0}.")
+            });
+        }
+    </script>
 }
