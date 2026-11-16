@@ -12,6 +12,8 @@ regeneran a partir de él cuando cambia.
 | [`user-stories.md`](./user-stories.md) | Las 76 US con criterios de aceptación; las excluidas llevan aviso |
 | [`alcance.md`](./alcance.md) | Funcionalidades incluidas y excluidas de la primera versión |
 | [`decisiones-tecnicas.md`](./decisiones-tecnicas.md) | Decisiones de diseño con su motivo y alternativas descartadas |
+| [`azure-sql-database.md`](./azure-sql-database.md) | Configuración, conexión, migraciones, diagnóstico y verificación pendiente de Azure SQL (S2-T36) |
+| [`integracion-continua.md`](./integracion-continua.md) | Flujo de GitHub Actions, secreto de pruebas, evidencia de ejecución y procedimiento de verificación (S2-T36) |
 | [`azure-blob-storage.md`](./azure-blob-storage.md) | Configuración de almacenamiento privado Azure Blob Storage, verificaciones, servicio de la aplicación y pendientes (S2-T02, S2-T03) |
 | [`revision-integracion-tecnica.md`](./revision-integracion-tecnica.md) | Revisión de diseño de Azure SQL, Azure Blob Storage y GitHub Actions; evidencias, riesgos y pendientes (S2-T31) |
 | [`uso-de-ia.md`](./uso-de-ia.md) | Registro de uso de IA generativa |
