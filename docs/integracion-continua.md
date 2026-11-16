@@ -1,111 +1,150 @@
-# Integración continua — GitHub Actions (S2-T36)
+# Integración continua en EOP — guía de GitHub Actions (S2-T36)
 
-**Fecha de documentación:** 16/11/2026.  
-**Tarea:** [S2-T36 — Documentar Azure e integración continua](https://trello.com/c/E4LOqFwO).  
-**Implementación previa:** [S2-T04 — Configurar integración continua](https://trello.com/c/M3ctKqUB) (tarjeta terminada).  
-**Fuente de verdad:** [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Si el workflow cambia, revisar este documento.
+**Fecha:** 16/11/2026. **Tarea:** [S2-T36](https://trello.com/c/E4LOqFwO).  
+**Objetivo:** explicar qué hace la integración continua, cómo la configuramos en EOP y cómo comprobar que funciona cuando trabajamos con ramas y Pull Requests.
 
-## 1. Qué hace y qué no hace
+## 1. ¿Qué significa «integración continua»?
 
-El workflow **Integración continua EOP** valida automáticamente el código de la aplicación `.NET 10` cuando se propone o integra un cambio. Ejecuta la compilación y las pruebas automatizadas usando un **SQL Server temporal** que corre dentro de GitHub Actions, para no depender de una base de desarrollo o de producción.
+Cuando desarrollamos una aplicación entre dos personas, cada uno puede modificar archivos distintos o incluso el mismo archivo. Al juntar los cambios, existe el riesgo de que algo deje de funcionar.
 
-**No hace despliegue continuo:** no publica la WebApp en Azure App Service, no actualiza una Azure SQL Database real, no se conecta a Blob Storage y no ejecuta automáticamente las migraciones de producción. No confundir CI (compilar y probar) con CD (desplegar).
+La **integración continua** (también llamada **CI**, por *Continuous Integration*) nos ayuda a detectar algunos de esos problemas **antes de integrar los cambios a la rama principal**.
 
-La revisión de CI sirve como control técnico previo al merge, pero no sustituye la revisión del otro integrante del equipo ni las pruebas manuales que correspondan a cada historia de usuario.
+En EOP usamos **GitHub Actions**, una herramienta de GitHub que ejecuta pasos automáticamente sobre nuestro código. Por ejemplo, comprueba si la aplicación compila y si pasan las pruebas.
 
-## 2. Activación, permisos y entorno
+**Ejemplo de EOP:** terminamos la tarea de registrar un material y abrimos un Pull Request (PR) para agregarla a `main`. GitHub Actions descarga el código de ese PR, intenta compilarlo y ejecuta las pruebas. Si alguna falla, podemos revisarla antes de integrar los cambios.
 
-| Propiedad | Valor declarado en `ci.yml` |
+> **Importante:** que las pruebas den bien es una señal positiva, pero no garantiza que toda la aplicación funcione perfectamente. Por eso también revisamos el código y hacemos las pruebas manuales necesarias.
+
+### Algunas palabras que vamos a encontrar
+
+| Término | Qué significa |
 |---|---|
-| Nombre | `Integración continua EOP` |
-| Push | Cuando se actualiza `main` |
-| Pull request | Cuando el PR tiene como destino `main` |
-| Ejecución manual | Disponible mediante `workflow_dispatch` en la pestaña Actions |
-| Trabajo (job) | `compilar-y-probar` |
-| Ejecutador | `ubuntu-24.04` |
-| Permiso del workflow | `contents: read` |
-| SDK | `.NET 10` (`10.0.x`) |
-| Base de pruebas | Contenedor `mcr.microsoft.com/mssql/server:2022-latest`, puerto 1433, edición Developer |
+| **Repositorio** | El lugar de GitHub donde guardamos el código y su historial. |
+| **Rama (branch)** | Una versión de trabajo del código; cada tarea tiene su propia rama. |
+| **`main`** | La rama principal del proyecto, donde integramos los cambios aprobados. |
+| **Pull Request (PR)** | La solicitud para revisar los cambios de una rama antes de unirlos a `main`. |
+| **Workflow** | La lista de pasos automáticos que GitHub tiene que ejecutar. |
+| **Job** | Un trabajo dentro del workflow; nuestro trabajo se llama `compilar-y-probar`. |
+| **Runner** | La computadora temporal que GitHub prepara para ejecutar los pasos. |
+| **Secret** | Un valor privado, como una contraseña, que GitHub guarda sin ponerlo dentro del código. |
+| **Check** | El resultado que informa si una comprobación automática terminó bien o mal. |
 
-Un pull request a `main` se valida en su versión propuesta. El push a `main` vuelve a ejecutar el flujo sobre el código integrado.
+## 2. ¿Qué configuramos en nuestro proyecto?
 
-## 3. Configuración del secreto
+La implementación está guardada en el archivo **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)**. El formato **YAML** es simplemente una manera de escribir instrucciones de configuración; no es una pantalla de la aplicación.
 
-En la configuración de **GitHub Actions Secrets and variables** del repositorio se espera el secreto de repositorio:
+La tarea [S2-T04 — Configurar integración continua](https://trello.com/c/M3ctKqUB) figura como terminada en Trello. El archivo existente define lo siguiente:
 
-- `EOP_CI_SQLSERVER_PASSWORD`: contraseña que necesita el usuario `sa` del SQL Server **temporal de la CI**. El workflow la proporciona al servicio `sqlserver`, al chequeo de disponibilidad y a las pruebas.
-
-La contraseña no aparece en el YAML; GitHub la inyecta durante el trabajo. Debe cumplir los requisitos de complejidad de SQL Server. **No pegar su valor en commits, conversaciones, capturas, documentación ni logs.** La CI no necesita ni debe reutilizar la contraseña de Azure SQL Database real.
-
-No se puede consultar el valor del secreto desde esta documentación. Que una ejecución haya funcionado demuestra que la configuración necesaria estuvo disponible **para esa ejecución**, pero no certifica que el secreto mantenga el mismo estado en el futuro.
-
-Para revisar su **existencia sin mostrar el valor**: repositorio en GitHub → **Settings** → **Secrets and variables** → **Actions**. Si no existe, crearlo con el nombre exacto y un valor fuerte. Evitar intentar diagnosticar errores imprimiendo el secreto.
-
-## 4. Etapas del workflow
-
-1. **Descargar código:** `actions/checkout@v7`.
-2. **Instalar .NET 10:** `actions/setup-dotnet@v6`, versión `10.0.x`.
-3. **Restaurar:** `dotnet restore EOP.Gestion.slnx`.
-4. **Compilar:** `dotnet build EOP.Gestion.slnx --configuration Release --no-restore`.
-5. **Esperar SQL Server:** el job consulta `SELECT 1` usando `sqlcmd` dentro del contenedor; espera hasta 40 intentos con intervalos de tres segundos y falla si la base no responde.
-6. **Probar:** `dotnet test EOP.Gestion.slnx --configuration Release --no-build --no-restore --logger "console;verbosity=normal"` con `EOP_PRUEBAS_SQLSERVER` apuntando al SQL Server local del job.
-
-La cadena temporal de pruebas declara cifrado `Encrypt=True` y `TrustServerCertificate=True`. Este último valor es **solo para el contenedor de pruebas dentro de GitHub Actions**; no tomarlo como ejemplo de configuración de Azure SQL de producción.
-
-Las pruebas que dependen de SQL Server real pueden ejecutarse en CI sin abrir Azure SQL a Internet. Otras pruebas usan bases aisladas/simuladas según su diseño. El resultado final depende de que todas las pruebas incluidas concluyan correctamente.
-
-## 5. Evidencia de ejecución verificada
-
-Se consultó el registro real de GitHub Actions:
-
-| Dato | Resultado |
+| Configuración | Qué significa |
 |---|---|
-| Workflow | Integración continua EOP |
-| Fecha (UTC) | 15/11/2026 |
-| Ejecución | [Run #14 — PR #74](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/43768608926) |
+| Nombre: `Integración continua EOP` | Así aparece en la pestaña Actions de GitHub. |
+| Pull Request hacia `main` | Cuando abrimos o actualizamos un PR que propone cambios a la rama principal, GitHub ejecuta las comprobaciones. |
+| Push a `main` | Después de que se actualiza la rama principal, GitHub vuelve a comprobar ese código. |
+| `workflow_dispatch` | También podemos iniciar el workflow manualmente desde Actions. |
+| `ubuntu-24.04` | GitHub prepara una computadora temporal con Ubuntu (Linux). |
+| `.NET 10` | Es la versión de .NET que utiliza nuestro proyecto para compilar y hacer pruebas. |
+| `contents: read` | El workflow tiene permiso para leer el repositorio, no para modificarlo directamente. |
+
+**Esto es integración continua, no despliegue automático.** El workflow actual **no publica EOP en Azure App Service**, no actualiza la base de Azure SQL ni guarda documentos en Azure Blob Storage. Su función es **comprobar nuestro código**.
+
+## 3. ¿Qué hace GitHub Actions paso a paso?
+
+Cuando se inicia el workflow, GitHub prepara una computadora temporal y ejecuta estos pasos:
+
+1. **Descarga nuestro código.** Se utiliza `actions/checkout@v7`, que permite trabajar con los archivos del repositorio.
+2. **Instala .NET 10.** Se utiliza `actions/setup-dotnet@v6`, para que la computadora tenga lo necesario para compilar la aplicación.
+3. **Restaura las dependencias.** Son los paquetes y bibliotecas que nuestro proyecto necesita, por ejemplo para trabajar con ASP.NET Core y EF Core.
+4. **Compila la solución.** Es parecido a comprobar que el código se pueda construir en Visual Studio. Si hay un error de compilación, el trabajo falla.
+5. **Prepara una base SQL Server para las pruebas.** Se usa un contenedor con SQL Server 2022. Un **contenedor** es un entorno aislado que permite ejecutar ese servicio durante las pruebas. GitHub espera a que la base responda antes de continuar.
+6. **Ejecuta las pruebas automatizadas.** Usa `dotnet test`, que inicia las pruebas programadas en el proyecto. Si alguna termina mal, el resultado del workflow será de fallo.
+7. **Muestra el resultado en GitHub.** Podemos abrir la ejecución y ver qué paso funcionó o falló.
+
+En `ci.yml`, las instrucciones principales son:
+
+```bash
+dotnet restore EOP.Gestion.slnx
+dotnet build EOP.Gestion.slnx --configuration Release --no-restore
+dotnet test EOP.Gestion.slnx --configuration Release --no-build --no-restore --logger "console;verbosity=normal"
+```
+
+**Qué significan:** `restore` descarga las dependencias, `build` compila y `test` ejecuta las pruebas. Los parámetros adicionales evitan repetir trabajos que ya se completaron en los pasos anteriores.
+
+## 4. ¿Por qué GitHub prepara otra base SQL?
+
+Muchas pruebas necesitan guardar o consultar información. **No queremos que una prueba automática modifique los clientes o presupuestos de nuestra base real de Azure.**
+
+Por eso, el workflow utiliza un **SQL Server temporal para las pruebas** que se inicia en la computadora de GitHub y se descarta al terminar el trabajo. Las pruebas reciben su dirección mediante la variable `EOP_PRUEBAS_SQLSERVER`.
+
+Esto tiene dos ventajas: no se utilizan datos reales de EOP y las pruebas no dependen de que nuestro Azure SQL esté disponible.
+
+En ese SQL Server de pruebas se usa una contraseña. GitHub la guarda como un **secret** llamado `EOP_CI_SQLSERVER_PASSWORD`. El archivo `ci.yml` hace referencia a ese nombre, pero **no muestra la contraseña**.
+
+**Dónde comprobar que existe el secret:** repositorio → **Settings** → **Secrets and variables** → **Actions**. Allí se puede ver el nombre, no su contenido. Si fuera necesario configurar uno nuevo, debe tener una contraseña fuerte y cumplir las reglas de SQL Server. **No debe utilizarse la contraseña de Azure SQL real ni publicarse en Git.**
+
+En la configuración del contenedor de pruebas aparece `TrustServerCertificate=True`: se utiliza allí para la conexión cifrada al SQL Server temporal. **No debemos copiar esta excepción a la configuración de producción de Azure SQL**, donde se debe validar el certificado.
+
+## 5. ¿Cómo sabemos que está funcionando?
+
+Además de revisar el archivo, se comprobó una **ejecución real** en GitHub:
+
+| Dato | Evidencia |
+|---|---|
+| Fecha | 15/11/2026 |
+| Ejecución | [GitHub Actions — ejecución #14](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/43768608926) |
+| Pull Request | #74 |
 | Rama | `test/S2-T33-qa-materiales-precios` |
-| Commit | `fb1aeab516c5b88760f070a9bf9f2b08c45647ef` |
-| Evento | `pull_request` a `main` |
-| Resultado global | **success** |
-| Trabajo `compilar-y-probar` | **success** |
+| Resultado | **Correcto (success)** |
 
-El registro de jobs muestra como **success** la instalación de .NET, la restauración, la compilación, la espera de SQL Server y la ejecución de pruebas. Esto es una evidencia puntual y verificable de CI; **no demuestra ningún despliegue de producción ni estabilidad de Azure SQL real**.
+En esa ejecución terminaron correctamente las etapas de instalación, descarga de dependencias, compilación, preparación de SQL Server y pruebas automatizadas.
 
-## 6. Cómo verificar una tarea y su PR
+**Qué demuestra:** el workflow pudo completar esos controles para ese cambio concreto. **Qué no demuestra:** que Azure SQL de producción funciona, que EOP ya está desplegada o que no pueda existir ningún otro error.
 
-1. Crear o reutilizar la **rama de la tarea**, actualizada desde `main`, según [AGENTS.md](../AGENTS.md).
-2. Antes de abrir el PR, ejecutar localmente las comprobaciones pertinentes. La compilación general se puede reproducir con:
-   ```bash
-   dotnet restore EOP.Gestion.slnx
-   dotnet build EOP.Gestion.slnx --configuration Release --no-restore
-   ```
-   Para pruebas SQL Server locales, disponer de una instancia de pruebas y configurar **fuera del código** `EOP_PRUEBAS_SQLSERVER`, según el entorno utilizado. No apuntar la suite a una base productiva.
-3. Abrir un PR con destino `main`, explicando el cambio, la tarea, las pruebas realizadas y los riesgos o pendientes.
-4. En la página del PR abrir **Checks** o el enlace de **Actions** y comprobar que `compilar-y-probar` finaliza correctamente. Si falla, abrir el paso concreto y corregir la causa en la rama.
-5. Solicitar la revisión del otro integrante. **Integrar únicamente tras revisión, autorización y controles pertinentes**. El simple hecho de que exista un archivo YAML no equivale a un control completado.
-6. Para un historial: GitHub → **Actions** → **Integración continua EOP** → seleccionar la ejecución y consultar su evento, commit, logs y resultado. Usar este enlace en la evidencia del sprint.
+También se verificó una ejecución del PR de documentación S2-T36: [GitHub Actions — PR #75](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/43882013526), con resultado correcto para el commit inicial del PR. **Si hacemos nuevos commits, hay que comprobar las ejecuciones nuevas**, no dar por válido automáticamente el resultado anterior.
 
-**No se verificó aquí la configuración efectiva de protección de ramas o checks obligatorios.** El workflow existe y corre, pero no se debe afirmar que GitHub bloquea por sí mismo todo merge fallido sin revisar las reglas del repositorio.
+## 6. ¿Cómo lo usamos al terminar una tarea?
 
-## 7. Problemas habituales y diagnóstico
+Nuestro procedimiento es:
 
-| Síntoma | Qué revisar primero |
+1. Trabajamos en la **rama propia de la tarea**, no directamente en `main`.
+2. Comprobamos localmente que el código compile y probamos la funcionalidad desarrollada.
+3. Abrimos un **Pull Request** con destino `main`, indicando qué cambiamos y qué probamos.
+4. GitHub Actions ejecuta automáticamente el workflow. Entramos al PR y miramos la sección **Checks** para ver el resultado.
+5. Si una comprobación falla, abrimos la ejecución para saber en qué paso ocurrió y corregimos el problema en nuestra rama.
+6. El otro integrante revisa el PR. **Solo después de las pruebas, revisión y autorización correspondiente** se pueden integrar los cambios.
+
+Este proceso nos ayuda a evitar que un error de una tarea pase desapercibido al unir el código con el trabajo del compañero.
+
+**Aclaración:** verificamos que GitHub Actions se ejecuta, pero todavía no comprobamos si el repositorio tiene reglas configuradas para **bloquear automáticamente** un merge cuando las pruebas fallan. No debemos dar por existente esa protección sin revisarla.
+
+## 7. ¿Dónde vemos los resultados?
+
+1. Abrimos el repositorio de GitHub.
+2. Entramos a la pestaña **Actions**.
+3. Seleccionamos **Integración continua EOP**.
+4. Elegimos la ejecución que corresponde a nuestra rama o PR.
+5. Abrimos **compilar-y-probar** para revisar cada paso.
+
+Un resultado **verde** (`success`) indica que terminaron correctamente los pasos del workflow. Un resultado **rojo** (`failure`) indica que al menos un paso falló. Los detalles aparecen dentro del trabajo, donde podemos consultar qué salió mal.
+
+## 8. ¿Qué hacemos si falla?
+
+| Qué vemos | Qué revisamos |
 |---|---|
-| El job no inicia | Eventos `push`, `pull_request` y rama destino; estado de GitHub Actions y permisos |
-| SQL Server no inicia o no queda listo | Que exista el secreto `EOP_CI_SQLSERVER_PASSWORD`, complejidad de contraseña, servicio del contenedor y paso de espera |
-| Falla `restore` | SDK, paquetes y conectividad del ejecutador |
-| Falla `build` | Error de compilación, referencias a proyectos y cambios recientes |
-| Falla `test` | Nombre y traza de la prueba, conexión a SQL Server temporal, migraciones, fallos de lógica o pruebas no deterministas |
-| PR con checks correctos, pero Azure falla | Son sistemas distintos: consultar [Azure SQL](./azure-sql-database.md) y [Blob Storage](./azure-blob-storage.md) |
+| No aparece ninguna ejecución | Que el PR apunte a `main` o que el evento esté incluido en el workflow. |
+| Falla la preparación de SQL Server | El contenedor de pruebas y la existencia/configuración del secret `EOP_CI_SQLSERVER_PASSWORD`. |
+| Falla `restore` | Problemas al descargar las dependencias del proyecto. |
+| Falla `build` | Errores del código que impiden compilar. |
+| Falla `test` | La prueba concreta que no pasó y el mensaje de error asociado. |
+| CI pasa, pero la app no conecta con Azure SQL | Es un problema diferente: revisar la [guía de Azure SQL](./azure-sql-database.md). |
 
-No corregir un problema de CI conectando las pruebas a recursos productivos ni publicando contraseñas en los logs. El job se puede volver a ejecutar desde la interfaz de Actions cuando esté permitido; cada ejecución debe quedar asociada a un commit identificable.
+No debemos solucionar fallos usando bases productivas para las pruebas, quitando controles de seguridad o mostrando contraseñas en los logs.
 
-## 8. Trazabilidad y mantenimiento
+## 9. Archivos relacionados y mantenimiento
 
-- [S2-T04](https://trello.com/c/M3ctKqUB): implementación de la integración continua.
-- [S2-T31](./revision-integracion-tecnica.md): revisión del diseño de la integración.
-- [S2-T36](https://trello.com/c/E4LOqFwO): estos procedimientos y evidencias.
-- [Plan y convenciones de SCM en AGENTS.md](../AGENTS.md): ramas, commits, revisión de PR y etiquetas de entrega.
-- [Azure SQL Database](./azure-sql-database.md): configuración y operación de la base real, separada de la instancia de pruebas de CI.
+- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): las instrucciones reales que ejecuta GitHub.
+- [`AGENTS.md`](../AGENTS.md): reglas del equipo sobre ramas, commits y Pull Requests.
+- [S2-T04](https://trello.com/c/M3ctKqUB): tarea original de implementación de GitHub Actions.
+- [Revisión de integraciones S2-T31](./revision-integracion-tecnica.md): revisión de la solución técnica.
+- [Azure SQL Database](./azure-sql-database.md): documentación de la base de datos real, distinta del SQL Server temporal de pruebas.
 
-Si cambia el workflow, su secreto, los eventos, el SDK, la base de pruebas o el mecanismo de validación de PR, actualizar esta guía en la misma revisión de código y adjuntar una ejecución verificable.
+Si cambiamos el workflow, sus pasos o las condiciones de ejecución, también tenemos que actualizar esta guía y verificar una ejecución nueva.
