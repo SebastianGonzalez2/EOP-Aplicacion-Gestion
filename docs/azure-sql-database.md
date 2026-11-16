@@ -134,6 +134,16 @@ Cuando iniciamos la aplicación, ocurren estas cosas:
 
 Por ejemplo, cuando registramos un cliente, nuestro código trabaja con el repositorio y EF Core para guardar el registro en SQL Server.
 
+### Situación actual durante el desarrollo (informada por el equipo el 16/11/2026)
+
+Durante la preparación de Azure SQL, la WebApp llegó a utilizar una cadena de conexión apuntando a la base de Azure. **Actualmente, el equipo volvió a configurarla para trabajar con SQL Server LocalDB en la computadora de desarrollo.** Este último dato fue informado por un integrante; **no se inspeccionó el contenido de User Secrets**, y no hace falta hacerlo para documentar Azure.
+
+**¿Qué cambia al usar LocalDB?** Al ejecutar EOP localmente, las operaciones se realizan contra la base local indicada en la cadena de conexión vigente. Esto no elimina la base `eop-db-dev` de Azure ni cambia sus políticas de red o respaldo, que verificamos en el portal.
+
+**Qué no sabemos:** no se conserva en Git la cadena anterior de Azure, por razones de seguridad, y no se recuerda su método de autenticación exacto. Por tanto, **no podemos afirmar** si esa conexión utilizaba usuario/contraseña de SQL o algún mecanismo de identidad de Microsoft Entra. La sección sobre conectividad de Azure describe la configuración del **servidor**, no certifica cómo estaba configurada la aplicación.
+
+**Cuando volvamos a conectar EOP a Azure:** tendremos que configurar una conexión segura apropiada para el entorno, verificar que el firewall permita el origen y comprobar la conexión en una prueba controlada. También habrá que revisar las migraciones de EF Core y los datos de cada base: **LocalDB y Azure SQL no se sincronizan automáticamente** por cambiar la cadena. No hace falta cambiar la conexión ahora para completar esta tarea de documentación.
+
 ### ¿Dónde guardamos la cadena de conexión?
 
 **En desarrollo:** usamos el mecanismo **User Secrets** de .NET, que permite guardar datos privados fuera del repositorio. El proyecto espera la configuración `ConnectionStrings:EopDb`. Un ejemplo de cómo establecerla (con una cadena propia, no para copiar un valor real al documento) es:
@@ -255,7 +265,7 @@ Fuentes de Microsoft: [preguntas frecuentes de Azure SQL gratuito](https://learn
 ## 9. Qué nos falta completar con Azure Portal
 
 - **Identificados el 16/11/2026:** suscripción, grupo, servidor, base, región, oferta gratuita, capacidad de procesamiento, tamaño máximo y política de no facturar excesos. Confirmar los ajustes solo si cambia el plan.
-- **Comprobado el 16/11/2026:** acceso público limitado a redes seleccionadas, cuatro reglas IP, ninguna regla de red virtual visible y opción de acceso general a servicios Azure deshabilitada. **Comprobado:** no hay puntos de conexión privados registrados. **Confirmado en el servidor:** TLS mínimo 1.2, directiva predeterminada y sin restricciones adicionales de salida. **Pendiente:** método de autenticación y validación del certificado en la cadena real de la aplicación.
+- **Comprobado el 16/11/2026:** acceso público limitado a redes seleccionadas, cuatro reglas IP, ninguna regla de red virtual visible y opción de acceso general a servicios Azure deshabilitada. **Comprobado:** no hay puntos de conexión privados registrados. **Confirmado en el servidor:** TLS mínimo 1.2, directiva predeterminada y sin restricciones adicionales de salida. **No verificable por ahora:** el método de autenticación y los parámetros de certificado de la antigua cadena de Azure, ya que el equipo volvió a usar LocalDB. Se comprobarán cuando se vuelva a configurar la conexión a Azure.
 - **Confirmado:** oferta gratuita Serverless y base pausada al consultar Información general; Microsoft documenta pausa por inactividad a los 15 minutos. **Falta comprobar la causa concreta** de los errores intermitentes mediante registros y una prueba de conexión.
 - Registrar el resultado de una **prueba nueva de conexión y consulta**, sin incluir datos sensibles.
 - **Revisado el formulario de restauración** el 16/11/2026: PITR disponible, punto más antiguo visible y redundancia local seleccionada; no se creó ninguna base. **Confirmado:** la política PITR de `eop-db-dev` es de **7 días**. **Pendiente:** antes de producción, autorizar y realizar una prueba real de recuperación considerando los costos; comprobar también la política del futuro entorno productivo.
