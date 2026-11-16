@@ -3,6 +3,16 @@
 **Fecha:** 16/11/2026. **Tarea:** [S2-T36](https://trello.com/c/E4LOqFwO).  
 **Objetivo:** explicar qué hace la integración continua, cómo la configuramos en EOP y cómo comprobar que funciona cuando trabajamos con ramas y Pull Requests.
 
+## Estado temporal: GitHub Actions desactivado (16/11/2026)
+
+**Situación informada por el equipo:** el 16 de noviembre de 2026 se agotó el uso gratuito incluido de GitHub Actions del propietario del repositorio. Por ese motivo, el equipo decidió **desactivar temporalmente el workflow** `Integración continua EOP`, para no contratar consumo adicional.
+
+**¿Qué implica?** El archivo `.github/workflows/ci.yml` sigue guardado en GitHub y no se eliminó ninguna prueba. Lo que queda suspendido temporalmente es la **ejecución automática en GitHub**. El desarrollo, los Pull Requests y la revisión de cambios pueden continuar, pero **tenemos que ejecutar las verificaciones en nuestras computadoras**.
+
+**Renovación prevista:** según la [documentación de GitHub sobre los ciclos de facturación](https://docs.github.com/en/billing/concepts/billing-cycles), el uso de cómputo incluido se renueva al comienzo del ciclo mensual. Para el ciclo siguiente, el equipo prevé comprobar la renovación **el 1 de diciembre de 2026** y, una vez disponible la cuota, **volver a habilitar manualmente** el workflow. Que se renueve la cuota **no reactiva automáticamente** un workflow desactivado ([instrucciones de GitHub](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/disable-and-enable-workflows)). La fecha de renovación es la prevista por las reglas generales; no se verificó aquí el saldo privado de la cuenta.
+
+**Comprobación pendiente:** este estado de desactivación fue comunicado por el equipo y no se verificó desde la configuración administrativa de GitHub durante esta actualización de documentación.
+
 ## 1. ¿Qué significa «integración continua»?
 
 Cuando desarrollamos una aplicación entre dos personas, cada uno puede modificar archivos distintos o incluso el mismo archivo. Al juntar los cambios, existe el riesgo de que algo deje de funcionar.
@@ -45,11 +55,11 @@ La tarea [S2-T04 — Configurar integración continua](https://trello.com/c/M3ct
 | `.NET 10` | Es la versión de .NET que utiliza nuestro proyecto para compilar y hacer pruebas. |
 | `contents: read` | El workflow tiene permiso para leer el repositorio, no para modificarlo directamente. |
 
-**Esto es integración continua, no despliegue automático.** El workflow actual **no publica EOP en Azure App Service**, no actualiza la base de Azure SQL ni guarda documentos en Azure Blob Storage. Su función es **comprobar nuestro código**.
+**Esto es integración continua, no despliegue automático.** El workflow **no publica EOP en Azure App Service**, no actualiza la base de Azure SQL ni guarda documentos en Azure Blob Storage. Su función es **comprobar nuestro código** cuando está habilitado. Por la pausa temporal explicada al comienzo, sus eventos están definidos en el archivo, pero no deben interpretarse como verificaciones que se estén ejecutando actualmente.
 
 ## 3. ¿Qué hace GitHub Actions paso a paso?
 
-Cuando se inicia el workflow, GitHub prepara una computadora temporal y ejecuta estos pasos:
+Cuando el workflow está habilitado y se inicia, GitHub prepara una computadora temporal y ejecuta estos pasos:
 
 1. **Descarga nuestro código.** Se utiliza `actions/checkout@v7`, que permite trabajar con los archivos del repositorio.
 2. **Instala .NET 10.** Se utiliza `actions/setup-dotnet@v6`, para que la computadora tenga lo necesario para compilar la aplicación.
@@ -114,20 +124,35 @@ También se verificó una ejecución del PR de documentación S2-T36: [GitHub Ac
 
 ## 6. ¿Cómo lo usamos al terminar una tarea?
 
-Nuestro procedimiento es:
+### Mientras GitHub Actions esté desactivado (procedimiento temporal)
 
-1. Trabajamos en la **rama propia de la tarea**, no directamente en `main`.
-2. Comprobamos localmente que el código compile y probamos la funcionalidad desarrollada.
-3. Abrimos un **Pull Request** con destino `main`, indicando qué cambiamos y qué probamos.
-4. GitHub Actions ejecuta automáticamente el workflow. Entramos al PR y miramos la sección **Checks** para ver el resultado.
-5. Si una comprobación falla, abrimos la ejecución para saber en qué paso ocurrió y corregimos el problema en nuestra rama.
-6. El otro integrante revisa el PR. **Solo después de las pruebas, revisión y autorización correspondiente** se pueden integrar los cambios.
+1. Trabajamos en la **rama propia de la tarea**, sin modificar `main` directamente.
+2. En Visual Studio, desde la carpeta que contiene `EOP.Gestion.slnx`, compilamos la solución y ejecutamos las pruebas automatizadas de .NET:
 
-Este proceso nos ayuda a evitar que un error de una tarea pase desapercibido al unir el código con el trabajo del compañero.
+   ```bash
+   dotnet build EOP.Gestion.slnx --configuration Release
+   dotnet test EOP.Gestion.slnx --configuration Release
+   ```
+
+3. **Revisamos el resultado completo:** no basta con que aparezca «0 fallidas» si hubo pruebas importantes omitidas o si faltaba una base SQL Server necesaria para ciertas pruebas. Las pruebas de integración que necesitan SQL Server deben ejecutarse con una **base de pruebas aislada**, configurada según corresponda (por ejemplo, mediante `EOP_PRUEBAS_SQLSERVER`); nunca sobre una base de producción.
+4. Probamos manualmente la funcionalidad modificada y sus criterios de aceptación.
+5. Abrimos el **Pull Request hacia `main`** y dejamos constancia de qué compilación y pruebas hicimos, si pasaron y qué no pudimos verificar. Un check rojo antiguo por cuota agotada **no significa que el código haya fallado**, pero tampoco reemplaza la prueba local.
+6. El otro integrante revisa el PR. **Solo integramos después de las verificaciones pertinentes, revisión y autorización**. Si no podemos ejecutar una prueba necesaria, lo indicamos y resolvemos antes de considerar terminada la funcionalidad.
+
+### Cuando volvamos a habilitar GitHub Actions (procedimiento habitual)
+
+1. Seguimos trabajando en una rama por tarea y probando localmente lo que modificamos.
+2. Abrimos el PR hacia `main`; GitHub Actions debe ejecutar automáticamente el workflow.
+3. Revisamos el resultado del trabajo `compilar-y-probar` en **Checks / Actions**. Si falla, investigamos y corregimos la causa antes de integrar.
+4. Realizamos además las pruebas manuales pertinentes, y el otro integrante revisa y autoriza el PR.
+
+Ambas formas de trabajo mantienen la compilación, las pruebas y la revisión como controles; lo único temporalmente suspendido es su ejecución automática en GitHub.
 
 **Aclaración:** verificamos que GitHub Actions se ejecuta, pero todavía no comprobamos si el repositorio tiene reglas configuradas para **bloquear automáticamente** un merge cuando las pruebas fallan. No debemos dar por existente esa protección sin revisarla.
 
 ## 7. ¿Dónde vemos los resultados?
+
+**Estos pasos sirven cuando el workflow está habilitado.** Mientras esté desactivado, los resultados nuevos de las pruebas se consultan en Visual Studio o en la terminal y deben quedar resumidos en cada PR.
 
 1. Abrimos el repositorio de GitHub.
 2. Entramos a la pestaña **Actions**.
@@ -141,7 +166,7 @@ Un resultado **verde** (`success`) indica que terminaron correctamente los pasos
 
 | Qué vemos | Qué revisamos |
 |---|---|
-| No aparece ninguna ejecución | Que el PR apunte a `main` o que el evento esté incluido en el workflow. |
+| No aparece ninguna ejecución | Primero comprobar si el workflow está **desactivado temporalmente**; si está habilitado, verificar que el PR apunte a `main` o que el evento esté incluido. |
 | Falla la preparación de SQL Server | El contenedor de pruebas y la existencia/configuración del secret `EOP_CI_SQLSERVER_PASSWORD`. |
 | Falla `restore` | Problemas al descargar las dependencias del proyecto. |
 | Falla `build` | Errores del código que impiden compilar. |
@@ -157,5 +182,16 @@ No debemos solucionar fallos usando bases productivas para las pruebas, quitando
 - [S2-T04](https://trello.com/c/M3ctKqUB): tarea original de implementación de GitHub Actions.
 - [Revisión de integraciones S2-T31](./revision-integracion-tecnica.md): revisión de la solución técnica.
 - [Azure SQL Database](./azure-sql-database.md): documentación de la base de datos real, distinta del SQL Server temporal de pruebas.
+
+### Reactivación prevista para diciembre de 2026
+
+A partir del **1 de diciembre de 2026**, el equipo deberá:
+
+1. Comprobar que la cuota de GitHub Actions se renovó, desde la información de **Billing & Licensing** de la cuenta propietaria.
+2. Entrar al repositorio → **Actions** → **Integración continua EOP** → **Enable workflow** (habilitar flujo).
+3. Ejecutar una comprobación controlada, revisar que `compilar-y-probar` termine correctamente y registrar su enlace o resultado.
+4. Volver a utilizar el procedimiento habitual de PR con CI automática descrito en la sección 6.
+
+**No se afirma que la reactivación ya ocurrió ni que GitHub la realizará solo.** Si el límite no está renovado el día previsto, seguir con las verificaciones locales hasta poder habilitar el workflow sin cargos.
 
 Si cambiamos el workflow, sus pasos o las condiciones de ejecución, también tenemos que actualizar esta guía y verificar una ejecución nueva.
