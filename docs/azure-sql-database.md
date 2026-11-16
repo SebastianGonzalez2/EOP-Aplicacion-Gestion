@@ -71,7 +71,7 @@ Estos son los datos que observamos en las pantallas de **Información general** 
 | IP de cliente observada en la pantalla de Azure | **No coincidía** con ninguna de las cuatro reglas al revisar la captura (valor no registrado) |
 | Redes virtuales autorizadas en «Acceso público» | **No se observan reglas configuradas** en la lista visible |
 | Excepción «Permitir que los servicios y recursos de Azure accedan a este servidor» | **Deshabilitada**, casilla sin seleccionar |
-| Acceso privado / puntos de conexión privados | **Pendiente de revisar** en la pestaña «Acceso privado» |
+| Acceso privado / puntos de conexión privados | **Ninguno configurado**, comprobado en «Seguridad → Redes → Acceso privado» el 16/11/2026 |
 | Punto de restauración más antiguo indicado en la pantalla | **10/11/2026, 16:12 UTC**, dato puntual de esa captura |
 | Política efectiva de retención de copias de seguridad | **Por comprobar**; el punto de restauración mostrado no prueba por sí solo una política fija de 7 días |
 
@@ -84,6 +84,8 @@ Al revisar esta sección el 16/11/2026 encontramos **cuatro reglas de firewall**
 **¿Por qué importa para EOP?** Una computadora cuya IP pública no figure entre las permitidas podría abrir el portal de Azure, pero **no conectarse directamente** a SQL Server desde Visual Studio o la aplicación local. Es una explicación posible de algunos errores de conexión, junto con la pausa por inactividad; no tenemos todavía un diagnóstico confirmado. La IP que ve el portal no demuestra por sí sola cuál es la IP de origen usada por cada instalación de EOP.
 
 No se vieron reglas de **red virtual** en la lista presentada, y la opción general **«Permitir que los servicios y recursos de Azure accedan a este servidor»** estaba desmarcada. Eso es distinto de comprobar la pestaña **Acceso privado**, que sigue pendiente.
+
+**Acceso privado comprobado:** al abrir la pestaña **«Acceso privado»** del servidor SQL, Azure mostró **«No se encontraron puntos de conexión privados»**. Esto confirma que no hay ninguna conexión privada registrada en esa pantalla. Para el desarrollo actual se usa la configuración pública restringida descrita arriba. No necesitamos crear una conexión privada como parte de S2-T36; la conectividad real del futuro Azure App Service tendrá que evaluarse antes de desplegarlo.
 
 **No cambiamos estas opciones.** Si un desarrollador necesita conexión desde una nueva IP, primero debe comprobar el origen real de la conexión y decidir si corresponde autorizar **esa IP concreta**, en lugar de abrir el servidor a todo Internet. Autorizar una IP no sustituye las credenciales ni habilita por sí mismo el futuro App Service.
 
@@ -199,7 +201,7 @@ La aplicación también deberá usar conexiones seguras, mantener las credencial
 ## 9. Qué nos falta completar con Azure Portal
 
 - **Identificados el 16/11/2026:** suscripción, grupo, servidor, base, región, oferta gratuita, capacidad de procesamiento, tamaño máximo y política de no facturar excesos. Confirmar los ajustes solo si cambia el plan.
-- **Comprobado el 16/11/2026:** acceso público limitado a redes seleccionadas, cuatro reglas IP, ninguna regla de red virtual visible y opción de acceso general a servicios Azure deshabilitada. **Pendiente:** pestaña de acceso privado, autenticación efectiva de la conexión y cifrado.
+- **Comprobado el 16/11/2026:** acceso público limitado a redes seleccionadas, cuatro reglas IP, ninguna regla de red virtual visible y opción de acceso general a servicios Azure deshabilitada. **Comprobado:** no hay puntos de conexión privados registrados. **Pendiente:** autenticación efectiva de la conexión y cifrado.
 - **Confirmado:** oferta gratuita Serverless y base pausada al consultar Información general; Microsoft documenta pausa por inactividad a los 15 minutos. **Falta comprobar la causa concreta** de los errores intermitentes mediante registros y una prueba de conexión.
 - Registrar el resultado de una **prueba nueva de conexión y consulta**, sin incluir datos sensibles.
 - Comprobar el **respaldo** configurado y, cuando corresponda antes de producción, registrar la prueba de restauración.
