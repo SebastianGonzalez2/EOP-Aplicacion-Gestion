@@ -190,13 +190,38 @@ Una interrupción temporal, una configuración de red o una pausa/reanudación d
 
 ## 8. ¿Cómo protegemos los datos y cómo se recuperan?
 
-Azure SQL Database ofrece mecanismos administrados de copias de seguridad y restauración. Esto sirve si una base necesita recuperarse después de un problema.
+Azure SQL Database realiza **copias de seguridad automáticas** de los datos. Estas permiten intentar recuperar una base al estado que tenía en un momento anterior.
 
-Según **RNF-007**, para producción se prevé una retención inicial de **7 días** con copias automáticas administradas por Azure SQL, según el plan contratado. **Todavía tenemos que comprobar que esa retención esté configurada realmente.**
+### Lo que vimos en Azure Portal el 16/11/2026
 
-Según **RNF-008**, antes de usar el sistema en producción debemos hacer una restauración de prueba **sobre una base separada**, sin sobrescribir los datos originales. La comprobación deberá repetirse al menos cada seis meses. Esa prueba **no consta como realizada**.
+Abrimos **`eop-db-dev` → Restaurar**, sin confirmar ni ejecutar ninguna restauración. El formulario mostró:
 
-La aplicación también deberá usar conexiones seguras, mantener las credenciales fuera del código y controlar los permisos. No confundir las copias de seguridad de SQL con la protección de archivos de Azure Blob Storage, que tiene su propia guía.
+| Elemento | Configuración observada |
+|---|---|
+| Base original | `eop-db-dev` |
+| Tipo de restauración | **A un momento dado** (*Point-in-Time Restore*, PITR) |
+| Punto de restauración más antiguo disponible | **10/11/2026, 16:12 UTC** |
+| Destino propuesto | **Crear otra base de datos con otro nombre**, en `eop-sql-dev` |
+| Recursos propuestos para la base restaurada | Uso general, Serverless, Gen5, 2 núcleos virtuales, máximo 32 GB |
+| Redundancia de copias de seguridad seleccionada en el formulario | **Local (LRS)** |
+| Clave de cifrado a nivel de base de datos | Se muestra «No configurado»; **no significa que el cifrado de datos esté desactivado** |
+| Resultado de la operación | **No ejecutada**; solo se revisó la pantalla |
+
+**¿Qué significa restaurar a un momento dado?** Si cometemos un error y necesitamos recuperar los datos anteriores, podemos elegir una fecha y una hora **dentro de los puntos que Azure permita recuperar**. La restauración propuesta crea una base **distinta** de la original, para no sobrescribirla directamente.
+
+**¿Qué significa redundancia local (LRS)?** Las copias se conservan con redundancia dentro de la misma región. Eso no equivale a tener copias independientes en otras regiones. La oferta gratuita con pausa al alcanzar el límite solo admite este tipo de redundancia para sus backups.
+
+**Importante sobre el plan gratuito:** Microsoft señala que la retención PITR de esta oferta está **limitada a 7 días** y que **no se puede restaurar una base existente directamente a una nueva base con la oferta gratuita**. Por lo tanto, una restauración de prueba podría requerir un destino **facturable**. Antes de realizarla habrá que revisar el precio, el destino y la autorización del equipo. **No se creó ninguna base nueva durante S2-T36.** La fecha más antigua mostrada por el formulario confirma una ventana recuperable concreta, **no certifica por sí sola la política de retención configurada**.
+
+### Qué falta comprobar
+
+Según **RNF-007**, el objetivo aprobado para producción es una retención inicial de **7 días**, dentro de lo permitido por el plan. Para verificar el valor configurado, ir al **servidor `eop-sql-dev` → Backups / Copias de seguridad → Retention policies / Políticas de retención**, seleccionar `eop-db-dev` y **leer** la política de restauración a un momento dado, sin modificarla.
+
+Según **RNF-008**, antes de la puesta en producción corresponde **restaurar de manera controlada a una base de prueba separada**, sin sobrescribir datos existentes. Luego debe repetirse una comprobación al menos cada seis meses. **Esa prueba todavía está pendiente** y no debe confundirse con haber abierto el formulario de restauración.
+
+La aplicación también debe usar conexiones seguras, mantener las credenciales fuera del código y controlar los permisos. Las copias de SQL protegen los datos estructurados; los documentos de [Azure Blob Storage](./azure-blob-storage.md) tienen protecciones y procedimientos distintos.
+
+Fuentes de Microsoft: [preguntas frecuentes de Azure SQL gratuito](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer-faq) y [configuración de copias de seguridad automáticas](https://learn.microsoft.com/en-us/azure/azure-sql/database/automated-backups-change-settings).
 
 ## 9. Qué nos falta completar con Azure Portal
 
@@ -204,7 +229,7 @@ La aplicación también deberá usar conexiones seguras, mantener las credencial
 - **Comprobado el 16/11/2026:** acceso público limitado a redes seleccionadas, cuatro reglas IP, ninguna regla de red virtual visible y opción de acceso general a servicios Azure deshabilitada. **Comprobado:** no hay puntos de conexión privados registrados. **Pendiente:** autenticación efectiva de la conexión y cifrado.
 - **Confirmado:** oferta gratuita Serverless y base pausada al consultar Información general; Microsoft documenta pausa por inactividad a los 15 minutos. **Falta comprobar la causa concreta** de los errores intermitentes mediante registros y una prueba de conexión.
 - Registrar el resultado de una **prueba nueva de conexión y consulta**, sin incluir datos sensibles.
-- Comprobar el **respaldo** configurado y, cuando corresponda antes de producción, registrar la prueba de restauración.
+- **Revisado el formulario de restauración** el 16/11/2026: PITR disponible, punto más antiguo visible y redundancia local seleccionada; no se creó ninguna base. **Pendiente:** leer la política de retención efectiva en el servidor y, antes de producción, autorizar y realizar una prueba real de recuperación considerando los costos.
 - Cuando se despliegue Azure App Service, comprobar su acceso real a la base. El acceso desde nuestra computadora no alcanza para darlo por validado.
 
 **Documentos relacionados:** [reglas técnicas del proyecto](../AGENTS.md), [requerimientos no funcionales](./requerimientos-no-funcionales.md), [revisión de integraciones S2-T31](./revision-integracion-tecnica.md), [Azure Blob Storage](./azure-blob-storage.md) e [integración continua](./integracion-continua.md).
