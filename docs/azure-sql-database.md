@@ -29,7 +29,7 @@ Los documentos PDF, imágenes y otros archivos **no** van dentro de SQL: para es
 
 ## 2. ¿Qué se hizo hasta ahora?
 
-La tarea [S2-T01 — Configurar Azure SQL Database](https://trello.com/c/GvRlOZix) figura como terminada en Trello. Su objetivo era preparar la base y verificar una conexión segura.
+La tarea [S2-T01 — Configurar Azure SQL Database](https://trello.com/c/GvRlOZix) figura como terminada en Trello. Su objetivo era preparar la base y verificar una conexión segura. **El 16/11/2026 se revisaron además las pantallas de información general del servidor y la base en Azure Portal.** Los valores observados se registran a continuación.
 
 En el repositorio comprobamos que:
 
@@ -44,19 +44,24 @@ En el repositorio comprobamos que:
 
 Una **suscripción** es la cuenta de facturación y administración que agrupa recursos de Azure. Dentro de una suscripción hay **grupos de recursos**, que funcionan como carpetas para organizar servicios. En uno de esos grupos están el servidor SQL y la base.
 
-Vamos a completar esta tabla con los datos reales del portal:
+Estos son los datos que observamos en las pantallas de **Información general** del servidor y de la base en Azure Portal el **16/11/2026**. Una captura registra cómo estaba configurado en ese momento, pero no garantiza que siga igual si se modifica en el futuro.
 
-| Dato que necesitamos | Estado actual |
+| Dato que necesitamos | Configuración observada |
 |---|---|
-| Suscripción donde está Azure SQL | **Por comprobar** |
-| Grupo de recursos | **Por comprobar** |
-| Nombre del servidor SQL | **Por comprobar** |
-| Nombre de la base de datos | **Por comprobar** |
-| Región (ubicación del servicio) | **Por comprobar** |
-| Plan o capacidad contratada | **Por comprobar** |
-| Tipo de autenticación usado por la conexión | **Por comprobar** |
-| Redes autorizadas para conectarse | **Por comprobar**; sin publicar IP personales |
-| Copias de seguridad y días de retención configurados | **Por comprobar** |
+| Suscripción donde está Azure SQL | **Azure for Students** |
+| Grupo de recursos | **`eop-dev`** |
+| Nombre del servidor SQL | **`eop-sql-dev`** |
+| Nombre de la base de datos | **`eop-db-dev`** |
+| Región (ubicación del servicio) | **Brazil South** |
+| Plan o capacidad contratada | **Gratis, uso general, sin servidor (Serverless), serie Gen5, 2 núcleos virtuales** |
+| Estado de la base al consultar el portal | **Pausada (Paused)** |
+| Administrador de Microsoft Entra del servidor | **Configurado**, sin documentar el identificador personal |
+| Tipo de autenticación usado por la conexión de la aplicación | **Por comprobar**; la existencia del administrador Entra no confirma qué método usa `EopDb` |
+| Redes autorizadas para conectarse | **Por comprobar**, sin publicar IP personales |
+| Punto de restauración más antiguo indicado en la pantalla | **10/11/2026, 16:12 UTC**, dato puntual de esa captura |
+| Política efectiva de retención de copias de seguridad | **Por comprobar**; el punto de restauración mostrado no prueba por sí solo una política fija de 7 días |
+
+**¿Qué significa «Pausada»?** La modalidad Serverless puede suspender la base si tiene habilitada la pausa automática. Volver a activarla al recibir una conexión puede demorar; es **una hipótesis** para investigar los errores intermitentes, no una causa confirmada. Debemos revisar la sección **Configuración → Proceso y almacenamiento** antes de sacar conclusiones.
 
 **Cómo encontrarlo:** entrar a [Azure Portal](https://portal.azure.com), buscar **SQL databases**, seleccionar la base de EOP y abrir **Overview / Información general**. Desde allí se puede identificar el servidor asociado y consultar otras opciones.
 
@@ -154,9 +159,9 @@ La aplicación también deberá usar conexiones seguras, mantener las credencial
 
 ## 9. Qué nos falta completar con Azure Portal
 
-- Identificar y registrar los **valores reales** de la tabla de la sección 3.
+- **Ya identificados el 16/11/2026:** suscripción, grupo, servidor, base, región y plan. Falta comprobar el detalle de cómputo y pausa automática en **Proceso y almacenamiento**.
 - Comprobar los ajustes de **red, autenticación y conexión cifrada**.
-- Verificar el **nivel de servicio**, porque es relevante para investigar eventuales pausas o problemas de disponibilidad.
+- **Confirmado el plan Serverless y la base pausada** en Información general. Falta verificar los ajustes exactos de pausa automática y reanudación, que podrían afectar la disponibilidad.
 - Registrar el resultado de una **prueba nueva de conexión y consulta**, sin incluir datos sensibles.
 - Comprobar el **respaldo** configurado y, cuando corresponda antes de producción, registrar la prueba de restauración.
 - Cuando se despliegue Azure App Service, comprobar su acceso real a la base. El acceso desde nuestra computadora no alcanza para darlo por validado.
