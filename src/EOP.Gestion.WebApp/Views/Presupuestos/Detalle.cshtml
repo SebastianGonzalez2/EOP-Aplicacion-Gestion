@@ -156,6 +156,10 @@
     </div>
 
     <div class="panel-pie">
+        <a asp-controller="ConceptosPresupuesto" asp-action="Index" asp-route-id="@Model.Id"
+           class="btn btn-primary">
+            Ver conceptos
+        </a>
         <a asp-controller="Presupuestos"
            asp-action="Index"
            class="btn btn-outline-secondary">

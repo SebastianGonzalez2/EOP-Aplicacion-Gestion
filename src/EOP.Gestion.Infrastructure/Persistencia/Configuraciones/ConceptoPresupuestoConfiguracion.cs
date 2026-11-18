@@ -93,7 +93,7 @@ public class ConceptoPresupuestoConfiguracion : IEntityTypeConfiguration<Concept
         builder.HasIndex(c => new { c.PresupuestoId, c.MaterialProveedorId })
             .IsUnique()
             .HasFilter("[MaterialProveedorId] IS NOT NULL")
-            .HasDatabaseName("IX_ConceptosPresupuesto_PresupuestoId_MaterialProveedorId");
+            .HasDatabaseName(IndicesUnicos.ConceptosPresupuestoMaterialProveedor);
 
         // RF-27: como máximo un concepto Margen por presupuesto. También necesita
         // filtro para no afectar a los conceptos de otros tipos. Incluimos el tipo
