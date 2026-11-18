@@ -40,6 +40,13 @@ public class EopDbContext(DbContextOptions<EopDbContext> options)
     public DbSet<Presupuesto> Presupuestos => Set<Presupuesto>();
     public DbSet<TipoProyecto> TiposProyecto => Set<TipoProyecto>();
 
+    // Las filas económicas del presupuesto y los tipos fijos de concepto (S3-T05).
+    public DbSet<ConceptoPresupuesto> ConceptosPresupuesto => Set<ConceptoPresupuesto>();
+    public DbSet<TipoConcepto> TiposConcepto => Set<TipoConcepto>();
+
+    // Los tipos que forman la base de cálculo de cada concepto Margen (RF-27).
+    public DbSet<MargenBaseTipo> MargenesBaseTipo => Set<MargenBaseTipo>();
+
     // Nombre de la secuencia de SQL Server que entrega el correlativo global del código
     // de los presupuestos (el #### de PRES-AAAAMMDD-NOMBRE-####).
     public const string NombreSecuenciaPresupuestos = "SecuenciaPresupuestos";
