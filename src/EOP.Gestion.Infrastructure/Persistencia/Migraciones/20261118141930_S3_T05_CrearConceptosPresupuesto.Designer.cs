@@ -203,11 +203,11 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
                     b.HasIndex("MaterialId");
 
-                    b.HasIndex("MaterialProveedorId");
-
                     b.HasIndex("PresupuestoId");
 
                     b.HasIndex("TipoConceptoId");
+
+                    b.HasIndex("MaterialProveedorId", "MaterialId");
 
                     b.HasIndex("PresupuestoId", "MaterialProveedorId")
                         .IsUnique()
@@ -247,12 +247,21 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                     b.Property<int>("TipoConceptoId")
                         .HasColumnType("int");
 
+                    b.Property<int>("TipoConceptoDuenoId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(6);
+
                     b.HasKey("ConceptoPresupuestoId", "TipoConceptoId");
 
                     b.HasIndex("TipoConceptoId");
 
+                    b.HasIndex("ConceptoPresupuestoId", "TipoConceptoDuenoId");
+
                     b.ToTable("MargenesBaseTipo", null, t =>
                         {
+                            t.HasCheckConstraint("CK_MargenesBaseTipo_DuenoEsMargen", "[TipoConceptoDuenoId] = 6");
+
                             t.HasCheckConstraint("CK_MargenesBaseTipo_NoIncluyeMargen", "[TipoConceptoId] <> 6");
                         });
                 });
@@ -584,11 +593,6 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                         .HasForeignKey("MaterialId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("EOP.Gestion.Core.Entidades.Catalogo.MaterialProveedor", null)
-                        .WithMany()
-                        .HasForeignKey("MaterialProveedorId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.Presupuesto", null)
                         .WithMany()
                         .HasForeignKey("PresupuestoId")
@@ -600,21 +604,30 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                         .HasForeignKey("TipoConceptoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Catalogo.MaterialProveedor", null)
+                        .WithMany()
+                        .HasForeignKey("MaterialProveedorId", "MaterialId")
+                        .HasPrincipalKey("Id", "MaterialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial");
                 });
 
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.MargenBaseTipo", b =>
                 {
-                    b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.ConceptoPresupuesto", null)
-                        .WithMany()
-                        .HasForeignKey("ConceptoPresupuestoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
                     b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.TipoConcepto", null)
                         .WithMany()
                         .HasForeignKey("TipoConceptoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.ConceptoPresupuesto", null)
+                        .WithMany()
+                        .HasForeignKey("ConceptoPresupuestoId", "TipoConceptoDuenoId")
+                        .HasPrincipalKey("Id", "TipoConceptoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_MargenesBaseTipo_ConceptosPresupuesto_DuenoMargen");
                 });
 
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.Presupuesto", b =>

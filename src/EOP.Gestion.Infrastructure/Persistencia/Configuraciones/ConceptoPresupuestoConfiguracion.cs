@@ -56,6 +56,9 @@ public class ConceptoPresupuestoConfiguracion : IEntityTypeConfiguration<Concept
 
         builder.HasKey(c => c.Id);
 
+        // La base de cálculo identifica al concepto dueño por su Id y su tipo.
+        builder.HasAlternateKey(c => new { c.Id, c.TipoConceptoId });
+
         // Un presupuesto no se borra en cascada con sus conceptos: primero se
         // administran las filas. El catálogo tampoco se puede borrar si está
         // referenciado (RF-20, RF-21).
@@ -76,7 +79,9 @@ public class ConceptoPresupuestoConfiguracion : IEntityTypeConfiguration<Concept
 
         builder.HasOne<MaterialProveedor>()
             .WithMany()
-            .HasForeignKey(c => c.MaterialProveedorId)
+            .HasForeignKey(c => new { c.MaterialProveedorId, c.MaterialId })
+            .HasPrincipalKey(referencia => new { referencia.Id, referencia.MaterialId })
+            .HasConstraintName("FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial")
             .OnDelete(DeleteBehavior.Restrict);
 
         // Buscar los conceptos de un presupuesto es la consulta más común de la tabla.

@@ -5,6 +5,7 @@ using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Tests.Compartido;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace EOP.Gestion.Tests.Integracion;
@@ -453,16 +454,26 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         {
             concepto = CrearConceptoMaterial();
             concepto.MaterialId = 999_999;
-            claveEsperada = "FK_ConceptosPresupuesto_Materiales_MaterialId";
+            claveEsperada = "FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial";
         }
         else
         {
             concepto = CrearConceptoMaterial();
             concepto.MaterialProveedorId = 999_999;
-            claveEsperada = "FK_ConceptosPresupuesto_MaterialProveedores_MaterialProveedorId";
+            claveEsperada = "FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial";
         }
 
         await ComprobarQueLaBaseRechazaAsync(concepto, claveEsperada);
+    }
+
+    [FactConSqlServer]
+    public async Task NoSePuedeGuardarLaReferenciaDeOtroMaterialAunqueAmbosIdsExistan()
+    {
+        ConceptoPresupuesto concepto = CrearConceptoMaterial();
+        concepto.MaterialProveedorId = _otroMaterialProveedorId;
+
+        await ComprobarQueLaBaseRechazaAsync(
+            concepto, "FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial");
     }
 
     [FactConSqlServer]
@@ -507,6 +518,70 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             .ToListAsync();
 
         Assert.Equal([TipoConcepto.MaterialId, TipoConcepto.AlquilerId], bases);
+    }
+
+    [FactConSqlServer]
+    public async Task UnConceptoQueNoEsMargen_NoPuedeTenerBaseDeCalculo()
+    {
+        ConceptoPresupuesto concepto = CrearConceptoManual();
+        await GuardarAsync(concepto);
+
+        using EopDbContext contexto = CrearContexto();
+        contexto.MargenesBaseTipo.Add(new MargenBaseTipo
+        {
+            ConceptoPresupuestoId = concepto.Id,
+            TipoConceptoId = TipoConcepto.MaterialId
+        });
+
+        string error = await GuardarYObtenerMensajeDeErrorAsync(contexto);
+        Assert.Contains("FK_MargenesBaseTipo_ConceptosPresupuesto_DuenoMargen", error);
+        Assert.False(await contexto.MargenesBaseTipo.AnyAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task NoSePuedeUsarElTipoDeOtroConceptoParaAsignarleUnaBaseDeMargen()
+    {
+        ConceptoPresupuesto concepto = CrearConceptoManual();
+        await GuardarAsync(concepto);
+
+        using EopDbContext contexto = CrearContexto();
+        var baseMargen = new MargenBaseTipo
+        {
+            ConceptoPresupuestoId = concepto.Id,
+            TipoConceptoId = TipoConcepto.MaterialId
+        };
+        contexto.MargenesBaseTipo.Add(baseMargen)
+            .Property<int>("TipoConceptoDuenoId").CurrentValue = TipoConcepto.ManoDeObraId;
+
+        string error = await GuardarYObtenerMensajeDeErrorAsync(contexto);
+        Assert.Contains("CK_MargenesBaseTipo_DuenoEsMargen", error);
+        Assert.False(await contexto.MargenesBaseTipo.AnyAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task NoSePuedeCambiarElTipoDeUnMargenConBaseDeCalculo()
+    {
+        ConceptoPresupuesto margen = CrearConceptoMargen();
+        await GuardarAsync(margen);
+
+        using EopDbContext contexto = CrearContexto();
+        contexto.MargenesBaseTipo.Add(new MargenBaseTipo
+        {
+            ConceptoPresupuestoId = margen.Id,
+            TipoConceptoId = TipoConcepto.MaterialId
+        });
+        await contexto.SaveChangesAsync();
+
+        // Ejecuta el UPDATE directo para comprobar la FK de SQL Server incluso si se omite el seguimiento de EF.
+        SqlException excepcion = await Assert.ThrowsAsync<SqlException>(() => contexto.ConceptosPresupuesto
+            .Where(concepto => concepto.Id == margen.Id)
+            .ExecuteUpdateAsync(cambios => cambios
+                .SetProperty(concepto => concepto.TipoConceptoId, TipoConcepto.ManoDeObraId)
+                .SetProperty(concepto => concepto.PorcentajeMargen, (decimal?)null)));
+
+        Assert.Equal(547, excepcion.Number);
+        Assert.Contains("FK_MargenesBaseTipo_ConceptosPresupuesto_DuenoMargen", excepcion.Message);
+        Assert.Equal(TipoConcepto.MargenId, await contexto.ConceptosPresupuesto.Select(concepto => concepto.TipoConceptoId).SingleAsync());
     }
 
     [FactConSqlServer]
@@ -635,6 +710,6 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
 
         DbUpdateException excepcion = await Assert.ThrowsAsync<DbUpdateException>(() => contexto.SaveChangesAsync());
 
-        Assert.Contains("FK_ConceptosPresupuesto_MaterialProveedores_MaterialProveedorId", excepcion.GetBaseException().Message);
+        Assert.Contains("FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial", excepcion.GetBaseException().Message);
     }
 }

@@ -12,6 +12,11 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.AddUniqueConstraint(
+                name: "AK_MaterialProveedores_Id_MaterialId",
+                table: "MaterialProveedores",
+                columns: new[] { "Id", "MaterialId" });
+
             migrationBuilder.CreateTable(
                 name: "TiposConcepto",
                 columns: table => new
@@ -47,6 +52,7 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ConceptosPresupuesto", x => x.Id);
+                    table.UniqueConstraint("AK_ConceptosPresupuesto_Id_TipoConceptoId", x => new { x.Id, x.TipoConceptoId });
                     table.CheckConstraint("CK_ConceptosPresupuesto_CantidadPositiva", "[Cantidad] IS NULL OR [Cantidad] > 0");
                     table.CheckConstraint("CK_ConceptosPresupuesto_ConceptoNoVacio", "[Concepto] IS NULL OR TRIM([Concepto]) <> ''");
                     table.CheckConstraint("CK_ConceptosPresupuesto_MargenConPorcentaje", "([TipoConceptoId] = 6 AND [PorcentajeMargen] IS NOT NULL) OR ([TipoConceptoId] <> 6 AND [PorcentajeMargen] IS NULL)");
@@ -56,10 +62,10 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                     table.CheckConstraint("CK_ConceptosPresupuesto_ReferenciaCompleta", "([MaterialId] IS NULL AND [MaterialProveedorId] IS NULL) OR ([MaterialId] IS NOT NULL AND [MaterialProveedorId] IS NOT NULL)");
                     table.CheckConstraint("CK_ConceptosPresupuesto_UnidadValida", "[Unidad] IS NULL OR [Unidad] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)");
                     table.ForeignKey(
-                        name: "FK_ConceptosPresupuesto_MaterialProveedores_MaterialProveedorId",
-                        column: x => x.MaterialProveedorId,
+                        name: "FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial",
+                        columns: x => new { x.MaterialProveedorId, x.MaterialId },
                         principalTable: "MaterialProveedores",
-                        principalColumn: "Id",
+                        principalColumns: new[] { "Id", "MaterialId" },
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
                         name: "FK_ConceptosPresupuesto_Materiales_MaterialId",
@@ -86,17 +92,19 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                 columns: table => new
                 {
                     ConceptoPresupuestoId = table.Column<int>(type: "int", nullable: false),
-                    TipoConceptoId = table.Column<int>(type: "int", nullable: false)
+                    TipoConceptoId = table.Column<int>(type: "int", nullable: false),
+                    TipoConceptoDuenoId = table.Column<int>(type: "int", nullable: false, defaultValue: 6)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_MargenesBaseTipo", x => new { x.ConceptoPresupuestoId, x.TipoConceptoId });
+                    table.CheckConstraint("CK_MargenesBaseTipo_DuenoEsMargen", "[TipoConceptoDuenoId] = 6");
                     table.CheckConstraint("CK_MargenesBaseTipo_NoIncluyeMargen", "[TipoConceptoId] <> 6");
                     table.ForeignKey(
-                        name: "FK_MargenesBaseTipo_ConceptosPresupuesto_ConceptoPresupuestoId",
-                        column: x => x.ConceptoPresupuestoId,
+                        name: "FK_MargenesBaseTipo_ConceptosPresupuesto_DuenoMargen",
+                        columns: x => new { x.ConceptoPresupuestoId, x.TipoConceptoDuenoId },
                         principalTable: "ConceptosPresupuesto",
-                        principalColumn: "Id",
+                        principalColumns: new[] { "Id", "TipoConceptoId" },
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_MargenesBaseTipo_TiposConcepto_TipoConceptoId",
@@ -125,9 +133,9 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                 column: "MaterialId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_ConceptosPresupuesto_MaterialProveedorId",
+                name: "IX_ConceptosPresupuesto_MaterialProveedorId_MaterialId",
                 table: "ConceptosPresupuesto",
-                column: "MaterialProveedorId");
+                columns: new[] { "MaterialProveedorId", "MaterialId" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_ConceptosPresupuesto_PresupuestoId",
@@ -154,6 +162,11 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                 filter: "[TipoConceptoId] = 6");
 
             migrationBuilder.CreateIndex(
+                name: "IX_MargenesBaseTipo_ConceptoPresupuestoId_TipoConceptoDuenoId",
+                table: "MargenesBaseTipo",
+                columns: new[] { "ConceptoPresupuestoId", "TipoConceptoDuenoId" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_MargenesBaseTipo_TipoConceptoId",
                 table: "MargenesBaseTipo",
                 column: "TipoConceptoId");
@@ -176,6 +189,10 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
 
             migrationBuilder.DropTable(
                 name: "TiposConcepto");
+
+            migrationBuilder.DropUniqueConstraint(
+                name: "AK_MaterialProveedores_Id_MaterialId",
+                table: "MaterialProveedores");
         }
     }
 }

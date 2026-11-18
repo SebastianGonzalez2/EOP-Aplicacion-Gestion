@@ -87,14 +87,29 @@ public class ConfiguracionConceptosPresupuestoTests
     [InlineData(nameof(ConceptoPresupuesto.PresupuestoId), "Presupuestos")]
     [InlineData(nameof(ConceptoPresupuesto.TipoConceptoId), "TiposConcepto")]
     [InlineData(nameof(ConceptoPresupuesto.MaterialId), "Materiales")]
-    [InlineData(nameof(ConceptoPresupuesto.MaterialProveedorId), "MaterialProveedores")]
     public void Concepto_TieneClaveForaneaQueNoBorraEnCascada(string propiedad, string tablaPrincipal)
     {
         using EopDbContext contexto = CrearContexto();
         IForeignKey clave = ObtenerEntidad<ConceptoPresupuesto>(contexto).GetForeignKeys()
-            .Single(fk => fk.Properties.Single().Name == propiedad);
+            .Single(fk => fk.Properties.Count == 1 && fk.Properties[0].Name == propiedad);
 
         Assert.Equal(tablaPrincipal, clave.PrincipalEntityType.GetTableName());
+        Assert.Equal(DeleteBehavior.Restrict, clave.DeleteBehavior);
+    }
+
+    [Fact]
+    public void Concepto_ReferenciaAlMismoMaterialDeLaRelacionConElProveedor()
+    {
+        using EopDbContext contexto = CrearContexto();
+        IForeignKey clave = ObtenerEntidad<ConceptoPresupuesto>(contexto).GetForeignKeys()
+            .Single(fk => fk.PrincipalEntityType.ClrType == typeof(MaterialProveedor));
+
+        Assert.Equal(
+            [nameof(ConceptoPresupuesto.MaterialProveedorId), nameof(ConceptoPresupuesto.MaterialId)],
+            clave.Properties.Select(propiedad => propiedad.Name));
+        Assert.Equal(
+            [nameof(MaterialProveedor.Id), nameof(MaterialProveedor.MaterialId)],
+            clave.PrincipalKey.Properties.Select(propiedad => propiedad.Name));
         Assert.Equal(DeleteBehavior.Restrict, clave.DeleteBehavior);
     }
 
@@ -222,7 +237,12 @@ public class ConfiguracionConceptosPresupuestoTests
         IEnumerable<IForeignKey> claves = ObtenerEntidad<MargenBaseTipo>(contexto).GetForeignKeys();
 
         IForeignKey haciaConcepto = claves.Single(fk => fk.PrincipalEntityType.ClrType == typeof(ConceptoPresupuesto));
-        Assert.Equal(nameof(MargenBaseTipo.ConceptoPresupuestoId), haciaConcepto.Properties.Single().Name);
+        Assert.Equal(
+            [nameof(MargenBaseTipo.ConceptoPresupuestoId), "TipoConceptoDuenoId"],
+            haciaConcepto.Properties.Select(propiedad => propiedad.Name));
+        Assert.Equal(
+            [nameof(ConceptoPresupuesto.Id), nameof(ConceptoPresupuesto.TipoConceptoId)],
+            haciaConcepto.PrincipalKey.Properties.Select(propiedad => propiedad.Name));
         Assert.Equal(DeleteBehavior.Cascade, haciaConcepto.DeleteBehavior);
 
         IForeignKey haciaTipo = claves.Single(fk => fk.PrincipalEntityType.ClrType == typeof(TipoConcepto));

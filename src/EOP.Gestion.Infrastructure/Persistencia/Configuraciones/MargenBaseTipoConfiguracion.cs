@@ -14,17 +14,27 @@ public class MargenBaseTipoConfiguracion : IEntityTypeConfiguration<MargenBaseTi
             tabla.HasCheckConstraint(
                 "CK_MargenesBaseTipo_NoIncluyeMargen",
                 $"[TipoConceptoId] <> {TipoConcepto.MargenId}");
+
+            tabla.HasCheckConstraint(
+                "CK_MargenesBaseTipo_DuenoEsMargen",
+                $"[TipoConceptoDuenoId] = {TipoConcepto.MargenId}");
         });
 
         // La clave compuesta impide repetir el mismo tipo en la base del margen.
         builder.HasKey(m => new { m.ConceptoPresupuestoId, m.TipoConceptoId });
+
+        // La columna auxiliar fija el tipo del dueño y no forma parte de la selección del usuario.
+        builder.Property<int>("TipoConceptoDuenoId")
+            .HasDefaultValue(TipoConcepto.MargenId);
 
         // Las filas de la base pertenecen al concepto Margen: si algún día se
         // elimina esa fila, sus selecciones se van con ella. Los tipos fijos del
         // sistema, en cambio, nunca se borran si están en uso.
         builder.HasOne<ConceptoPresupuesto>()
             .WithMany()
-            .HasForeignKey(m => m.ConceptoPresupuestoId)
+            .HasForeignKey(nameof(MargenBaseTipo.ConceptoPresupuestoId), "TipoConceptoDuenoId")
+            .HasPrincipalKey(concepto => new { concepto.Id, concepto.TipoConceptoId })
+            .HasConstraintName("FK_MargenesBaseTipo_ConceptosPresupuesto_DuenoMargen")
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasOne<TipoConcepto>()
