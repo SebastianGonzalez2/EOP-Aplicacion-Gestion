@@ -84,6 +84,8 @@ public static class InyeccionDeDependencias
         // Registramos el repositorio de presupuestos, que guarda el presupuesto
         // y le asigna su código interno.
         services.AddScoped<IRepositorioPresupuestos, RepositorioPresupuestos>();
+        services.AddScoped<IRepositorioConceptosPresupuesto, RepositorioConceptosPresupuesto>();
+        services.AddScoped<ConsultarConceptosPresupuesto>();
 
         // Registramos el servicio que comprueba que el cliente
         // esté activo y que el tipo de proyecto exista.

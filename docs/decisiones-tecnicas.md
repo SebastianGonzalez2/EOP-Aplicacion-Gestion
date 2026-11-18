@@ -233,7 +233,7 @@ Estos valores pertenecen al concepto. Cambiar después el nombre, la unidad, el 
 
 Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre manual y expresa (incluso cuando hay un solo proveedor), los valores copiados no se editan desde la tabla del presupuesto y una misma combinación material-proveedor no puede repetirse dentro del mismo presupuesto. RF-20 y US-010A nombraban solo el precio y la moneda: esta decisión los amplió, y el anteproyecto en Word y las copias de `docs/` ya se ajustaron para que coincidan (S2-T30).
 
-**Estado de la implementación.** Al 14/11/2026 no existen `ConceptoPresupuesto` ni su persistencia (US-007, US-010A, US-011 y US-012 son de sprints posteriores). Por eso esta decisión se documenta pero no se adelantó ninguna entidad, tabla ni migración. Hoy el catálogo guarda su precio y su fecha en `MaterialProveedor`, y eso no cambia.
+**Estado de la implementación.** Al 18/11/2026, S3-T05 implementó el modelo y la persistencia de `ConceptoPresupuesto`, `TipoConcepto` y `MargenBaseTipo` (US-011): entidades, configuraciones de EF Core, la migración `S3_T05_CrearConceptosPresupuesto`, sus índices y sus restricciones CHECK. Lo que todavía no existe es el caso de uso que copia los cuatro datos al seleccionar la referencia ni las vistas del presupuesto, que corresponden a US-010A, US-011 y US-012.
 
 **Qué comprobar cuando se implemente `ConceptoPresupuesto`:**
 
@@ -243,6 +243,8 @@ Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre
 - Prueba de regresión con SQL Server: guardar un concepto, modificar en el catálogo el nombre, la unidad, el precio y la moneda, y comprobar que el concepto conserva los cuatro valores originales y su subtotal.
 - Prueba de que los listados y vistas del presupuesto muestran los valores del concepto y no los actuales del catálogo.
 - Lo mismo para todo lo que se arma a partir del concepto: el cálculo del subtotal (RF-28), el resumen previo (RF-31, US-013), la planilla Excel (RF-37, RF-38, US-014) y los indicadores del proyecto que salen del presupuesto vinculado (RF-103). Ninguno puede leer nombre, unidad, precio ni moneda de `Material` o `MaterialProveedor`. Se agregó en S2-T30: la lista anterior solo nombraba «los listados y vistas».
+
+Con S3-T05 ya quedaron cubiertos por `ConfiguracionConceptosPresupuestoTests` y `ConceptosPresupuestoSqlServerTests` el tipo y la restricción de la unidad, los 200 caracteres del nombre, el precio `decimal(28,10)`, el CHECK de moneda y el índice único filtrado `(PresupuestoId, MaterialProveedorId)`. Siguen pendientes para US-010A, US-011 y US-012 la copia de los cuatro datos en una misma operación y las pruebas de que los cálculos, listados y vistas leen del concepto y no del catálogo.
 
 **Para tener en cuenta en tareas posteriores:**
 
@@ -266,7 +268,7 @@ Las reglas de RF-20 y US-010A se mantienen sin cambios: la selección es siempre
    - Los nombres de texto tienen 200 caracteres y no 256, por el criterio común de S1-T27.
    - Hay diferencias de nombres sin efecto en el modelo: `NombreProyecto` por `NombreTrabajo`, `ResponsableId` por `ResponsableUsuarioId`, `CuentasBancarias` por `CuentaBancariaProveedor` y `Id` por `<Entidad>Id`.
 3. **Qué sigue pendiente.** Corresponde a funcionalidades de otros sprints:
-   - `ConceptoPresupuesto`, `TipoConcepto` y `MargenBaseTipo` (US-007, US-010A, US-011, US-012);
+   - `ConceptoPresupuesto`, `TipoConcepto` y `MargenBaseTipo`: el modelo y la persistencia ya están (S3-T05); faltan los casos de uso y las vistas de US-010A, US-011 y US-012;
    - `Relevamiento`;
    - los datos de envío, vencimiento, rechazo y confirmación económica del Presupuesto;
    - `Proyecto`, `ProyectoParticipante`, `Tarea` y `DocumentoProyecto` con `TipoDocumento`;

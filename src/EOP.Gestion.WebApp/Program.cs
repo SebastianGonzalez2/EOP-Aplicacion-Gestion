@@ -51,6 +51,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 // Registramos el caso de uso encargado de validar
 // y guardar los presupuestos nuevos.
 builder.Services.AddScoped<RegistrarPresupuesto>();
+builder.Services.AddScoped<AgregarConceptoManual>();
 
 // Registramos el caso de uso que valida los datos del proveedor.
 builder.Services.AddScoped<ValidarDatosProveedor>();

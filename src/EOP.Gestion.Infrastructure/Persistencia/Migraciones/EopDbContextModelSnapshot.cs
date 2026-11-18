@@ -150,6 +150,119 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                         });
                 });
 
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.ConceptoPresupuesto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal?>("Cantidad")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("decimal(28,10)");
+
+                    b.Property<string>("Concepto")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ConceptoDetectado")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("MaterialId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("MaterialProveedorId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Moneda")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("PorcentajeMargen")
+                        .HasPrecision(9, 4)
+                        .HasColumnType("decimal(9,4)");
+
+                    b.Property<decimal?>("PrecioUnitario")
+                        .HasPrecision(28, 10)
+                        .HasColumnType("decimal(28,10)");
+
+                    b.Property<int>("PresupuestoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TipoConceptoId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("Unidad")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MaterialId");
+
+                    b.HasIndex("PresupuestoId");
+
+                    b.HasIndex("TipoConceptoId");
+
+                    b.HasIndex("MaterialProveedorId", "MaterialId");
+
+                    b.HasIndex("PresupuestoId", "MaterialProveedorId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ConceptosPresupuesto_PresupuestoId_MaterialProveedorId")
+                        .HasFilter("[MaterialProveedorId] IS NOT NULL");
+
+                    b.HasIndex("PresupuestoId", "TipoConceptoId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ConceptosPresupuesto_UnicoMargen")
+                        .HasFilter("[TipoConceptoId] = 6");
+
+                    b.ToTable("ConceptosPresupuesto", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_CantidadPositiva", "[Cantidad] IS NULL OR [Cantidad] > 0");
+
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_ConceptoNoVacio", "[Concepto] IS NULL OR TRIM([Concepto]) <> ''");
+
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_MargenConPorcentaje", "([TipoConceptoId] = 6 AND [PorcentajeMargen] IS NOT NULL) OR ([TipoConceptoId] <> 6 AND [PorcentajeMargen] IS NULL)");
+
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_MonedaValida", "[Moneda] IS NULL OR [Moneda] IN (1, 2)");
+
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_PorcentajeNoNegativo", "[PorcentajeMargen] IS NULL OR [PorcentajeMargen] >= 0");
+
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_PrecioYMonedaJuntos", "([PrecioUnitario] IS NULL AND [Moneda] IS NULL) OR ([PrecioUnitario] IS NOT NULL AND [Moneda] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_ReferenciaCompleta", "([MaterialId] IS NULL AND [MaterialProveedorId] IS NULL) OR ([MaterialId] IS NOT NULL AND [MaterialProveedorId] IS NOT NULL)");
+
+                            t.HasCheckConstraint("CK_ConceptosPresupuesto_UnidadValida", "[Unidad] IS NULL OR [Unidad] IN (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14)");
+                        });
+                });
+
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.MargenBaseTipo", b =>
+                {
+                    b.Property<int>("ConceptoPresupuestoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TipoConceptoId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TipoConceptoDuenoId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(6);
+
+                    b.HasKey("ConceptoPresupuestoId", "TipoConceptoId");
+
+                    b.HasIndex("TipoConceptoId");
+
+                    b.HasIndex("ConceptoPresupuestoId", "TipoConceptoDuenoId");
+
+                    b.ToTable("MargenesBaseTipo", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MargenesBaseTipo_DuenoEsMargen", "[TipoConceptoDuenoId] = 6");
+
+                            t.HasCheckConstraint("CK_MargenesBaseTipo_NoIncluyeMargen", "[TipoConceptoId] <> 6");
+                        });
+                });
+
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.Presupuesto", b =>
                 {
                     b.Property<int>("Id")
@@ -214,6 +327,62 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                             t.HasCheckConstraint("CK_Presupuestos_NombreProyectoNoVacio", "TRIM([NombreProyecto]) <> ''");
 
                             t.HasCheckConstraint("CK_Presupuestos_PlazoVigenciaPositivo", "[PlazoVigenciaDias] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.TipoConcepto", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Nombre")
+                        .IsUnique();
+
+                    b.ToTable("TiposConcepto", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_TiposConcepto_NombreNoVacio", "TRIM([Nombre]) <> ''");
+                        });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Nombre = "Material"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Nombre = "Mano de obra"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Nombre = "Alquiler"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Nombre = "Traslado"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Nombre = "Costos indirectos"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Nombre = "Margen"
                         });
                 });
 
@@ -412,6 +581,50 @@ namespace EOP.Gestion.Infrastructure.Persistencia.Migraciones
                         .HasForeignKey("ProveedorId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.ConceptoPresupuesto", b =>
+                {
+                    b.HasOne("EOP.Gestion.Core.Entidades.Catalogo.Material", null)
+                        .WithMany()
+                        .HasForeignKey("MaterialId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.Presupuesto", null)
+                        .WithMany()
+                        .HasForeignKey("PresupuestoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.TipoConcepto", null)
+                        .WithMany()
+                        .HasForeignKey("TipoConceptoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Catalogo.MaterialProveedor", null)
+                        .WithMany()
+                        .HasForeignKey("MaterialProveedorId", "MaterialId")
+                        .HasPrincipalKey("Id", "MaterialId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial");
+                });
+
+            modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.MargenBaseTipo", b =>
+                {
+                    b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.TipoConcepto", null)
+                        .WithMany()
+                        .HasForeignKey("TipoConceptoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("EOP.Gestion.Core.Entidades.Presupuestos.ConceptoPresupuesto", null)
+                        .WithMany()
+                        .HasForeignKey("ConceptoPresupuestoId", "TipoConceptoDuenoId")
+                        .HasPrincipalKey("Id", "TipoConceptoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_MargenesBaseTipo_ConceptosPresupuesto_DuenoMargen");
                 });
 
             modelBuilder.Entity("EOP.Gestion.Core.Entidades.Presupuestos.Presupuesto", b =>

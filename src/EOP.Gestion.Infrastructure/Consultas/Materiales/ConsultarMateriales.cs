@@ -70,6 +70,7 @@ namespace EOP.Gestion.Infrastructure.Consultas.Materiales
                 orderby proveedor.Nombre
                 select new
                 {
+                    relacion.Id,
                     relacion.MaterialId,
                     ProveedorNombre = proveedor.Nombre,
                     relacion.PrecioUnitario,
@@ -89,6 +90,7 @@ namespace EOP.Gestion.Infrastructure.Consultas.Materiales
 
                 material.Referencias.Add(new ReferenciaPrecioMaterialDto
                 {
+                    RelacionId = referencia.Id,
                     ProveedorNombre = referencia.ProveedorNombre,
                     PrecioUnitario = referencia.PrecioUnitario,
                     Moneda = referencia.Moneda,
