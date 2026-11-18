@@ -16,6 +16,11 @@ namespace EOP.Gestion.Core.Entidades.Presupuestos
         public const int CostosIndirectosId = 5;
         public const int MargenId = 6;
 
+        public static bool AdmiteImporteDirecto(int tipoId)
+        {
+            return tipoId is ManoDeObraId or AlquilerId or TrasladoId or CostosIndirectosId;
+        }
+
         public int Id { get; set; }
 
         public string Nombre { get; set; } = string.Empty;

@@ -4,6 +4,8 @@ namespace EOP.Gestion.Core.DTOs.Materiales
 {
     public class ReferenciaPrecioMaterialDto
     {
+        public int RelacionId { get; set; }
+
         public string ProveedorNombre { get; set; } = string.Empty;
 
         public decimal PrecioUnitario { get; set; }

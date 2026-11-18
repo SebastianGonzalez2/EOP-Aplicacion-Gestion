@@ -1,5 +1,6 @@
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Clientes;
+using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
@@ -40,5 +41,20 @@ public class IndicesUnicosTests
 
         Assert.True(indice.IsUnique);
         Assert.Equal(nombreEsperado, indice.GetDatabaseName());
+    }
+
+    [Fact]
+    public void IndiceDeConceptosPorMaterialProveedor_CoincideConElQueUsaElRepositorio()
+    {
+        using var contexto = new EopDbContext(new DbContextOptionsBuilder<EopDbContext>()
+            .UseSqlServer("Server=.;Database=SinConexion")
+            .Options);
+        var entidad = contexto.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(ConceptoPresupuesto))!;
+        var indice = Assert.Single(entidad.GetIndexes(), indice =>
+            indice.Properties.Select(propiedad => propiedad.Name).SequenceEqual(
+                [nameof(ConceptoPresupuesto.PresupuestoId), nameof(ConceptoPresupuesto.MaterialProveedorId)]));
+
+        Assert.True(indice.IsUnique);
+        Assert.Equal(IndicesUnicos.ConceptosPresupuestoMaterialProveedor, indice.GetDatabaseName());
     }
 }

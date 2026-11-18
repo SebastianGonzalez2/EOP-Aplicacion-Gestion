@@ -42,6 +42,8 @@ public static class IndicesUnicos
 
     public const string UsuariosCorreoCorporativo = "IX_Usuarios_CorreoCorporativo";
 
+    public const string ConceptosPresupuestoMaterialProveedor = "IX_ConceptosPresupuesto_PresupuestoId_MaterialProveedorId";
+
     // Devuelve true solo si el guardado falló porque se repitió un valor en ese índice.
     //
     // El nombre del índice solo se puede sacar del texto del mensaje, porque SQL Server no lo da

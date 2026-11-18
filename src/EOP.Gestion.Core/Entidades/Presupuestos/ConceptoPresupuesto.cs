@@ -53,5 +53,15 @@ namespace EOP.Gestion.Core.Entidades.Presupuestos
 
         // Porcentaje del concepto Margen. Los demás tipos lo dejan en NULL.
         public decimal? PorcentajeMargen { get; set; }
+
+        public void CopiarReferencia(Material material, MaterialProveedor referencia)
+        {
+            MaterialId = material.Id;
+            MaterialProveedorId = referencia.Id;
+            Concepto = material.Nombre;
+            Unidad = material.Unidad;
+            PrecioUnitario = referencia.PrecioUnitario;
+            Moneda = referencia.Moneda;
+        }
     }
 }

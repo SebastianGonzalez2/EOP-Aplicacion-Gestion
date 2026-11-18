@@ -1,9 +1,12 @@
+using System.Net;
+using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Infrastructure.Persistencia;
+using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
 using EOP.Gestion.Tests.Compartido;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -711,5 +714,194 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         DbUpdateException excepcion = await Assert.ThrowsAsync<DbUpdateException>(() => contexto.SaveChangesAsync());
 
         Assert.Contains("FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial", excepcion.GetBaseException().Message);
+    }
+
+    // S3-T06: además de verificar el esquema, recorremos el guardado desde el formulario real.
+    [TheoryConSqlServer]
+    [InlineData(TipoConcepto.ManoDeObraId, Moneda.USD, EstadoPresupuesto.Borrador, RolUsuario.Operador)]
+    [InlineData(TipoConcepto.AlquilerId, Moneda.UYU, EstadoPresupuesto.ParaRevisionInterna, RolUsuario.Supervisor)]
+    [InlineData(TipoConcepto.TrasladoId, Moneda.UYU, EstadoPresupuesto.SolicitudDeModificacionDelCliente, RolUsuario.Administrador)]
+    public async Task AltaManual_ImporteDirectoConservaValorYMoneda(
+        int tipo, Moneda moneda, EstadoPresupuesto estado, RolUsuario rol)
+    {
+        using EopDbContext contexto = CrearContexto();
+        await contexto.Presupuestos.Where(p => p.Id == _presupuestoId)
+            .ExecuteUpdateAsync(cambios => cambios.SetProperty(p => p.Estado, estado));
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionParaConceptosAsync(fabrica, rol);
+        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}?tipoId={tipo}";
+        string pagina = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
+        Assert.Contains("Entrada.Importe", pagina);
+        Assert.DoesNotContain("Entrada.Cantidad", pagina);
+        Assert.DoesNotContain("Entrada.ReferenciaId", pagina);
+
+        var formulario = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync(ruta),
+            ["Entrada.TipoId"] = tipo.ToString(),
+            ["Entrada.Descripcion"] = " Instalación ",
+            ["Entrada.Importe"] = "123,4567890123",
+            ["Entrada.Moneda"] = moneda.ToString()
+        };
+        var respuesta = await navegador.PostAsync($"/ConceptosPresupuesto/Agregar/{_presupuestoId}", formulario);
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+
+        var concepto = await contexto.ConceptosPresupuesto.SingleAsync();
+        Assert.Equal(tipo, concepto.TipoConceptoId);
+        Assert.Equal("Instalación", concepto.Concepto);
+        Assert.Null(concepto.ConceptoDetectado);
+        Assert.Null(concepto.Unidad);
+        Assert.Null(concepto.Cantidad);
+        Assert.Equal(123.4567890123m, concepto.PrecioUnitario);
+        Assert.Equal(moneda, concepto.Moneda);
+        Assert.Equal(estado, await contexto.Presupuestos.Where(p => p.Id == _presupuestoId)
+            .Select(p => p.Estado).SingleAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task AltaManual_MaterialConservaLaReferenciaYRechazaLaCombinacionRepetida()
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionParaConceptosAsync(fabrica, RolUsuario.Operador);
+        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}?tipoId=1&busqueda=cable";
+        string pagina = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
+        Assert.Contains("Cable de cobre", pagina);
+        Assert.DoesNotContain("Pintura blanca", pagina);
+        Assert.Contains("Seleccioná una referencia", WebUtility.HtmlDecode(pagina));
+
+        var formulario = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync(ruta),
+            ["Entrada.TipoId"] = TipoConcepto.MaterialId.ToString(),
+            ["Entrada.ReferenciaId"] = _materialProveedorId.ToString(),
+            ["Entrada.Cantidad"] = "2.5",
+            ["Entrada.Descripcion"] = "Nombre manipulado",
+            ["Entrada.Importe"] = "1",
+            ["Entrada.Moneda"] = "USD"
+        };
+        string destino = $"/ConceptosPresupuesto/Agregar/{_presupuestoId}?busqueda=cable";
+        Assert.Equal(HttpStatusCode.Redirect, (await navegador.PostAsync(destino, formulario)).StatusCode);
+
+        using EopDbContext contexto = CrearContexto();
+        var material = await contexto.Materiales.SingleAsync(m => m.Id == _materialId);
+        var referencia = await contexto.MaterialProveedores.SingleAsync(r => r.Id == _materialProveedorId);
+        material.Nombre = "Material actualizado";
+        material.Unidad = UnidadMedida.Centimetro;
+        referencia.PrecioUnitario = 250m;
+        referencia.Moneda = Moneda.USD;
+        await contexto.SaveChangesAsync();
+
+        var repetido = await navegador.PostAsync(destino, formulario);
+        Assert.Equal(HttpStatusCode.OK, repetido.StatusCode);
+        Assert.Contains("ya están en el presupuesto", WebUtility.HtmlDecode(await repetido.Content.ReadAsStringAsync()));
+        var concepto = await contexto.ConceptosPresupuesto.SingleAsync();
+        Assert.Equal("Cable de cobre", concepto.Concepto);
+        Assert.Equal(_materialProveedorId, concepto.MaterialProveedorId);
+        Assert.Equal(_materialId, concepto.MaterialId);
+        Assert.Null(concepto.ConceptoDetectado);
+        Assert.Equal(UnidadMedida.Metro, concepto.Unidad);
+        Assert.Equal(Moneda.UYU, concepto.Moneda);
+        Assert.Equal(100m, concepto.PrecioUnitario);
+        Assert.Equal(2.5m, concepto.Cantidad);
+        string tabla = await (await navegador.GetAsync($"/ConceptosPresupuesto/Index/{_presupuestoId}")).Content.ReadAsStringAsync();
+        Assert.Contains("Cable de cobre", tabla);
+        Assert.Contains("UYU 100", tabla);
+        Assert.DoesNotContain("Material actualizado", tabla);
+    }
+
+    [TheoryConSqlServer]
+    [InlineData(EstadoPresupuesto.Borrador, false, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.Aprobado, true, RolUsuario.Administrador)]
+    public async Task AltaManual_SinPermisoOcultaElFormularioYRechazaElPost(
+        EstadoPresupuesto estado, bool responsable, RolUsuario rol)
+    {
+        using EopDbContext contexto = CrearContexto();
+        await contexto.Presupuestos.Where(p => p.Id == _presupuestoId)
+            .ExecuteUpdateAsync(cambios => cambios.SetProperty(p => p.Estado, estado));
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionParaConceptosAsync(fabrica, rol, responsable);
+        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}?tipoId=2";
+        string pagina = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Agregar concepto", pagina);
+        var respuesta = await navegador.PostAsync($"/ConceptosPresupuesto/Agregar/{_presupuestoId}", new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync(ruta),
+            ["Entrada.TipoId"] = TipoConcepto.ManoDeObraId.ToString(),
+            ["Entrada.Importe"] = "100",
+            ["Entrada.Moneda"] = "UYU"
+        });
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Contains("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
+        Assert.Empty(await contexto.ConceptosPresupuesto.ToListAsync());
+    }
+
+    private async Task<FabricaConEntraSimulado.Navegador> IniciarSesionParaConceptosAsync(
+        FabricaConEntraSimulado fabrica, RolUsuario rol, bool responsable = true)
+    {
+        using EopDbContext contexto = CrearContexto();
+        string objectId = Guid.NewGuid().ToString();
+        string correo = "conceptos@eop.com.uy";
+        int usuarioId = await fabrica.GuardarUsuarioAsync(correo, objectId, rol);
+        if (responsable)
+        {
+            await contexto.Presupuestos.Where(p => p.Id == _presupuestoId)
+                .ExecuteUpdateAsync(cambios => cambios.SetProperty(p => p.ResponsableId, usuarioId));
+        }
+
+        var navegador = fabrica.CrearNavegador();
+        await navegador.IniciarSesionAsync(new Dictionary<string, object>
+        {
+            ["sub"] = objectId,
+            ["oid"] = objectId,
+            ["name"] = "Usuario de prueba",
+            ["preferred_username"] = correo
+        });
+        Assert.True(navegador.TieneSesion);
+        return navegador;
+    }
+
+    [TheoryConSqlServer]
+    [InlineData(TipoConcepto.MargenId, "10", "UYU", "Seleccioná un tipo de concepto disponible.")]
+    [InlineData(TipoConcepto.ManoDeObraId, "3,12345678901", "USD", "Ingresá un importe válido")]
+    [InlineData(TipoConcepto.AlquilerId, "10", "", "Seleccioná USD o UYU.")]
+    public async Task AltaManual_DatosInvalidosNoGuardanLaFila(int tipo, string importe, string moneda, string error)
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionParaConceptosAsync(fabrica, RolUsuario.Operador);
+        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}";
+        var respuesta = await navegador.PostAsync($"/ConceptosPresupuesto/Agregar/{_presupuestoId}", new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync(ruta),
+            ["Entrada.TipoId"] = tipo.ToString(),
+            ["Entrada.Importe"] = importe,
+            ["Entrada.Moneda"] = moneda
+        });
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains(error, WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        using EopDbContext contexto = CrearContexto();
+        Assert.False(await contexto.ConceptosPresupuesto.AnyAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task AltaManual_DosSolicitudesParaLaMismaReferenciaSoloGuardanUnaFila()
+    {
+        using EopDbContext contexto = CrearContexto();
+        var responsable = await contexto.Usuarios.SingleAsync();
+
+        async Task<string?> AgregarMaterialAsync()
+        {
+            using EopDbContext otroContexto = CrearContexto();
+            var casoDeUso = new AgregarConceptoManual(new RepositorioConceptosPresupuesto(otroContexto));
+            return await casoDeUso.EjecutarAsync(_presupuestoId, TipoConcepto.MaterialId, null, null, null,
+                _materialProveedorId, 2m, responsable, CancellationToken.None);
+        }
+
+        var resultados = await Task.WhenAll(AgregarMaterialAsync(), AgregarMaterialAsync());
+
+        Assert.Single(resultados, resultado => resultado is null);
+        Assert.Contains(resultados, resultado => resultado?.Contains("ya están en el presupuesto") == true);
+        Assert.Equal(1, await contexto.ConceptosPresupuesto.CountAsync());
     }
 }

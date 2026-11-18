@@ -54,6 +54,10 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         // al detalle de un presupuesto para consultarlo.
         ["GET Presupuestos/Detalle"] = "Administrador,Operador,Supervisor",
 
+        // US-011 y RF-73: los tres roles consultan. El alta comprueba además
+        // el estado del presupuesto y la responsabilidad si se trata de un Operador.
+        ["GET ConceptosPresupuesto/Index"] = "Administrador,Operador,Supervisor",
+        ["POST ConceptosPresupuesto/Agregar"] = "Administrador,Operador,Supervisor",
 
         // RF-67 y RF-73: los tres roles pueden consultar materiales.
         // Solamente Supervisor y Administrador pueden registrarlos.
