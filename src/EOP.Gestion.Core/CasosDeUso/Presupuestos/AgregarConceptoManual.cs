@@ -15,6 +15,8 @@ public class AgregarConceptoManual
         _repositorio = repositorio;
     }
 
+    //el metodo recibe la info necesaria para agregar un concepto al presupuesto, valida los datos y llama al repositorio para guardarlo.
+    //Devuelve null si se guardó correctamente o un mensaje de error si hubo algún problema.
     public async Task<string?> EjecutarAsync(
         int presupuestoId, int tipoId, string? descripcion, decimal? importe, Moneda? moneda,
         int? referenciaId, decimal? cantidad, Usuario usuario, CancellationToken cancellationToken)
