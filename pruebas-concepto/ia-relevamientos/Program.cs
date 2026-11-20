@@ -111,15 +111,15 @@ try
     
 
     Relevamiento:
-    En el edificio hay que reemplazar algunas luminarias LED, pero todavía no se determinó cuántas.
+    Tengo que preparar un presupuesto para la instalación y conexión de varios multimedidores ubicados en tableros de baja tensión, distribuidos dentro de un centro comercial.
 
-    También se debe revisar el tablero eléctrico existente para evaluar su estado. Es posible que haya que reemplazarlo, pero eso todavía no está confirmado.
+    Se necesita llevar un cable UTP categoría 6 desde los puntos de conexión de los multimedidores hasta los racks de comunicación distribuidos a lo largo del edificio.
 
-    La revisión requiere 4 horas de mano de obra.
+    Durante la visita será necesario medir las distancias desde los puntos de conexión hasta los racks, configurar los equipos multimedidores, habilitar las direcciones IP en los racks y solicitar al área de TI que habilite los puertos de conexión correspondientes.
 
-    No se necesita alquilar equipos ni trasladar materiales.
+    Dependiendo del trazado y de por dónde deban pasar los cables, podría ser necesario incorporar canalizaciones para protegerlos.
 
-    Todavía no se definieron precios.
+    Durante el relevamiento se tomarán notas sobre el recorrido de los cables, por ejemplo, si deben atravesar paredes, pasar por pasarelas técnicas o utilizar bandejas existentes. Son observaciones que se van identificando durante la visita.
     """
     ));
 
