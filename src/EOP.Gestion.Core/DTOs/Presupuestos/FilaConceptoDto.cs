@@ -4,5 +4,6 @@ using EOP.Gestion.Core.Entidades.Catalogo;
 namespace EOP.Gestion.Core.DTOs.Presupuestos;
 
 public record FilaConceptoDto(
-    int TipoId, string Tipo, string? ConceptoDetectado, string? Concepto, string? Proveedor,
+    int Id, int TipoId, string Tipo, string? ConceptoDetectado, string? Concepto, int? MaterialProveedorId,
+    string? Proveedor,
     decimal? Cantidad, UnidadMedida? Unidad, decimal? PrecioUnitario, Moneda? Moneda);

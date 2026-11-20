@@ -59,6 +59,11 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["GET ConceptosPresupuesto/Index"] = "Administrador,Operador,Supervisor",
         ["POST ConceptosPresupuesto/Agregar"] = "Administrador,Operador,Supervisor",
 
+        // US-007 y RF-73: los tres roles pueden entrar; el servidor además exige estado editable
+        // y, para el Operador, ser el responsable del presupuesto.
+        ["GET ConceptosPresupuesto/SeleccionarMaterial"] = "Administrador,Operador,Supervisor",
+        ["POST ConceptosPresupuesto/AsignarMaterial"] = "Administrador,Operador,Supervisor",
+
         // RF-67 y RF-73: los tres roles pueden consultar materiales.
         // Solamente Supervisor y Administrador pueden registrarlos.
 

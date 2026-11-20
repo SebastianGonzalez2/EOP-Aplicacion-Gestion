@@ -1,6 +1,7 @@
 using System.Globalization;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
+using EOP.Gestion.Core.DTOs.Materiales;
 using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
@@ -24,17 +25,19 @@ public class ConceptosPresupuestoController : Controller
     private readonly ConsultarConceptosPresupuesto _consultarConceptos;
     private readonly ConsultarMateriales _consultarMateriales;
     private readonly AgregarConceptoManual _agregarConcepto;
+    private readonly SeleccionarMaterialDeConcepto _seleccionarMaterial;
 
     public ConceptosPresupuestoController(
         IRepositorioUsuarios usuarios, IRepositorioConceptosPresupuesto repositorio,
         ConsultarConceptosPresupuesto consultarConceptos, ConsultarMateriales consultarMateriales,
-        AgregarConceptoManual agregarConcepto)
+        AgregarConceptoManual agregarConcepto, SeleccionarMaterialDeConcepto seleccionarMaterial)
     {
         _usuarios = usuarios;
         _repositorio = repositorio;
         _consultarConceptos = consultarConceptos;
         _consultarMateriales = consultarMateriales;
         _agregarConcepto = agregarConcepto;
+        _seleccionarMaterial = seleccionarMaterial;
     }
 
     [HttpGet]
@@ -113,6 +116,92 @@ public class ConceptosPresupuestoController : Controller
             presupuesto, usuario, entrada, busqueda, cancellationToken));
     }
 
+    // US-007: pantalla para buscar y elegir a mano el material de una fila de tipo Material.
+    // Buscar solo lee el catálogo; no crea ni modifica nada (RF-12).
+    [HttpGet]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> SeleccionarMaterial(
+        int id, int conceptoId, string? busqueda, CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        // Entrar a la pantalla también exige poder editar: Operador solo si es el responsable
+        // y el presupuesto en un estado editable. Ocultar el botón en la tabla no alcanza (RNF-4).
+        if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
+        {
+            return Forbid();
+        }
+
+        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        if (fila == null)
+        {
+            return NotFound();
+        }
+
+        if (fila.TipoId != TipoConcepto.MaterialId)
+        {
+            TempData["MensajeError"] = "Solo se puede seleccionar un material en las filas de tipo Material.";
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        return View(await PrepararSeleccionAsync(presupuesto, fila, busqueda, cancellationToken));
+    }
+
+    // US-007: guarda la referencia que el usuario eligió para la fila. Sirve para vincular una
+    // fila sin material y para sustituir el material de una fila que ya lo tenía (RF-13).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> AsignarMaterial(
+        int id, int conceptoId, int? referenciaId, string? busqueda, CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
+        {
+            return Forbid();
+        }
+
+        string? error = await _seleccionarMaterial.EjecutarAsync(
+            id, conceptoId, referenciaId, usuario, cancellationToken);
+        if (error == null)
+        {
+            TempData["MensajeExito"] = "El material se asoció a la fila del presupuesto.";
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        if (fila == null)
+        {
+            TempData["MensajeError"] = error;
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        ModelState.AddModelError(string.Empty, error);
+        return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
+            presupuesto, fila, busqueda, cancellationToken));
+    }
+
     private async Task<Usuario?> ObtenerUsuarioAsync(CancellationToken cancellationToken)
     {
         string? identidad = User.GetObjectId();
@@ -122,6 +211,27 @@ public class ConceptosPresupuestoController : Controller
         }
 
         return await _usuarios.ObtenerPorIdentidadExternaAsync(identidad, cancellationToken);
+    }
+
+    private async Task<SeleccionarMaterialViewModel> PrepararSeleccionAsync(
+        Presupuesto presupuesto, FilaConceptoDto fila, string? busqueda, CancellationToken cancellationToken)
+    {
+        // Sin texto de búsqueda no se lista nada: el usuario tiene que buscar a propósito y elegir
+        // expresamente. Nada se preselecciona a partir del Concepto detectado (RF-12).
+        var materiales = new List<MaterialListadoDto>();
+        if (!string.IsNullOrWhiteSpace(busqueda))
+        {
+            materiales = await _consultarMateriales.EjecutarAsync(busqueda, null, null, cancellationToken);
+        }
+
+        return new SeleccionarMaterialViewModel
+        {
+            PresupuestoId = presupuesto.Id,
+            Codigo = presupuesto.Codigo,
+            Fila = fila,
+            Busqueda = busqueda,
+            Materiales = materiales
+        };
     }
 
     private async Task<ConceptosPresupuestoViewModel> PrepararPantallaAsync(

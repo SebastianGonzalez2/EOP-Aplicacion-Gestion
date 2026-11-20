@@ -129,5 +129,12 @@ public class AgregarConceptoManualValidacionesTests
 
             return Task.FromResult(ResultadoGuardarConcepto.Guardado);
         }
+
+        public Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
+            int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
+            CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException("Estas pruebas no seleccionan materiales de filas existentes.");
+        }
     }
 }
