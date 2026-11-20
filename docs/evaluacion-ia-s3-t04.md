@@ -3,7 +3,7 @@
 **Proyecto:** EOP — Sistema de Gestión  
 **Fecha de las pruebas:** 20/11/2026  
 **Rama de trabajo:** `feat/S3-T04-evaluar-integracion-ia`  
-**Estado de la evaluación:** pruebas preliminares realizadas; pendiente incorporar los archivos a Git y revisar el Pull Request.
+**Estado de la evaluación:** pruebas preliminares realizadas y registradas en la rama S3-T04; integración a `main` sujeta al proceso de revisión del Pull Request.
 
 ## 1. ¿Qué queríamos comprobar?
 
@@ -23,7 +23,7 @@ Creamos una aplicación pequeña de consola, separada de la aplicación web, per
 - **Modelo configurado en la prueba:** `gpt-6-luna`.
 - **Acceso:** una clave privada proporcionada mediante la variable de entorno `OPENAI_API_KEY`. La clave **no se escribió en el código**.
 
-El programa envía a OpenAI un relevamiento ficticio y recibe una propuesta con estos datos: tipo de concepto, nombre detectado, cantidad y unidad. Se utilizó un formato de respuesta **JSON estructurado**: una manera de recibir datos ordenados que C# puede leer sin tener que interpretar una tabla de texto.
+El programa envía a OpenAI un texto de relevamiento y recibe una propuesta con estos datos: tipo de concepto, nombre detectado, cantidad y unidad. Se utilizó un formato de respuesta **JSON estructurado**: una manera de recibir datos ordenados que C# puede leer sin tener que interpretar una tabla de texto.
 
 También agregamos una validación básica en C#: comprobamos que la respuesta contenga una lista, que los tipos pertenezcan al conjunto permitido, que los conceptos tengan nombre y que cantidad y unidad tengan el formato esperado.
 
@@ -134,12 +134,48 @@ La terminal confirmó una compilación correcta al instalar el SDK. Después del
 
 **No consta en esta evaluación la ejecución de las pruebas automatizadas de toda la solución EOP**, ni una revisión de Pull Request.
 
+### Prueba 7 — Ejemplo de relevamiento proporcionado por el cliente
+
+**Origen y alcance:** el cliente compartió un audio con un ejemplo de las observaciones que podría realizar durante una visita técnica. El audio se transcribió mediante una llamada independiente a OpenAI (`gpt-4o-mini-transcribe`), y luego se preparó un texto más ordenado para usarlo en el programa de consola. Para documentar esta prueba se omiten nombres de personas y lugares concretos. **No se implementó la transcripción de audio dentro de la aplicación EOP.**
+
+**Resumen del relevamiento utilizado:** se necesita conectar varios multimedidores ubicados en tableros de baja tensión con los racks de comunicaciones de un centro comercial mediante cable UTP categoría 6. Hay que medir las distancias y definir recorridos, instalar y conectar los equipos, configurarlos, habilitar direcciones IP y coordinar con el área de TI la habilitación de puertos. Podrían necesitarse canalizaciones adicionales dependiendo del trazado, pero todavía no está confirmado. Se mencionan racks y bandejas que ya existen.
+
+**Resultado observado en la consola:**
+
+| Tipo devuelto por la IA | Concepto detectado | Cantidad |
+|---|---|---|
+| Material | Cable UTP categoría 6 | No especificada |
+| Mano de obra | Instalación y conexión de multimedidores en tableros de baja tensión | No especificada |
+| Mano de obra | Medición de distancias y relevamiento del recorrido de los cables hasta los racks | No especificada |
+| Mano de obra | Configuración de equipos multimedidores | No especificada |
+| Mano de obra | Habilitación de direcciones IP en los racks | No especificada |
+| Mano de obra | Gestión de solicitud al área de TI para habilitar los puertos de conexión | No especificada |
+
+El programa mostró **`Total de conceptos: 6`** y no detectó errores de formato en la respuesta.
+
+**Aspectos positivos:** la IA identificó el cable y las principales actividades técnicas. No inventó cantidades, distancias ni precios. Tampoco creó filas de compra para racks o multimedidores existentes ni presupuestó las canalizaciones opcionales como si ya fueran necesarias.
+
+**Observación importante:** algunas actividades detectadas podrían ser parte de la preparación del presupuesto y **no un trabajo que EOP deba cobrar**. Por ejemplo, medir distancias durante la visita puede ser una actividad de relevamiento previo. Además, la habilitación de direcciones IP y los puertos requiere aclarar qué tareas realizará EOP y cuáles corresponden al personal de TI del cliente. El texto no permite determinar con certeza qué actividades se facturan.
+
+**Decisión tomada para el prototipo: mantener el prompt actual y dejar la selección final al usuario.** No agregaremos una regla automática que elimine todas las mediciones o tareas de coordinación, porque en otros trabajos esas actividades sí podrían presupuestarse. Preferimos que una actividad efectivamente necesaria, pero de facturación dudosa, aparezca como propuesta y que la persona pueda **revisar, modificar o eliminar la fila** antes de confirmar el presupuesto. Esto está alineado con RF-011 y US-006.
+
+La distinción que debemos conservar es la siguiente:
+
+- **Actividad confirmada pero de facturación dudosa:** puede aparecer como propuesta para revisión humana.
+- **Material o trabajo meramente posible, todavía no confirmado:** no debe presentarse como necesidad ya decidida.
+- **Actividad expresamente descartada:** no debe generar una fila.
+- **Cantidad o precio no informados:** deben permanecer sin completar, sin inventar valores.
+
+**Límite de esta evaluación:** la clasificación fue razonable en una ejecución manual, pero no se verificó con el cliente cuáles de las seis filas deberían cobrarse. Tampoco se probó todavía la edición o eliminación de filas en la interfaz, ya que esta es solamente una prueba de consola. No corresponde tratar el resultado como un presupuesto definitivo.
+
 ## 4. Qué aprendimos
 
 - **Es técnicamente posible** conectar un programa C# de EOP con OpenAI para analizar relevamientos escritos.
 - La IA puede detectar materiales, mano de obra, alquileres y traslados, incluso cuando faltan cantidades.
 - El formato JSON estructurado facilita que C# interprete la respuesta y compruebe su forma.
 - La IA puede equivocarse cuando una necesidad es solamente posible o está pendiente de confirmación. Las instrucciones mejoran el resultado observado, pero no reemplazan la revisión humana.
+- En un relevamiento de ejemplo aportado por el cliente, la IA identificó seis conceptos sin inventar cantidades. Algunas actividades detectadas podrían formar parte del relevamiento previo y no necesariamente corresponder a un costo facturable.
+- Por ahora se decidió mantener el prompt de análisis: las actividades confirmadas pero de facturación dudosa se proponen para revisión y posible eliminación manual, mientras que los materiales o trabajos meramente hipotéticos no se deben considerar confirmados.
 - Los valores faltantes deben permanecer sin completar; no deben inventarse precios ni cantidades.
 - Las claves de acceso deben mantenerse fuera del repositorio y los errores no deben mostrar datos sensibles.
 
@@ -165,11 +201,11 @@ En cuanto a fallas externas, comprobamos un caso de clave incorrecta, **pero no 
 
 **Resultado de la evaluación preliminar: favorable, con limitaciones identificadas.**
 
-Las pruebas permiten considerar **viable** el análisis inicial de relevamientos mediante OpenAI desde C# y .NET 10. Se identificaron correctamente los conceptos esperados en los ejemplos sencillos y complejos. En el caso ambiguo apareció un error, se corrigieron las instrucciones y se obtuvo un resultado adecuado al repetir la prueba.
+Las pruebas permiten considerar **viable** el análisis inicial de relevamientos mediante OpenAI desde C# y .NET 10. Se identificaron correctamente los conceptos esperados en los ejemplos sencillos y complejos. En el caso ambiguo apareció un error, se corrigieron las instrucciones y se obtuvo un resultado adecuado al repetir la prueba. El ejemplo proporcionado por el cliente confirmó que algunas filas necesitan una decisión humana sobre si corresponden o no al presupuesto; no se modificó el prompt para eliminarlas automáticamente.
 
 La IA debe utilizarse para **proponer conceptos**, nunca para aprobar presupuestos, seleccionar automáticamente materiales del catálogo o definir precios sin intervención humana.
 
-**Cierre administrativo de S3-T04:** corresponde guardar este documento y el proyecto de consola en la rama S3-T04, comprobar los cambios y abrir un Pull Request para revisión. La tarea puede pasar a «Done» una vez completado el proceso de revisión y aceptación del equipo, conforme a las reglas del repositorio.
+**Cierre administrativo de S3-T04:** el documento y el proyecto de consola ya están en la rama S3-T04. Corresponde revisar los cambios en un Pull Request antes de integrarlos en `main`. La tarea puede pasar a «Done» una vez completado el proceso de revisión y aceptación del equipo, conforme a las reglas del repositorio.
 
 ## 8. Cómo reproducir la prueba
 
@@ -178,6 +214,6 @@ Desde la raíz del repositorio, con una API key válida configurada en la variab
 - **Compilar:** `dotnet build pruebas-concepto/ia-relevamientos/EOP.PruebaConcepto.IA.csproj`
 - **Ejecutar:** `dotnet run --project pruebas-concepto/ia-relevamientos/EOP.PruebaConcepto.IA.csproj`
 
-Las pruebas con distintos relevamientos se hicieron cambiando el texto ficticio enviado desde `Program.cs`. Los resultados presentados arriba proceden de esas ejecuciones manuales; **no se implementó aún una batería automatizada que repita todos estos casos**.
+Las pruebas con distintos relevamientos se hicieron cambiando el texto enviado desde `Program.cs`: primero se usaron casos ficticios y después un ejemplo preparado a partir del audio aportado por el cliente. Los resultados presentados arriba proceden de esas ejecuciones manuales; **no se implementó aún una batería automatizada que repita todos estos casos**.
 
 **Seguridad:** nunca subir la clave privada a GitHub ni incorporarla a capturas o registros de prueba.
