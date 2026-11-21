@@ -616,9 +616,10 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         string filas = string.Join("\n", Regex.Matches(pagina, "<tr>.*?</tr>", RegexOptions.Singleline)
             .Select(coincidencia => Regex.Replace(coincidencia.Value, @"\s+", " ")));
 
-        // Cada referencia muestra proveedor, precio, moneda y fecha en la misma fila de la tabla.
-        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor A.*?<td class=""text-end"">100</td> <td>UYU</td> <td>05/11/2026 12:00</td> </tr>", filas);
-        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor B.*?<td class=""text-end"">2[.,]5</td> <td>USD</td> <td>01/11/2026 22:30</td> </tr>", filas);
+        // Cada referencia muestra proveedor, precio, moneda y fecha en la misma fila de la tabla
+        // (desde S3-T12 la fila termina además con la celda de acción).
+        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor A.*?<td class=""text-end"">100</td> <td>UYU</td> <td>05/11/2026 12:00</td> .*?</tr>", filas);
+        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor B.*?<td class=""text-end"">2[.,]5</td> <td>USD</td> <td>01/11/2026 22:30</td> .*?</tr>", filas);
         Assert.DoesNotContain("02/11/2026", pagina);
     }
 
@@ -679,6 +680,391 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
 
         Assert.Contains("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
         Assert.DoesNotContain("Referencias de precios de", await respuesta.Content.ReadAsStringAsync());
+    }
+
+    // ---- S3-T12 (US-010A, RF-20): seleccionar otra referencia del mismo material y conservar la historia ----
+
+    private async Task<HttpResponseMessage> CambiarProveedorAsync(
+        FabricaConEntraSimulado.Navegador navegador, int conceptoId, string referenciaId,
+        int? presupuestoId = null, Dictionary<string, string>? camposExtra = null)
+    {
+        var formulario = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync($"/ConceptosPresupuesto/Index/{_presupuestoId}"),
+            ["referenciaId"] = referenciaId
+        };
+        foreach (var campo in camposExtra ?? [])
+        {
+            formulario[campo.Key] = campo.Value;
+        }
+        return await navegador.PostAsync(
+            $"/ConceptosPresupuesto/CambiarProveedor/{presupuestoId ?? _presupuestoId}?conceptoId={conceptoId}", formulario);
+    }
+
+    [FactConSqlServer]
+    public async Task PanelDeReferencias_OfreceSeleccionarCadaReferenciaMenosLaQueLaFilaYaTiene()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+
+        Assert.Contains($"value=\"{_cableProveedorBId}\"", pagina);
+        Assert.DoesNotContain($"value=\"{_cableProveedorAId}\"", pagina);
+        Assert.Equal(1, ContarApariciones(pagina, "Seleccionada"));
+        // Nada se preselecciona: el cambio ocurre solo cuando el usuario envía el formulario.
+        Assert.Equal(_cableProveedorAId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+    }
+
+    [FactConSqlServer]
+    public async Task PanelDeReferencias_SoloEnviaLaReferenciaYNoOfreceEditarLosValoresCopiados()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+        string formularios = string.Join("\n", Regex.Matches(pagina, @"<form[^>]*CambiarProveedor.*?</form>", RegexOptions.Singleline).Select(m => m.Value));
+        var campos = Regex.Matches(formularios, @"<input[^>]*name=""([^""]+)""").Select(m => m.Groups[1].Value).Distinct().Order();
+
+        Assert.Equal(new[] { "__RequestVerificationToken", "referenciaId" }, campos);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_ActualizaProveedorPrecioYMonedaYConservaMaterialConceptoDetectadoYCantidad()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        int materialIdAntes = (await LeerFilaAsync(filaId)).MaterialId!.Value;
+        string catalogoAntes = await FotoDelCatalogoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        // Se lee con un contexto nuevo: lo que se ve es lo que quedó guardado en la base.
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal(_cableProveedorBId, fila.MaterialProveedorId);
+        Assert.Equal(materialIdAntes, fila.MaterialId);
+        Assert.Equal("Cable de cobre", fila.Concepto);
+        Assert.Equal(UnidadMedida.Metro, fila.Unidad);
+        Assert.Equal(2.5m, fila.PrecioUnitario);
+        Assert.Equal(Moneda.USD, fila.Moneda);
+        Assert.Equal("cable de cobre para tablero", fila.ConceptoDetectado);
+        Assert.Equal(10m, fila.Cantidad);
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+
+        // Al volver, el panel marca ahora al proveedor B como la referencia de la fila.
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+        Assert.Contains($"value=\"{_cableProveedorAId}\"", pagina);
+        Assert.DoesNotContain($"value=\"{_cableProveedorBId}\"", pagina);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_IgnoraValoresHistoricosEscritosAManoEnLaSolicitud()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString(), camposExtra: new()
+        {
+            ["Concepto"] = "Nombre inventado",
+            ["PrecioUnitario"] = "999",
+            ["Moneda"] = "UYU",
+            ["Unidad"] = "Litro"
+        });
+
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal("Cable de cobre", fila.Concepto);
+        Assert.Equal(2.5m, fila.PrecioUnitario);
+        Assert.Equal(Moneda.USD, fila.Moneda);
+        Assert.Equal(UnidadMedida.Metro, fila.Unidad);
+    }
+
+    [FactConSqlServer]
+    public async Task ElCatalogoCambiaDespuesDeSeleccionar_ElPresupuestoConservaLosCuatroValoresHistoricos()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+        await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+
+        // El catálogo cambia por completo: nombre y unidad del material, precio y moneda de la referencia.
+        using (EopDbContext contexto = CrearContexto())
+        {
+            await contexto.Materiales.Where(m => m.Nombre == "Cable de cobre")
+                .ExecuteUpdateAsync(c => c.SetProperty(m => m.Nombre, "Cable renombrado").SetProperty(m => m.Unidad, UnidadMedida.Unidad));
+            await contexto.MaterialProveedores.Where(r => r.Id == _cableProveedorBId)
+                .ExecuteUpdateAsync(c => c.SetProperty(r => r.PrecioUnitario, 99m).SetProperty(r => r.Moneda, Moneda.UYU));
+        }
+
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal("Cable de cobre", fila.Concepto);
+        Assert.Equal(UnidadMedida.Metro, fila.Unidad);
+        Assert.Equal(2.5m, fila.PrecioUnitario);
+        Assert.Equal(Moneda.USD, fila.Moneda);
+        // Y la tabla del presupuesto muestra los valores históricos, no los nuevos del catálogo.
+        string tabla = await LeerPaginaAsync(navegador, $"/ConceptosPresupuesto/Index/{_presupuestoId}");
+        Assert.Contains("Cable de cobre", tabla);
+        Assert.DoesNotContain("Cable renombrado", tabla);
+    }
+
+    [FactConSqlServer]
+    public async Task ElCatalogoCambiaAntesDeCambiarProveedor_LaFilaConservaSuHistoriaHastaLaNuevaSeleccionExpresa()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+        using (EopDbContext contexto = CrearContexto())
+        {
+            await contexto.MaterialProveedores.Where(r => r.Id == _cableProveedorAId)
+                .ExecuteUpdateAsync(c => c.SetProperty(r => r.PrecioUnitario, 150m));
+            await contexto.MaterialProveedores.Where(r => r.Id == _cableProveedorBId)
+                .ExecuteUpdateAsync(c => c.SetProperty(r => r.PrecioUnitario, 3.5m));
+        }
+
+        // Consultar el panel no pisa nada: la fila sigue con el precio que copió al seleccionar.
+        await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+        Assert.Equal(100m, (await LeerFilaAsync(filaId)).PrecioUnitario);
+
+        // La nueva selección expresa sí vuelve a copiar los valores vigentes de la referencia elegida.
+        await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal(_cableProveedorBId, fila.MaterialProveedorId);
+        Assert.Equal(3.5m, fila.PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_NoModificaLasOtrasFilasDelPresupuesto()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        var otraFilaAntes = await LeerFilaAsync(_filaConPinturaId);
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+
+        var otraFilaDespues = await LeerFilaAsync(_filaConPinturaId);
+        Assert.Equal(otraFilaAntes.MaterialProveedorId, otraFilaDespues.MaterialProveedorId);
+        Assert.Equal(otraFilaAntes.PrecioUnitario, otraFilaDespues.PrecioUnitario);
+        Assert.Equal(otraFilaAntes.Concepto, otraFilaDespues.Concepto);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_ConUnaReferenciaDeOtroMaterial_SeRechazaYConservaElMaterial()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        // La pintura de A ya está en otra fila: se libera para que el rechazo sea por ser de otro
+        // material y no por duplicada.
+        using (EopDbContext contexto = CrearContexto())
+        {
+            await contexto.ConceptosPresupuesto.Where(c => c.Id == _filaConPinturaId).ExecuteDeleteAsync();
+        }
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, _pinturaProveedorAId.ToString());
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("no es del material de la fila", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal(_cableProveedorAId, fila.MaterialProveedorId);
+        Assert.Equal("Cable de cobre", fila.Concepto);
+        Assert.Equal(100m, fila.PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_EnUnaFilaSinMaterial_SeRechazaYNoLaVincula()
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await CambiarProveedorAsync(navegador, _filaSinMaterialId, _cableProveedorAId.ToString());
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("todavía no tiene un material", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        var fila = await LeerFilaAsync(_filaSinMaterialId);
+        Assert.Null(fila.MaterialProveedorId);
+        Assert.Null(fila.MaterialId);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_ALaMismaReferencia_NoCambiaNada()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+        using (EopDbContext contexto = CrearContexto())
+        {
+            await contexto.MaterialProveedores.Where(r => r.Id == _cableProveedorAId)
+                .ExecuteUpdateAsync(c => c.SetProperty(r => r.PrecioUnitario, 150m));
+        }
+
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorAId.ToString());
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("ya es la seleccionada", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        Assert.Equal(100m, (await LeerFilaAsync(filaId)).PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_ALaCombinacionDeOtraFila_SeRechazaPorDuplicada()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        // Otra fila del mismo presupuesto ya usa el cable del proveedor B (RF-20).
+        using (EopDbContext contexto = CrearContexto())
+        {
+            var cable = await contexto.Materiales.SingleAsync(m => m.Nombre == "Cable de cobre");
+            var referenciaB = await contexto.MaterialProveedores.SingleAsync(r => r.Id == _cableProveedorBId);
+            var filaConB = new ConceptoPresupuesto
+            {
+                PresupuestoId = _presupuestoId,
+                TipoConceptoId = TipoConcepto.MaterialId,
+                Cantidad = 1m
+            };
+            filaConB.CopiarReferencia(cable, referenciaB);
+            contexto.ConceptosPresupuesto.Add(filaConB);
+            await contexto.SaveChangesAsync();
+        }
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("ya están en otra fila", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        Assert.Equal(_cableProveedorAId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+    }
+
+    [TheoryConSqlServer]
+    [InlineData("999999", "La referencia seleccionada no existe")]
+    [InlineData("0", "Seleccioná la referencia de proveedor")]
+    [InlineData("-3", "Seleccioná la referencia de proveedor")]
+    [InlineData("", "Seleccioná la referencia de proveedor")]
+    public async Task CambioDeProveedor_SinReferenciaValida_SeRechazaSinCambiarLaFila(string referenciaId, string mensaje)
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, referenciaId);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains(mensaje, WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        Assert.Equal(_cableProveedorAId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_EnUnaFilaQueNoEsMaterial_SeRechazaSinCambios()
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await CambiarProveedorAsync(navegador, _filaManoDeObraId, _cableProveedorAId.ToString());
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("filas de tipo Material", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        var fila = await LeerFilaAsync(_filaManoDeObraId);
+        Assert.Null(fila.MaterialProveedorId);
+        Assert.Equal(1500m, fila.PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_EnUnaFilaDeOtroPresupuesto_NoSePuedeCambiandoElIdDeLaUrl()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        // Administrador, para que el rechazo no se deba a permisos sino a que la fila no es de ese presupuesto.
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Administrador, responsable: false);
+
+        // La fila es del primer presupuesto, pero la solicitud dice que es del otro.
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString(), _otroPresupuestoId);
+
+        // La fila no existe en ese presupuesto: no se modifica nada y se vuelve a la tabla con el aviso.
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.DoesNotContain("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
+        Assert.Equal(_cableProveedorAId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+    }
+
+    [TheoryConSqlServer]
+    [InlineData(EstadoPresupuesto.Borrador, false, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.Aprobado, true, RolUsuario.Administrador)]
+    [InlineData(EstadoPresupuesto.Rechazado, true, RolUsuario.Supervisor)]
+    [InlineData(EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente, true, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.Cancelado, true, RolUsuario.Administrador)]
+    public async Task CambioDeProveedor_SinPermisoOPresupuestoNoEditable_ElServidorLoRechazaYNoCambiaNada(
+        EstadoPresupuesto estado, bool responsable, RolUsuario rol)
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        string catalogoAntes = await FotoDelCatalogoAsync();
+        using (EopDbContext contexto = CrearContexto())
+        {
+            await contexto.Presupuestos.Where(p => p.Id == _presupuestoId)
+                .ExecuteUpdateAsync(cambios => cambios.SetProperty(p => p.Estado, estado));
+        }
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, rol, responsable);
+
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+
+        Assert.Contains("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal(_cableProveedorAId, fila.MaterialProveedorId);
+        Assert.Equal(100m, fila.PrecioUnitario);
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+    }
+
+    [TheoryConSqlServer]
+    [InlineData(RolUsuario.Supervisor)]
+    [InlineData(RolUsuario.Administrador)]
+    public async Task CambioDeProveedor_SupervisorYAdministradorPuedenCambiarlo(RolUsuario rol)
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, rol, responsable: false);
+
+        var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Equal(_cableProveedorBId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+    }
+
+    [FactConSqlServer]
+    public async Task CambioDeProveedor_SinTokenAntifalsificacion_SeRechaza()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await navegador.PostAsync(
+            $"/ConceptosPresupuesto/CambiarProveedor/{_presupuestoId}?conceptoId={filaId}",
+            new Dictionary<string, string> { ["referenciaId"] = _cableProveedorBId.ToString() });
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        Assert.Equal(_cableProveedorAId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+    }
+
+    [FactConSqlServer]
+    public async Task DosCambiosSimultaneosALaMismaReferencia_SoloUnoLoHaceYElOtroInformaQueNoHuboCambios()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        using EopDbContext contextoInicial = CrearContexto();
+        var responsable = await contextoInicial.Usuarios.SingleAsync();
+
+        async Task<string?> CambiarAsync()
+        {
+            using EopDbContext contexto = CrearContexto();
+            var casoDeUso = new CambiarProveedorDeConcepto(new RepositorioConceptosPresupuesto(contexto));
+            return await casoDeUso.EjecutarAsync(_presupuestoId, filaId, _cableProveedorBId, responsable, CancellationToken.None);
+        }
+
+        var resultados = await Task.WhenAll(CambiarAsync(), CambiarAsync());
+
+        Assert.Single(resultados, resultado => resultado is null);
+        Assert.Contains(resultados, resultado => resultado?.Contains("ya es la seleccionada") == true);
+        Assert.Equal(_cableProveedorBId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
     }
 
     private static int ContarApariciones(string texto, string buscado) =>

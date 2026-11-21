@@ -79,6 +79,11 @@ public class SeleccionarMaterialDeConceptoTests
             return Task.FromResult(Resultado);
         }
 
+        public Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
+            int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
+            CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<Presupuesto?> ObtenerPresupuestoAsync(int presupuestoId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

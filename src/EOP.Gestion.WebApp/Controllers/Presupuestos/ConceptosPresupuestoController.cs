@@ -26,11 +26,13 @@ public class ConceptosPresupuestoController : Controller
     private readonly ConsultarMateriales _consultarMateriales;
     private readonly AgregarConceptoManual _agregarConcepto;
     private readonly SeleccionarMaterialDeConcepto _seleccionarMaterial;
+    private readonly CambiarProveedorDeConcepto _cambiarProveedor;
 
     public ConceptosPresupuestoController(
         IRepositorioUsuarios usuarios, IRepositorioConceptosPresupuesto repositorio,
         ConsultarConceptosPresupuesto consultarConceptos, ConsultarMateriales consultarMateriales,
-        AgregarConceptoManual agregarConcepto, SeleccionarMaterialDeConcepto seleccionarMaterial)
+        AgregarConceptoManual agregarConcepto, SeleccionarMaterialDeConcepto seleccionarMaterial,
+        CambiarProveedorDeConcepto cambiarProveedor)
     {
         _usuarios = usuarios;
         _repositorio = repositorio;
@@ -38,6 +40,7 @@ public class ConceptosPresupuestoController : Controller
         _consultarMateriales = consultarMateriales;
         _agregarConcepto = agregarConcepto;
         _seleccionarMaterial = seleccionarMaterial;
+        _cambiarProveedor = cambiarProveedor;
     }
 
     [HttpGet]
@@ -200,6 +203,55 @@ public class ConceptosPresupuestoController : Controller
         ModelState.AddModelError(string.Empty, error);
         return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
             presupuesto, fila, busqueda, cancellationToken));
+    }
+
+    // S3-T12 (US-010A, RF-20): el usuario eligió otra referencia de proveedor del material que la
+    // fila ya tiene, desde el panel de referencias de S3-T11. El material no cambia; se vuelven a
+    // copiar a la fila el precio y la moneda (y el nombre y la unidad actuales del material).
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> CambiarProveedor(
+        int id, int conceptoId, int? referenciaId, CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        // Mismo control que al abrir la pantalla: Operador solo si es el responsable y el
+        // presupuesto está en un estado editable (RNF-4). El repositorio lo vuelve a comprobar
+        // dentro de la transacción.
+        if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
+        {
+            return Forbid();
+        }
+
+        string? error = await _cambiarProveedor.EjecutarAsync(
+            id, conceptoId, referenciaId, usuario, cancellationToken);
+        if (error == null)
+        {
+            TempData["MensajeExito"] = "El proveedor de la fila se actualizó con la referencia seleccionada.";
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        if (fila == null)
+        {
+            TempData["MensajeError"] = error;
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        ModelState.AddModelError(string.Empty, error);
+        return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
+            presupuesto, fila, null, cancellationToken));
     }
 
     private async Task<Usuario?> ObtenerUsuarioAsync(CancellationToken cancellationToken)

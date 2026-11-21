@@ -16,6 +16,8 @@ public class SeleccionarMaterialViewModel
     // S3-T11 (US-010A): si la fila ya tiene material, acá van sus referencias de precio actuales del
     // catálogo para consultarlas sin buscar de nuevo. Es solo lectura. Si la fila todavía no tiene
     // material, queda en null y la pantalla no muestra este panel.
+    // S3-T12: de este panel sale también el cambio de proveedor (CambiarProveedor), siempre dentro
+    // del mismo material. Los datos del panel siguen siendo solo para mostrar.
     public MaterialListadoDto? MaterialActual { get; init; }
 
     public string? Busqueda { get; init; }
