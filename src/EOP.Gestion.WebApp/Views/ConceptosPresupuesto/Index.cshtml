@@ -43,7 +43,7 @@
                         <th scope="col" class="text-end">Cantidad</th>
                         <th scope="col">Unidad</th>
                         <th scope="col" class="text-end">Precio unitario</th>
-                        <th scope="col" class="text-end">Subtotal directo</th>
+                        <th scope="col" class="text-end">Subtotal</th>
                         @if (Model.PuedeAgregar)
                         {
                             <th scope="col"><span class="visually-hidden">Acciones</span></th>
@@ -60,6 +60,17 @@
                         }
 
                         bool filaMaterial = fila.TipoId == TipoConcepto.MaterialId;
+
+                        // S3-T17: calculamos el subtotal usando los valores
+                        // históricos que ya tiene guardados el presupuesto.
+                        // Conservamos su moneda original, sin hacer conversiones.
+                        string subtotalTexto = "—";
+
+                        if (fila.Subtotal is decimal subtotal && fila.Moneda.HasValue)
+                        {
+                            subtotalTexto = $"{fila.Moneda} {subtotal.ToString("0.##########", cultura)}";
+                        }
+
                         <tr>
                             <td>@fila.Tipo</td>
                             <td class="col-texto">@(fila.ConceptoDetectado ?? "—")</td>
@@ -76,7 +87,7 @@
                             <td class="text-end">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
                             <td>@(fila.Unidad?.ToString() ?? "—")</td>
                             <td class="text-end">@(filaMaterial ? valor : "—")</td>
-                            <td class="text-end">@(TipoConcepto.AdmiteImporteDirecto(fila.TipoId) ? valor : "—")</td>
+                            <td class="text-end">@subtotalTexto</td>
                             @if (Model.PuedeAgregar)
                             {
                                 <td class="text-end">
