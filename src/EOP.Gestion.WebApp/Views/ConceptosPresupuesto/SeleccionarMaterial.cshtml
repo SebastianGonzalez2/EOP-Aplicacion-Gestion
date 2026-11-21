@@ -108,7 +108,7 @@
                                 </td>
                                 <td class="text-end">@referenciaActual.PrecioUnitario.ToString("0.##########", cultura)</td>
                                 <td>@referenciaActual.Moneda</td>
-                                <td>@fechaActualizacion.ToString("dd/MM/yyyy", cultura)</td>
+                                <td>@fechaActualizacion.ToString("dd/MM/yyyy HH:mm", cultura)</td>
                             </tr>
                         }
                     </tbody>
@@ -203,7 +203,7 @@
                                     <td>@material.Unidad</td>
                                     <td>@referencia.ProveedorNombre</td>
                                     <td class="text-end">@precio</td>
-                                    <td>@actualizacion.ToString("dd/MM/yyyy", cultura)</td>
+                                    <td>@actualizacion.ToString("dd/MM/yyyy HH:mm", cultura)</td>
                                     <td class="text-end">
                                         @if (esLaActual)
                                         {

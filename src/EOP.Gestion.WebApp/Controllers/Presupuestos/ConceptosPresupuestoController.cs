@@ -283,7 +283,7 @@ public class ConceptosPresupuestoController : Controller
                     {
                         Group = grupo,
                         Value = referencia.RelacionId.ToString(CultureInfo.InvariantCulture),
-                        Text = $"{referencia.ProveedorNombre} · {referencia.Moneda} {precio} · {actualizacion:dd/MM/yyyy}"
+                        Text = $"{referencia.ProveedorNombre} · {referencia.Moneda} {precio} · {actualizacion:dd/MM/yyyy HH:mm}"
                     });
                 }
             }

@@ -617,8 +617,8 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             .Select(coincidencia => Regex.Replace(coincidencia.Value, @"\s+", " ")));
 
         // Cada referencia muestra proveedor, precio, moneda y fecha en la misma fila de la tabla.
-        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor A.*?<td class=""text-end"">100</td> <td>UYU</td> <td>05/11/2026</td> </tr>", filas);
-        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor B.*?<td class=""text-end"">2[.,]5</td> <td>USD</td> <td>01/11/2026</td> </tr>", filas);
+        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor A.*?<td class=""text-end"">100</td> <td>UYU</td> <td>05/11/2026 12:00</td> </tr>", filas);
+        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor B.*?<td class=""text-end"">2[.,]5</td> <td>USD</td> <td>01/11/2026 22:30</td> </tr>", filas);
         Assert.DoesNotContain("02/11/2026", pagina);
     }
 
@@ -643,8 +643,8 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
 
         string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId, "cable"));
 
-        Assert.Matches(@"Proveedor A</td>\s*<td class=""text-end"">UYU 100</td>\s*<td>05/11/2026</td>", pagina);
-        Assert.Matches(@"Proveedor B</td>\s*<td class=""text-end"">USD 2[.,]5</td>\s*<td>01/11/2026</td>", pagina);
+        Assert.Matches(@"Proveedor A</td>\s*<td class=""text-end"">UYU 100</td>\s*<td>05/11/2026 12:00</td>", pagina);
+        Assert.Matches(@"Proveedor B</td>\s*<td class=""text-end"">USD 2[.,]5</td>\s*<td>01/11/2026 22:30</td>", pagina);
         Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
     }
 

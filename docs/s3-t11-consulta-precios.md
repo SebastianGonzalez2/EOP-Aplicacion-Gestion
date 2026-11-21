@@ -46,10 +46,10 @@ de hoy del catálogo y que los ya copiados al presupuesto no cambian (RF-19).
 
 ## 4. Observaciones para decidir (no se cambió nada)
 
-- **Formato de fecha.** Las pantallas de presupuestos (US-007 y US-011) muestran `dd/MM/yyyy`; el catálogo de
-  materiales muestra `dd/MM/yyyy HH:mm`. La documentación no fija el formato. Se mantuvo `dd/MM/yyyy` dentro de
-  la pantalla de presupuestos para que sea consistente consigo misma. Si el equipo prefiere ver también la hora,
-  hay que unificar las tres vistas (S3-T09, S3-T11 y el selector de US-011).
+- **Formato de fecha (resuelto).** Las pantallas de presupuestos (US-007 y US-011) mostraban `dd/MM/yyyy` y el
+  catálogo de materiales `dd/MM/yyyy HH:mm`. La documentación no fija el formato; el equipo decidió unificar con
+  hora. Ahora la búsqueda de `SeleccionarMaterial`, el panel de esta tarea y el selector de referencias de
+  US-011 muestran `dd/MM/yyyy HH:mm` en hora de Uruguay, igual que el catálogo.
 - **Material seleccionado vs. referencia (ya señalado en S3-T09).** US-007 habla de elegir un *material* y
   US-010A de elegir después la *referencia*, pero el modelo (DT-11) no permite una fila con material y sin
   referencia. El panel de esta tarea consulta las referencias del material de la fila; cómo se cambia solo el
