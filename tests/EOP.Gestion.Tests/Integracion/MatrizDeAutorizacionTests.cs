@@ -63,6 +63,7 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         // y, para el Operador, ser el responsable del presupuesto.
         ["GET ConceptosPresupuesto/SeleccionarMaterial"] = "Administrador,Operador,Supervisor",
         ["POST ConceptosPresupuesto/AsignarMaterial"] = "Administrador,Operador,Supervisor",
+        ["POST ConceptosPresupuesto/CambiarProveedor"] = "Administrador,Operador,Supervisor",
 
         // RF-67 y RF-73: los tres roles pueden consultar materiales.
         // Solamente Supervisor y Administrador pueden registrarlos.

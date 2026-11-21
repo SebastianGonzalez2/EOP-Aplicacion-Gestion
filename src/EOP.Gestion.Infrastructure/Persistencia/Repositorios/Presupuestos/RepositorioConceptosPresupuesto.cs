@@ -85,8 +85,30 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
     // US-007: vincula o sustituye el material de una fila que ya existe. Todo pasa en una sola
     // transacción para que el permiso, la fila, la referencia y la duplicidad se miren con los
     // datos de ese mismo instante, igual que al agregar una fila nueva.
-    public async Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
+    public Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
         int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
+        CancellationToken cancellationToken)
+    {
+        return CopiarReferenciaALaFilaAsync(
+            presupuestoId, conceptoId, referenciaId, usuario, conservarMaterial: false, cancellationToken);
+    }
+
+    // S3-T12 (US-010A): cambia solo el proveedor de una fila que ya tiene material. Es el mismo
+    // recorrido que la selección de US-007 (misma transacción, mismo bloqueo, mismo control de
+    // duplicados), con la condición extra de que la referencia nueva sea del mismo material.
+    public Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
+        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
+        CancellationToken cancellationToken)
+    {
+        return CopiarReferenciaALaFilaAsync(
+            presupuestoId, conceptoId, referenciaId, usuario, conservarMaterial: true, cancellationToken);
+    }
+
+    // Cuando conservarMaterial es true (S3-T12), la fila tiene que tener ya un material y la
+    // referencia elegida tiene que ser de ese mismo material. Cuando es false (US-007), la fila
+    // puede quedar con cualquier material del catálogo.
+    private async Task<ResultadoSeleccionarMaterial> CopiarReferenciaALaFilaAsync(
+        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario, bool conservarMaterial,
         CancellationToken cancellationToken)
     {
         await using var transaccion = await _contexto.Database.BeginTransactionAsync(
@@ -119,6 +141,13 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             return ResultadoSeleccionarMaterial.ConceptoNoEsMaterial;
         }
 
+        // S3-T12: sin material en la fila no hay un "otro proveedor" que elegir. Esto va antes de
+        // mirar la referencia para dar el mensaje más útil: primero hay que elegir el material.
+        if (conservarMaterial && concepto.MaterialId == null)
+        {
+            return ResultadoSeleccionarMaterial.ConceptoSinMaterial;
+        }
+
         // Si la fila ya usa esta referencia no se copia nada de nuevo: volver a copiar pisaría
         // los valores históricos que la fila conserva con los actuales del catálogo (DT-11).
         if (concepto.MaterialProveedorId == referenciaId)
@@ -135,6 +164,13 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
         if (referenciaSeleccionada == null)
         {
             return ResultadoSeleccionarMaterial.ReferenciaInexistente;
+        }
+
+        // S3-T12: el cambio de proveedor no puede cambiar el material. Se compara contra el material
+        // que la fila ya tiene guardado, no contra lo que mande la pantalla (RNF-4, RNF-10).
+        if (conservarMaterial && referenciaSeleccionada.Material.Id != concepto.MaterialId)
+        {
+            return ResultadoSeleccionarMaterial.ReferenciaDeOtroMaterial;
         }
 
         // RF-20: la misma combinación material-proveedor no puede estar en dos filas del

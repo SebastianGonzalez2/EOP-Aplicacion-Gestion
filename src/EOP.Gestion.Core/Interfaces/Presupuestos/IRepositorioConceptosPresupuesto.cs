@@ -17,4 +17,11 @@ public interface IRepositorioConceptosPresupuesto
     Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
         int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
         CancellationToken cancellationToken);
+
+    // S3-T12 (US-010A): cambia solo el proveedor de una fila que ya tiene material. La referencia
+    // nueva tiene que ser del mismo material que la fila; si no, se rechaza. Vuelve a copiar los
+    // cuatro datos históricos (DT-11) y conserva ConceptoDetectado y la cantidad.
+    Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
+        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
+        CancellationToken cancellationToken);
 }

@@ -65,7 +65,12 @@
 @* S3-T11 (US-010A, RF-19): si la fila ya tiene material, se muestran todas sus referencias de precio
    del catálogo sin tener que buscarlo de nuevo. Es solo lectura: acá no se elige, no se registra ni se
    actualiza ningún precio ni proveedor. Son los valores de hoy del catálogo; los que ya se copiaron a
-   la fila del presupuesto no cambian. *@
+   la fila del presupuesto no cambian.
+
+   S3-T12 (US-010A): desde este mismo panel se puede elegir otra referencia del MISMO material. Cada
+   referencia, menos la que la fila ya tiene, trae su botón «Seleccionar», que manda a CambiarProveedor.
+   El panel sigue sin editar nada del catálogo: lo único que cambia es la fila del presupuesto, y solo
+   mediante una selección expresa. Los valores copiados nunca se escriben a mano. *@
 @if (Model.MaterialActual != null)
 {
     <section class="panel mb-3" aria-labelledby="titulo-referencias-material">
@@ -73,7 +78,8 @@
             <h2 id="titulo-referencias-material">Referencias de precios de @Model.MaterialActual.Nombre</h2>
             <p class="descripcion">
                 Valores actuales del catálogo, en la unidad @Model.MaterialActual.Unidad. Los precios que ya se
-                copiaron a la fila del presupuesto no cambian por lo que se vea acá.
+                copiaron a la fila del presupuesto no cambian por lo que se vea acá. Si elegís otra referencia,
+                la fila conserva el mismo material y pasa a usar el proveedor, el precio y la moneda elegidos.
             </p>
         </div>
         @if (Model.MaterialActual.Referencias.Count == 0)
@@ -92,6 +98,7 @@
                             <th scope="col" class="text-end">Precio unitario</th>
                             <th scope="col">Moneda</th>
                             <th scope="col">Última actualización</th>
+                            <th scope="col"><span class="visually-hidden">Acción</span></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -109,6 +116,25 @@
                                 <td class="text-end">@referenciaActual.PrecioUnitario.ToString("0.##########", cultura)</td>
                                 <td>@referenciaActual.Moneda</td>
                                 <td>@fechaActualizacion.ToString("dd/MM/yyyy HH:mm", cultura)</td>
+                                <td class="text-end">
+                                    @if (fila.MaterialProveedorId == referenciaActual.RelacionId)
+                                    {
+                                        @* La referencia que la fila ya tiene no se ofrece de nuevo. *@
+                                        <span class="text-body-secondary">Seleccionada</span>
+                                    }
+                                    else
+                                    {
+                                        <form asp-action="CambiarProveedor" asp-route-id="@Model.PresupuestoId"
+                                              asp-route-conceptoId="@fila.Id" method="post" class="form-seleccion-material">
+                                            <input type="hidden" name="referenciaId" value="@referenciaActual.RelacionId" />
+                                            <button type="submit" class="btn btn-outline-primary btn-sm"
+                                                    aria-label="@("Usar el precio de " + referenciaActual.ProveedorNombre + " para " + Model.MaterialActual.Nombre)">
+                                                <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                                                <span data-texto-guardar>Seleccionar</span>
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
                             </tr>
                         }
                     </tbody>

@@ -53,6 +53,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<RegistrarPresupuesto>();
 builder.Services.AddScoped<AgregarConceptoManual>();
 builder.Services.AddScoped<SeleccionarMaterialDeConcepto>();
+builder.Services.AddScoped<CambiarProveedorDeConcepto>();
 
 // Registramos el caso de uso que valida los datos del proveedor.
 builder.Services.AddScoped<ValidarDatosProveedor>();
