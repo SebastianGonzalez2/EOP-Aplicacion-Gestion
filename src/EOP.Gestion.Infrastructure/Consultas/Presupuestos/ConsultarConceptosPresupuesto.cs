@@ -44,7 +44,7 @@ public class ConsultarConceptosPresupuesto
             orderby concepto.Id
             select new FilaConceptoDto(
                 concepto.Id, tipo.Id, tipo.Nombre, concepto.ConceptoDetectado, concepto.Concepto,
-                concepto.MaterialProveedorId,
+                concepto.MaterialId, concepto.MaterialProveedorId,
                 (from referencia in _contexto.MaterialProveedores
                  join proveedor in _contexto.Proveedores on referencia.ProveedorId equals proveedor.Id
                  where referencia.Id == concepto.MaterialProveedorId

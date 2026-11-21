@@ -265,6 +265,132 @@ namespace EOP.Gestion.Tests.Integracion
         }
 
 
+        // S3-T11 (US-010A, RF-19): consultar las referencias de un material ya elegido, sin buscarlo.
+        [Fact]
+        public async Task ObtenerConReferencias_DevuelveTodasLasReferenciasConProveedorPrecioMonedaYFecha()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+            int cableCobreId = await contexto.Materiales
+                .Where(material => material.Nombre == "Cable de cobre")
+                .Select(material => material.Id)
+                .SingleAsync();
+
+            var material = await new ConsultarMateriales(contexto).ObtenerConReferenciasAsync(cableCobreId);
+
+            Assert.NotNull(material);
+            Assert.Equal("Cable de cobre", material.Nombre);
+            Assert.Equal(UnidadMedida.Metro, material.Unidad);
+            Assert.Collection(
+                material.Referencias,
+                barraca =>
+                {
+                    Assert.Equal("Barraca Central", barraca.ProveedorNombre);
+                    Assert.Equal(7.50m, barraca.PrecioUnitario);
+                    Assert.Equal(Moneda.USD, barraca.Moneda);
+                    Assert.Equal(new DateTime(2026, 11, 2, 11, 0, 0), barraca.FechaUltimaActualizacion);
+                },
+                fivisa =>
+                {
+                    Assert.Equal("Fivisa", fivisa.ProveedorNombre);
+                    Assert.Equal(150m, fivisa.PrecioUnitario);
+                    Assert.Equal(Moneda.UYU, fivisa.Moneda);
+                    Assert.Equal(new DateTime(2026, 11, 1, 10, 0, 0), fivisa.FechaUltimaActualizacion);
+                });
+        }
+
+
+        [Fact]
+        public async Task ObtenerConReferencias_SoloTraeLasReferenciasDelMaterialPedido()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+            int pinturaId = await contexto.Materiales
+                .Where(material => material.Nombre == "Pintura blanca")
+                .Select(material => material.Id)
+                .SingleAsync();
+
+            var material = await new ConsultarMateriales(contexto).ObtenerConReferenciasAsync(pinturaId);
+
+            Assert.NotNull(material);
+            var referencia = Assert.Single(material.Referencias);
+            Assert.Equal("Fivisa", referencia.ProveedorNombre);
+        }
+
+
+        [Fact]
+        public async Task ObtenerConReferencias_MaterialSinReferencias_DevuelveElMaterialConListaVacia()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+            var cinta = new Material { Nombre = "Cinta aisladora", Unidad = UnidadMedida.Unidad };
+            contexto.Materiales.Add(cinta);
+            await contexto.SaveChangesAsync();
+
+            var material = await new ConsultarMateriales(contexto).ObtenerConReferenciasAsync(cinta.Id);
+
+            Assert.NotNull(material);
+            Assert.Equal("Cinta aisladora", material.Nombre);
+            Assert.Empty(material.Referencias);
+        }
+
+
+        [Theory]
+        [InlineData(0)]
+        [InlineData(-1)]
+        [InlineData(9999)]
+        public async Task ObtenerConReferencias_MaterialInexistenteOIdInvalido_DevuelveNull(int materialId)
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+
+            var material = await new ConsultarMateriales(contexto).ObtenerConReferenciasAsync(materialId);
+
+            Assert.Null(material);
+        }
+
+
+        [Fact]
+        public async Task ObtenerConReferencias_SoloLee_NoSigueEntidadesNiCambiaElCatalogo()
+        {
+            var datos = await CrearCatalogoDePruebaAsync();
+            using var conexion = datos.Conexion;
+            using var contexto = datos.Contexto;
+            string catalogoAntes = await FotoDelCatalogoAsync(contexto);
+            int cableCobreId = await contexto.Materiales
+                .Where(material => material.Nombre == "Cable de cobre")
+                .Select(material => material.Id)
+                .SingleAsync();
+
+            // El catálogo de prueba se cargó con este mismo contexto, así que ya hay entidades seguidas:
+            // la consulta no tiene que agregar ninguna más.
+            int entidadesSeguidasAntes = contexto.ChangeTracker.Entries().Count();
+
+            await new ConsultarMateriales(contexto).ObtenerConReferenciasAsync(cableCobreId);
+
+            Assert.Equal(entidadesSeguidasAntes, contexto.ChangeTracker.Entries().Count());
+            Assert.False(contexto.ChangeTracker.HasChanges());
+            Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync(contexto));
+        }
+
+
+        private static async Task<string> FotoDelCatalogoAsync(EopDbContext contexto)
+        {
+            var materiales = await contexto.Materiales.AsNoTracking().OrderBy(material => material.Id)
+                .Select(material => $"M{material.Id}|{material.Nombre}|{material.Unidad}").ToListAsync();
+            var referencias = await contexto.MaterialProveedores.AsNoTracking().OrderBy(referencia => referencia.Id)
+                .Select(referencia => $"R{referencia.Id}|{referencia.MaterialId}|{referencia.ProveedorId}|{referencia.PrecioUnitario}|{referencia.Moneda}|{referencia.FechaUltimaActualizacion:O}")
+                .ToListAsync();
+            var proveedores = await contexto.Proveedores.AsNoTracking().OrderBy(proveedor => proveedor.Id)
+                .Select(proveedor => $"P{proveedor.Id}|{proveedor.Nombre}").ToListAsync();
+            return string.Join("\n", materiales.Concat(referencias).Concat(proveedores));
+        }
+
+
         [Fact]
         public async Task ConsultarProveedoresParaSeleccion_DevuelveTodosOrdenadosPorNombre()
         {

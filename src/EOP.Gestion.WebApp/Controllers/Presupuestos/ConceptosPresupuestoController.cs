@@ -224,11 +224,21 @@ public class ConceptosPresupuestoController : Controller
             materiales = await _consultarMateriales.EjecutarAsync(busqueda, null, null, cancellationToken);
         }
 
+        // S3-T11 (US-010A): si la fila ya tiene material, se traen sus referencias de precio para
+        // mostrarlas sin que el usuario tenga que buscarlo de nuevo. Solo se lee el catálogo.
+        MaterialListadoDto? materialActual = null;
+        if (fila.MaterialId != null)
+        {
+            materialActual = await _consultarMateriales.ObtenerConReferenciasAsync(
+                fila.MaterialId.Value, cancellationToken);
+        }
+
         return new SeleccionarMaterialViewModel
         {
             PresupuestoId = presupuesto.Id,
             Codigo = presupuesto.Codigo,
             Fila = fila,
+            MaterialActual = materialActual,
             Busqueda = busqueda,
             Materiales = materiales
         };

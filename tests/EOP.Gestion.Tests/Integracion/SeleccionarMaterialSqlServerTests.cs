@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.Entidades.Catalogo;
@@ -553,6 +554,131 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var fila = await LeerFilaAsync(_filaSinMaterialId);
         Assert.Contains(fila.MaterialProveedorId, new int?[] { _cableProveedorAId, _cableProveedorBId });
         Assert.Equal(TextoDetectadoPorIa, fila.ConceptoDetectado);
+    }
+
+    // ---- S3-T11 (US-010A, RF-19): consultar las referencias de precios de un material ----
+
+    // Agrega una fila de tipo Material que ya tiene el cable de cobre elegido (proveedor A) y deja
+    // las dos referencias del cable con fechas conocidas. La del proveedor B se guarda a las 01:30
+    // UTC del 2/11, que en Uruguay (UTC-3) todavía es el 1/11 a las 22:30: sirve para probar que la
+    // fecha se muestra en hora de Uruguay y no en UTC.
+    private async Task<int> CrearFilaConCableElegidoAsync()
+    {
+        using EopDbContext contexto = CrearContexto();
+        await contexto.MaterialProveedores.Where(r => r.Id == _cableProveedorAId)
+            .ExecuteUpdateAsync(c => c.SetProperty(r => r.FechaUltimaActualizacion, new DateTime(2026, 11, 5, 15, 0, 0)));
+        await contexto.MaterialProveedores.Where(r => r.Id == _cableProveedorBId)
+            .ExecuteUpdateAsync(c => c.SetProperty(r => r.FechaUltimaActualizacion, new DateTime(2026, 11, 2, 1, 30, 0)));
+
+        var cable = await contexto.Materiales.SingleAsync(m => m.Nombre == "Cable de cobre");
+        var referenciaA = await contexto.MaterialProveedores.SingleAsync(r => r.Id == _cableProveedorAId);
+        var fila = new ConceptoPresupuesto
+        {
+            PresupuestoId = _presupuestoId,
+            TipoConceptoId = TipoConcepto.MaterialId,
+            ConceptoDetectado = "cable de cobre para tablero",
+            Cantidad = 10m
+        };
+        fila.CopiarReferencia(cable, referenciaA);
+        contexto.ConceptosPresupuesto.Add(fila);
+        await contexto.SaveChangesAsync();
+        return fila.Id;
+    }
+
+    private async Task<string> LeerPaginaAsync(FabricaConEntraSimulado.Navegador navegador, string ruta) =>
+        WebUtility.HtmlDecode(await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync());
+
+    [FactConSqlServer]
+    public async Task FilaConMaterial_MuestraTodasSusReferenciasSinBuscarYSinModificarElCatalogo()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        string catalogoAntes = await FotoDelCatalogoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+
+        Assert.Contains("Referencias de precios de Cable de cobre", pagina);
+        Assert.Contains("Proveedor A", pagina);
+        Assert.Contains("Proveedor B", pagina);
+        Assert.Equal(1, ContarApariciones(pagina, "Referencia de esta fila"));
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task FilaConMaterial_ElPanelDistingueMonedasYMuestraPrecioProveedorYFechaEnHoraDeUruguay()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+        string filas = string.Join("\n", Regex.Matches(pagina, "<tr>.*?</tr>", RegexOptions.Singleline)
+            .Select(coincidencia => Regex.Replace(coincidencia.Value, @"\s+", " ")));
+
+        // Cada referencia muestra proveedor, precio, moneda y fecha en la misma fila de la tabla.
+        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor A.*?<td class=""text-end"">100</td> <td>UYU</td> <td>05/11/2026</td> </tr>", filas);
+        Assert.Matches(@"<tr> <td class=""col-principal""> Proveedor B.*?<td class=""text-end"">2[.,]5</td> <td>USD</td> <td>01/11/2026</td> </tr>", filas);
+        Assert.DoesNotContain("02/11/2026", pagina);
+    }
+
+    [FactConSqlServer]
+    public async Task FilaSinMaterial_NoMuestraElPanelDeReferencias()
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId));
+
+        Assert.DoesNotContain("Referencias de precios de", pagina);
+    }
+
+    [FactConSqlServer]
+    public async Task Busqueda_MuestraProveedorPrecioMonedaYFechaDeCadaReferencia()
+    {
+        await CrearFilaConCableElegidoAsync();
+        string catalogoAntes = await FotoDelCatalogoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId, "cable"));
+
+        Assert.Matches(@"Proveedor A</td>\s*<td class=""text-end"">UYU 100</td>\s*<td>05/11/2026</td>", pagina);
+        Assert.Matches(@"Proveedor B</td>\s*<td class=""text-end"">USD 2[.,]5</td>\s*<td>01/11/2026</td>", pagina);
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task Busqueda_DeUnMaterialSinReferencias_InformaQueNoTieneProveedoresYNoOfreceSeleccionarlo()
+    {
+        using (EopDbContext contexto = CrearContexto())
+        {
+            contexto.Materiales.Add(new Material { Nombre = "Cinta aisladora", Unidad = UnidadMedida.Unidad });
+            await contexto.SaveChangesAsync();
+        }
+        string catalogoAntes = await FotoDelCatalogoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId, "cinta"));
+
+        Assert.Contains("Cinta aisladora", pagina);
+        Assert.Contains("Sin proveedores con precio registrado", pagina);
+        Assert.DoesNotContain("name=\"referenciaId\"", pagina);
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+    }
+
+    [FactConSqlServer]
+    public async Task ConsultaDeReferencias_SinPermisoElServidorNoMuestraLosPrecios()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var operadorNoResponsable = await IniciarSesionAsync(fabrica, RolUsuario.Operador, responsable: false);
+
+        var respuesta = await operadorNoResponsable.GetAsync(RutaSeleccion(filaId));
+
+        Assert.Contains("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
+        Assert.DoesNotContain("Referencias de precios de", await respuesta.Content.ReadAsStringAsync());
     }
 
     private static int ContarApariciones(string texto, string buscado) =>

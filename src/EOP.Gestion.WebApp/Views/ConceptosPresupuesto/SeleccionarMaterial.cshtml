@@ -62,6 +62,62 @@
     </div>
 </section>
 
+@* S3-T11 (US-010A, RF-19): si la fila ya tiene material, se muestran todas sus referencias de precio
+   del catálogo sin tener que buscarlo de nuevo. Es solo lectura: acá no se elige, no se registra ni se
+   actualiza ningún precio ni proveedor. Son los valores de hoy del catálogo; los que ya se copiaron a
+   la fila del presupuesto no cambian. *@
+@if (Model.MaterialActual != null)
+{
+    <section class="panel mb-3" aria-labelledby="titulo-referencias-material">
+        <div class="seccion-form pb-0">
+            <h2 id="titulo-referencias-material">Referencias de precios de @Model.MaterialActual.Nombre</h2>
+            <p class="descripcion">
+                Valores actuales del catálogo, en la unidad @Model.MaterialActual.Unidad. Los precios que ya se
+                copiaron a la fila del presupuesto no cambian por lo que se vea acá.
+            </p>
+        </div>
+        @if (Model.MaterialActual.Referencias.Count == 0)
+        {
+            <div class="panel-cuerpo pt-0 text-body-secondary" role="status">
+                Este material no tiene proveedores con precio registrado en el catálogo.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive" tabindex="0" role="region" aria-label="Referencias de precios del material actual">
+                <table class="table table-hover tabla mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="col-principal">Proveedor</th>
+                            <th scope="col" class="text-end">Precio unitario</th>
+                            <th scope="col">Moneda</th>
+                            <th scope="col">Última actualización</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var referenciaActual in Model.MaterialActual.Referencias)
+                        {
+                            DateTime fechaActualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(referenciaActual.FechaUltimaActualizacion);
+                            <tr>
+                                <td class="col-principal">
+                                    @referenciaActual.ProveedorNombre
+                                    @if (fila.MaterialProveedorId == referenciaActual.RelacionId)
+                                    {
+                                        <span class="codigo">Referencia de esta fila</span>
+                                    }
+                                </td>
+                                <td class="text-end">@referenciaActual.PrecioUnitario.ToString("0.##########", cultura)</td>
+                                <td>@referenciaActual.Moneda</td>
+                                <td>@fechaActualizacion.ToString("dd/MM/yyyy", cultura)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
 <form asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId" asp-route-conceptoId="@fila.Id"
       method="get" class="panel mb-3" role="search" aria-label="Buscar material en el catálogo">
     <div class="panel-cuerpo">
