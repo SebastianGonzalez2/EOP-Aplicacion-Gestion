@@ -44,6 +44,10 @@
                         <th scope="col">Unidad</th>
                         <th scope="col" class="text-end">Precio unitario</th>
                         <th scope="col" class="text-end">Subtotal directo</th>
+                        @if (Model.PuedeAgregar)
+                        {
+                            <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                        }
                     </tr>
                 </thead>
                 <tbody>
@@ -59,12 +63,34 @@
                         <tr>
                             <td>@fila.Tipo</td>
                             <td class="col-texto">@(fila.ConceptoDetectado ?? "—")</td>
-                            <td class="col-principal">@(fila.Concepto ?? "—")</td>
+                            @* US-007: una fila Material sin Concepto todavía no tiene material elegido. *@
+                            @if (filaMaterial && fila.Concepto == null)
+                            {
+                                <td class="col-principal text-body-secondary">Sin material seleccionado</td>
+                            }
+                            else
+                            {
+                                <td class="col-principal">@(fila.Concepto ?? "—")</td>
+                            }
                             <td>@(fila.Proveedor ?? "—")</td>
                             <td class="text-end">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
                             <td>@(fila.Unidad?.ToString() ?? "—")</td>
                             <td class="text-end">@(filaMaterial ? valor : "—")</td>
                             <td class="text-end">@(TipoConcepto.AdmiteImporteDirecto(fila.TipoId) ? valor : "—")</td>
+                            @if (Model.PuedeAgregar)
+                            {
+                                <td class="text-end">
+                                    @if (filaMaterial)
+                                    {
+                                        string textoAccion = fila.MaterialProveedorId == null ? "Seleccionar material" : "Cambiar material";
+                                        <a asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId"
+                                           asp-route-conceptoId="@fila.Id"
+                                           class="btn btn-outline-secondary btn-sm">
+                                            <i class="bi bi-search me-1" aria-hidden="true"></i>@textoAccion
+                                        </a>
+                                    }
+                                </td>
+                            }
                         </tr>
                     }
                 </tbody>

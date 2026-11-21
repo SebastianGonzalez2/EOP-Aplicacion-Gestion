@@ -127,6 +127,39 @@ namespace EOP.Gestion.Infrastructure.Consultas.Materiales
             return material;
         }
 
+        // S3-T11 (US-010A, RF-19): trae un material que ya está elegido junto con todas sus referencias
+        // de precio (proveedor, precio, moneda y fecha de última actualización), así se pueden consultar
+        // sin volver a buscarlo por nombre. Solo lee: no crea ni modifica nada del catálogo.
+        // Devuelve null si el material no existe.
+        public async Task<MaterialListadoDto?> ObtenerConReferenciasAsync(int materialId,CancellationToken cancellationToken = default)
+        {
+            MaterialListadoDto? material = await ObtenerPorIdAsync(materialId, cancellationToken);
+
+            if (material == null)
+            {
+                return null;
+            }
+
+            // Ordenadas por proveedor, igual que en el listado del catálogo.
+            material.Referencias = await (
+                from relacion in _context.MaterialProveedores.AsNoTracking()
+                join proveedor in _context.Proveedores.AsNoTracking()
+                    on relacion.ProveedorId equals proveedor.Id
+                where relacion.MaterialId == materialId
+                orderby proveedor.Nombre
+                select new ReferenciaPrecioMaterialDto
+                {
+                    RelacionId = relacion.Id,
+                    ProveedorNombre = proveedor.Nombre,
+                    PrecioUnitario = relacion.PrecioUnitario,
+                    Moneda = relacion.Moneda,
+                    FechaUltimaActualizacion = relacion.FechaUltimaActualizacion
+                }
+            ).ToListAsync(cancellationToken);
+
+            return material;
+        }
+
         // S2-T20 (US-071): trae el material con sus relaciones (incluido el Id de cada una) para
         // mostrar el formulario de edición con los datos actuales. Devuelve null si no existe.
         public async Task<MaterialEdicionDto?> ObtenerParaEdicionAsync(int materialId,CancellationToken cancellationToken = default)

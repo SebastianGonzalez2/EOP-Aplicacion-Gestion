@@ -1,0 +1,251 @@
+@using System.Globalization
+@using EOP.Gestion.Core.Comun
+@model EOP.Gestion.WebApp.ViewModels.Presupuestos.SeleccionarMaterialViewModel
+
+@{
+    ViewData["Title"] = "Seleccionar material";
+    var cultura = CultureInfo.GetCultureInfo("es-UY");
+    var fila = Model.Fila;
+    bool tieneMaterial = fila.MaterialProveedorId != null;
+
+    // Registrar materiales es del catálogo y solo lo hacen Supervisor y Administrador (US-041).
+    bool puedeRegistrarMaterial = User.IsInRole("Supervisor") || User.IsInRole("Administrador");
+}
+
+<nav aria-label="Ruta de navegación">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Presupuestos" asp-action="Index">Presupuestos</a></li>
+        <li class="breadcrumb-item">
+            <a asp-controller="Presupuestos" asp-action="Detalle" asp-route-id="@Model.PresupuestoId">@Model.Codigo</a>
+        </li>
+        <li class="breadcrumb-item">
+            <a asp-action="Index" asp-route-id="@Model.PresupuestoId">Conceptos</a>
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Seleccionar material</li>
+    </ol>
+</nav>
+
+<div class="encabezado">
+    <div>
+        <h1>@(tieneMaterial ? "Cambiar material de la fila" : "Seleccionar material de la fila")</h1>
+        <p>Buscá un material del catálogo y elegí la referencia de proveedor que corresponde.</p>
+    </div>
+</div>
+
+<partial name="_Mensajes" />
+
+<section class="panel mb-3" aria-label="Fila del presupuesto">
+    <div class="panel-cuerpo">
+        <dl class="row mb-0">
+            <dt class="col-sm-4 col-lg-3">Concepto detectado</dt>
+            <dd class="col-sm-8 col-lg-9">@(fila.ConceptoDetectado ?? "—")</dd>
+
+            <dt class="col-sm-4 col-lg-3">Material actual</dt>
+            <dd class="col-sm-8 col-lg-9">
+                @if (tieneMaterial)
+                {
+                    @($"{fila.Concepto} · {fila.Proveedor}")
+                }
+                else
+                {
+                    <span class="text-body-secondary">Sin material seleccionado</span>
+                }
+            </dd>
+
+            <dt class="col-sm-4 col-lg-3">Cantidad</dt>
+            <dd class="col-sm-8 col-lg-9 mb-0">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</dd>
+        </dl>
+    </div>
+    <div class="panel-pie text-body-secondary small">
+        El concepto detectado y la cantidad no cambian al seleccionar un material. Seleccionar no crea
+        ni modifica materiales, proveedores ni precios del catálogo.
+    </div>
+</section>
+
+@* S3-T11 (US-010A, RF-19): si la fila ya tiene material, se muestran todas sus referencias de precio
+   del catálogo sin tener que buscarlo de nuevo. Es solo lectura: acá no se elige, no se registra ni se
+   actualiza ningún precio ni proveedor. Son los valores de hoy del catálogo; los que ya se copiaron a
+   la fila del presupuesto no cambian. *@
+@if (Model.MaterialActual != null)
+{
+    <section class="panel mb-3" aria-labelledby="titulo-referencias-material">
+        <div class="seccion-form pb-0">
+            <h2 id="titulo-referencias-material">Referencias de precios de @Model.MaterialActual.Nombre</h2>
+            <p class="descripcion">
+                Valores actuales del catálogo, en la unidad @Model.MaterialActual.Unidad. Los precios que ya se
+                copiaron a la fila del presupuesto no cambian por lo que se vea acá.
+            </p>
+        </div>
+        @if (Model.MaterialActual.Referencias.Count == 0)
+        {
+            <div class="panel-cuerpo pt-0 text-body-secondary" role="status">
+                Este material no tiene proveedores con precio registrado en el catálogo.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive" tabindex="0" role="region" aria-label="Referencias de precios del material actual">
+                <table class="table table-hover tabla mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="col-principal">Proveedor</th>
+                            <th scope="col" class="text-end">Precio unitario</th>
+                            <th scope="col">Moneda</th>
+                            <th scope="col">Última actualización</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var referenciaActual in Model.MaterialActual.Referencias)
+                        {
+                            DateTime fechaActualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(referenciaActual.FechaUltimaActualizacion);
+                            <tr>
+                                <td class="col-principal">
+                                    @referenciaActual.ProveedorNombre
+                                    @if (fila.MaterialProveedorId == referenciaActual.RelacionId)
+                                    {
+                                        <span class="codigo">Referencia de esta fila</span>
+                                    }
+                                </td>
+                                <td class="text-end">@referenciaActual.PrecioUnitario.ToString("0.##########", cultura)</td>
+                                <td>@referenciaActual.Moneda</td>
+                                <td>@fechaActualizacion.ToString("dd/MM/yyyy HH:mm", cultura)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+
+<form asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId" asp-route-conceptoId="@fila.Id"
+      method="get" class="panel mb-3" role="search" aria-label="Buscar material en el catálogo">
+    <div class="panel-cuerpo">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-8 col-xl-5">
+                <label for="busqueda" class="form-label">Nombre del material</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+                    <input id="busqueda" name="busqueda" value="@Model.Busqueda" type="search"
+                           class="form-control border-start-0" maxlength="200" required
+                           placeholder="Buscar material" />
+                </div>
+            </div>
+            <div class="col-12 col-md-auto">
+                <button type="submit" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-search me-1" aria-hidden="true"></i>Buscar
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<div asp-validation-summary="All" class="resumen-errores mb-3" role="alert" tabindex="-1"></div>
+
+@if (Model.SeBusco)
+{
+    <section class="panel mb-3" aria-label="Resultados de la búsqueda">
+        @if (Model.Materiales.Count == 0)
+        {
+            <div class="sin-resultados" role="status">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <h2>No se encontraron materiales.</h2>
+                <p>
+                    No hay materiales en el catálogo con ese nombre. Si el material que necesitás no está
+                    registrado, tiene que registrarse primero en el catálogo
+                    @if (!puedeRegistrarMaterial)
+                    {
+                        <text>por un Supervisor o un Administrador</text>
+                    }
+                    y después lo seleccionás acá. La fila puede quedar sin material mientras tanto.
+                </p>
+                @if (puedeRegistrarMaterial)
+                {
+                    <a asp-controller="Materiales" asp-action="Registrar" class="btn btn-outline-secondary">
+                        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar material
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive" tabindex="0" role="region" aria-label="Materiales encontrados">
+                <table class="table table-hover tabla mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col" class="col-principal">Material</th>
+                            <th scope="col">Unidad</th>
+                            <th scope="col">Proveedor</th>
+                            <th scope="col" class="text-end">Precio unitario</th>
+                            <th scope="col">Actualizado</th>
+                            <th scope="col"><span class="visually-hidden">Acción</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var material in Model.Materiales)
+                        {
+                            @if (material.Referencias.Count == 0)
+                            {
+                                <tr>
+                                    <td class="col-principal">@material.Nombre</td>
+                                    <td>@material.Unidad</td>
+                                    <td colspan="4" class="text-body-secondary">Sin proveedores con precio registrado</td>
+                                </tr>
+                            }
+
+                            @foreach (var referencia in material.Referencias)
+                            {
+                                string precio = $"{referencia.Moneda} {referencia.PrecioUnitario.ToString("0.##########", cultura)}";
+                                DateTime actualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(referencia.FechaUltimaActualizacion);
+                                bool esLaActual = fila.MaterialProveedorId == referencia.RelacionId;
+                                <tr>
+                                    <td class="col-principal">@material.Nombre</td>
+                                    <td>@material.Unidad</td>
+                                    <td>@referencia.ProveedorNombre</td>
+                                    <td class="text-end">@precio</td>
+                                    <td>@actualizacion.ToString("dd/MM/yyyy HH:mm", cultura)</td>
+                                    <td class="text-end">
+                                        @if (esLaActual)
+                                        {
+                                            <span class="text-body-secondary">Seleccionado</span>
+                                        }
+                                        else
+                                        {
+                                            <form asp-action="AsignarMaterial" asp-route-id="@Model.PresupuestoId"
+                                                  asp-route-conceptoId="@fila.Id" method="post" class="form-seleccion-material">
+                                                <input type="hidden" name="referenciaId" value="@referencia.RelacionId" />
+                                                <input type="hidden" name="busqueda" value="@Model.Busqueda" />
+                                                <button type="submit" class="btn btn-outline-primary btn-sm"
+                                                        aria-label="@((tieneMaterial ? "Sustituir por " : "Seleccionar ") + material.Nombre + " de " + referencia.ProveedorNombre)">
+                                                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                                                    <span data-texto-guardar>@(tieneMaterial ? "Sustituir" : "Seleccionar")</span>
+                                                </button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+}
+else
+{
+    <section class="panel mb-3" aria-label="Instrucciones">
+        <div class="panel-cuerpo text-body-secondary" role="status">
+            Escribí el nombre del material para buscarlo en el catálogo. El sistema no elige ningún
+            material por vos: tenés que seleccionarlo expresamente.
+        </div>
+    </section>
+}
+
+<div class="d-flex justify-content-end gap-2">
+    <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Volver a los conceptos</a>
+</div>
+
+@section Scripts {
+    <script src="~/js/conceptos-presupuesto.js" asp-append-version="true"></script>
+}
