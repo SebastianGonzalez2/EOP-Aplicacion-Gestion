@@ -42,6 +42,8 @@ public static class IndicesUnicos
 
     public const string UsuariosCorreoCorporativo = "IX_Usuarios_CorreoCorporativo";
 
+    public const string ConceptosPresupuestoUnicoMargen = "IX_ConceptosPresupuesto_UnicoMargen";
+
     public const string ConceptosPresupuestoMaterialProveedor = "IX_ConceptosPresupuesto_PresupuestoId_MaterialProveedorId";
 
     // Devuelve true solo si el guardado falló porque se repitió un valor en ese índice.

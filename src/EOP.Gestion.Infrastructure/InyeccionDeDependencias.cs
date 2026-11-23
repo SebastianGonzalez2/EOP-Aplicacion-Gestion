@@ -85,6 +85,11 @@ public static class InyeccionDeDependencias
         // y le asigna su código interno.
         services.AddScoped<IRepositorioPresupuestos, RepositorioPresupuestos>();
         services.AddScoped<IRepositorioConceptosPresupuesto, RepositorioConceptosPresupuesto>();
+
+        // S3-T07: repositorio encargado de guardar el margen
+        // y los tipos seleccionados como base de cálculo.
+        services.AddScoped<IRepositorioMargenPresupuesto, RepositorioMargenPresupuesto>();
+
         services.AddScoped<ConsultarConceptosPresupuesto>();
 
         // Registramos el servicio que comprueba que el cliente

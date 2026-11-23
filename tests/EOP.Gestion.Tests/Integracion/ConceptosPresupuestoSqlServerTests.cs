@@ -1,6 +1,8 @@
+
 using System.Net;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
+using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Presupuestos;
@@ -861,8 +863,10 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         return navegador;
     }
 
+    // S3-T07: Margen ahora es un tipo permitido.
+    // Si no se envía el porcentaje, la solicitud debe rechazarse.
     [TheoryConSqlServer]
-    [InlineData(TipoConcepto.MargenId, "10", "UYU", "Seleccioná un tipo de concepto disponible.")]
+    [InlineData(TipoConcepto.MargenId, "10", "UYU", "Ingresá el porcentaje de margen.")]
     [InlineData(TipoConcepto.ManoDeObraId, "3,12345678901", "USD", "Ingresá un importe válido")]
     [InlineData(TipoConcepto.AlquilerId, "10", "", "Seleccioná USD o UYU.")]
     public async Task AltaManual_DatosInvalidosNoGuardanLaFila(int tipo, string importe, string moneda, string error)
@@ -903,5 +907,127 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         Assert.Single(resultados, resultado => resultado is null);
         Assert.Contains(resultados, resultado => resultado?.Contains("ya están en el presupuesto") == true);
         Assert.Equal(1, await contexto.ConceptosPresupuesto.CountAsync());
+    }
+
+    // S3-T07: comprobamos el nuevo caso de uso contra SQL Server real.
+    // El concepto Margen y sus tipos de base se guardan en la misma operación.
+    [FactConSqlServer]
+    public async Task RegistrarMargen_GuardaPorcentajeYTiposSeleccionados()
+    {
+        await GuardarAsync(CrearConceptoMaterial());
+        await GuardarAsync(CrearConceptoManual());
+
+        using EopDbContext contexto = CrearContexto();
+
+        Usuario usuario = await contexto.Usuarios
+            .AsNoTracking()
+            .SingleAsync();
+
+        var repositorio = new RepositorioMargenPresupuesto(contexto);
+
+        ResultadoRegistrarMargen resultado =
+            await repositorio.RegistrarSiPuedeEditarAsync(
+                _presupuestoId,
+                20m,
+                [TipoConcepto.MaterialId, TipoConcepto.ManoDeObraId],
+                usuario,
+                CancellationToken.None);
+
+        Assert.Equal(ResultadoRegistrarMargen.Guardado, resultado);
+
+        ConceptoPresupuesto margen =
+            await contexto.ConceptosPresupuesto
+                .AsNoTracking()
+                .SingleAsync(concepto =>
+                    concepto.PresupuestoId == _presupuestoId &&
+                    concepto.TipoConceptoId == TipoConcepto.MargenId);
+
+        Assert.Equal(20m, margen.PorcentajeMargen);
+
+        List<int> tiposGuardados = await contexto.MargenesBaseTipo
+            .AsNoTracking()
+            .Where(tipo => tipo.ConceptoPresupuestoId == margen.Id)
+            .OrderBy(tipo => tipo.TipoConceptoId)
+            .Select(tipo => tipo.TipoConceptoId)
+            .ToListAsync();
+
+        Assert.Equal(
+            [TipoConcepto.MaterialId, TipoConcepto.ManoDeObraId],
+            tiposGuardados);
+    }
+
+    [FactConSqlServer]
+    public async Task RegistrarMargen_ImpideUnSegundoMargen()
+    {
+        await GuardarAsync(CrearConceptoManual());
+
+        using EopDbContext contexto = CrearContexto();
+
+        Usuario usuario = await contexto.Usuarios
+            .AsNoTracking()
+            .SingleAsync();
+
+        var repositorio = new RepositorioMargenPresupuesto(contexto);
+
+        ResultadoRegistrarMargen primero =
+            await repositorio.RegistrarSiPuedeEditarAsync(
+                _presupuestoId,
+                20m,
+                [TipoConcepto.ManoDeObraId],
+                usuario,
+                CancellationToken.None);
+
+        ResultadoRegistrarMargen segundo =
+            await repositorio.RegistrarSiPuedeEditarAsync(
+                _presupuestoId,
+                30m,
+                [TipoConcepto.ManoDeObraId],
+                usuario,
+                CancellationToken.None);
+
+        Assert.Equal(ResultadoRegistrarMargen.Guardado, primero);
+        Assert.Equal(ResultadoRegistrarMargen.MargenExistente, segundo);
+
+        int cantidadMargenes = await contexto.ConceptosPresupuesto
+            .CountAsync(concepto =>
+                concepto.PresupuestoId == _presupuestoId &&
+                concepto.TipoConceptoId == TipoConcepto.MargenId);
+
+        Assert.Equal(1, cantidadMargenes);
+    }
+
+    [FactConSqlServer]
+    public async Task RegistrarMargen_RechazaTiposAusentesDelPresupuesto()
+    {
+        await GuardarAsync(CrearConceptoManual());
+
+        using EopDbContext contexto = CrearContexto();
+
+        Usuario usuario = await contexto.Usuarios
+            .AsNoTracking()
+            .SingleAsync();
+
+        var repositorio = new RepositorioMargenPresupuesto(contexto);
+
+        // En este presupuesto solo hay Mano de obra.
+        // Intentamos seleccionar también Alquiler.
+        ResultadoRegistrarMargen resultado =
+            await repositorio.RegistrarSiPuedeEditarAsync(
+                _presupuestoId,
+                20m,
+                [TipoConcepto.ManoDeObraId, TipoConcepto.AlquilerId],
+                usuario,
+                CancellationToken.None);
+
+        Assert.Equal(
+            ResultadoRegistrarMargen.TiposNoDisponibles,
+            resultado);
+
+        Assert.False(await contexto.ConceptosPresupuesto
+            .AnyAsync(concepto =>
+                concepto.PresupuestoId == _presupuestoId &&
+                concepto.TipoConceptoId == TipoConcepto.MargenId));
+
+        Assert.Empty(await contexto.MargenesBaseTipo.ToListAsync());
     }
 }

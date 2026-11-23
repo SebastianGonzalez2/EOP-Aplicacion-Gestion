@@ -28,11 +28,12 @@ public class ConceptosPresupuestoController : Controller
     private readonly SeleccionarMaterialDeConcepto _seleccionarMaterial;
     private readonly CambiarProveedorDeConcepto _cambiarProveedor;
 
+    private readonly RegistrarMargen _registrarMargen;
     public ConceptosPresupuestoController(
         IRepositorioUsuarios usuarios, IRepositorioConceptosPresupuesto repositorio,
         ConsultarConceptosPresupuesto consultarConceptos, ConsultarMateriales consultarMateriales,
         AgregarConceptoManual agregarConcepto, SeleccionarMaterialDeConcepto seleccionarMaterial,
-        CambiarProveedorDeConcepto cambiarProveedor)
+        CambiarProveedorDeConcepto cambiarProveedor, RegistrarMargen registrarMargen)
     {
         _usuarios = usuarios;
         _repositorio = repositorio;
@@ -41,6 +42,7 @@ public class ConceptosPresupuestoController : Controller
         _agregarConcepto = agregarConcepto;
         _seleccionarMaterial = seleccionarMaterial;
         _cambiarProveedor = cambiarProveedor;
+        _registrarMargen = registrarMargen;
     }
 
     [HttpGet]
@@ -63,19 +65,26 @@ public class ConceptosPresupuestoController : Controller
             presupuesto, usuario, new ConceptoManualViewModel { TipoId = tipoId }, busqueda, cancellationToken));
     }
 
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
-    public async Task<IActionResult> Agregar(int id, ConceptoManualViewModel entrada, string? busqueda,
+    public async Task<IActionResult> Agregar(
+        int id,
+        ConceptoManualViewModel entrada,
+        string? busqueda,
         CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+
         if (usuario == null || !usuario.Activo)
         {
             return Forbid();
         }
 
-        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(
+            id, cancellationToken);
+
         if (presupuesto == null)
         {
             return NotFound();
@@ -88,36 +97,96 @@ public class ConceptosPresupuestoController : Controller
 
         decimal? cantidad = null;
         decimal? importe = null;
+        decimal? porcentajeMargen = null;
+
         if (entrada.TipoId == TipoConcepto.MaterialId)
         {
-            if (!ConceptoManualViewModel.InterpretarDecimal(entrada.Cantidad, out cantidad))
+            if (!ConceptoManualViewModel.InterpretarDecimal(
+                entrada.Cantidad, out cantidad))
             {
-                ModelState.AddModelError("Entrada.Cantidad", "Ingresá una cantidad válida con hasta 10 decimales.");
+                ModelState.AddModelError(
+                    "Entrada.Cantidad",
+                    "Ingresá una cantidad válida con hasta 10 decimales.");
             }
         }
-        else if (TipoConcepto.AdmiteImporteDirecto(entrada.TipoId)
-            && !ConceptoManualViewModel.InterpretarDecimal(entrada.Importe, out importe))
+        else if (entrada.TipoId == TipoConcepto.MargenId)
         {
-            ModelState.AddModelError("Entrada.Importe", "Ingresá un importe válido con hasta 10 decimales.");
+            // S3-T07: el porcentaje se interpreta en el servidor.
+            // Las reglas del porcentaje y de los tipos seleccionados
+            // se comprueban después en el caso de uso RegistrarMargen.
+            if (!ConceptoManualViewModel.InterpretarDecimal(
+                entrada.PorcentajeMargen, out porcentajeMargen))
+            {
+                ModelState.AddModelError(
+                    "Entrada.PorcentajeMargen",
+                    "Ingresá un porcentaje válido.");
+            }
+        }
+        else if (TipoConcepto.AdmiteImporteDirecto(entrada.TipoId))
+        {
+            if (!ConceptoManualViewModel.InterpretarDecimal(
+                entrada.Importe, out importe))
+            {
+                ModelState.AddModelError(
+                    "Entrada.Importe",
+                    "Ingresá un importe válido con hasta 10 decimales.");
+            }
         }
 
         if (ModelState.IsValid)
         {
-            string? error = await _agregarConcepto.EjecutarAsync(
-                id, entrada.TipoId, entrada.Descripcion, importe, entrada.Moneda,
-                entrada.ReferenciaId, cantidad, usuario, cancellationToken);
+            string? error;
+
+            if (entrada.TipoId == TipoConcepto.MargenId)
+            {
+                // RF-27: guardamos el margen y los tipos seleccionados.
+                // El caso de uso valida los datos y el repositorio
+                // comprueba permisos, duplicados y tipos disponibles.
+                error = await _registrarMargen.EjecutarAsync(
+                    id,
+                    porcentajeMargen,
+                    entrada.TiposBaseSeleccionados,
+                    usuario,
+                    cancellationToken);
+            }
+            else
+            {
+                // Los demás tipos conservan el funcionamiento anterior.
+                error = await _agregarConcepto.EjecutarAsync(
+                    id,
+                    entrada.TipoId,
+                    entrada.Descripcion,
+                    importe,
+                    entrada.Moneda,
+                    entrada.ReferenciaId,
+                    cantidad,
+                    usuario,
+                    cancellationToken);
+            }
+
             if (error == null)
             {
-                TempData["MensajeExito"] = "El concepto se agregó al presupuesto.";
+                TempData["MensajeExito"] =
+                    entrada.TipoId == TipoConcepto.MargenId
+                        ? "El margen se agregó al presupuesto."
+                        : "El concepto se agregó al presupuesto.";
+
                 return RedirectToAction(nameof(Index), new { id });
             }
 
             ModelState.AddModelError(string.Empty, error);
         }
 
-        return View(nameof(Index), await PrepararPantallaAsync(
-            presupuesto, usuario, entrada, busqueda, cancellationToken));
+        return View(
+            nameof(Index),
+            await PrepararPantallaAsync(
+                presupuesto,
+                usuario,
+                entrada,
+                busqueda,
+                cancellationToken));
     }
+
 
     // US-007: pantalla para buscar y elegir a mano el material de una fila de tipo Material.
     // Buscar solo lee el catálogo; no crea ni modifica nada (RF-12).
@@ -296,17 +365,41 @@ public class ConceptosPresupuestoController : Controller
         };
     }
 
+
     private async Task<ConceptosPresupuestoViewModel> PrepararPantallaAsync(
         Presupuesto presupuesto, Usuario usuario, ConceptoManualViewModel entrada, string? busqueda,
         CancellationToken cancellationToken)
     {
         bool puedeAgregar = PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario);
+
+        // Obtenemos las filas del presupuesto una sola vez.
+        var filas = await _consultarConceptos.ObtenerFilasAsync(
+            presupuesto.Id, cancellationToken);
+
+        // Agrupamos los subtotales por tipo de concepto.
+        // Los importes en USD y UYU se mantienen separados.
+        var tiposBaseMargen = AgrupadorSubtotalesPorTipo.Agrupar(filas);
+
+        // RF-27: un presupuesto puede tener como máximo un concepto Margen.
+        // Si ya existe uno, no mostramos la opción de agregar otro.
+        bool tieneMargen = filas.Any(fila =>
+            fila.TipoId == TipoConcepto.MargenId);
+
         var tipos = new List<TipoConceptoOpcionDto>();
+
         if (puedeAgregar)
         {
             var tiposRegistrados = await _consultarConceptos.ObtenerTiposAsync(cancellationToken);
+
+            // Mostramos los tipos normales y habilitamos Margen solamente
+            // cuando todavía no existe y hay conceptos para usar como base.
             tipos = tiposRegistrados.Where(tipo =>
-                tipo.Id == TipoConcepto.MaterialId || TipoConcepto.AdmiteImporteDirecto(tipo.Id)).ToList();
+                tipo.Id == TipoConcepto.MaterialId
+                || TipoConcepto.AdmiteImporteDirecto(tipo.Id)
+                || (tipo.Id == TipoConcepto.MargenId
+                    && !tieneMargen
+                    && tiposBaseMargen.Count > 0))
+                .ToList();
         }
 
         var pantalla = new ConceptosPresupuestoViewModel
@@ -314,23 +407,31 @@ public class ConceptosPresupuestoController : Controller
             PresupuestoId = presupuesto.Id,
             Codigo = presupuesto.Codigo,
             PuedeAgregar = puedeAgregar,
-            Filas = await _consultarConceptos.ObtenerFilasAsync(presupuesto.Id, cancellationToken),
+            Filas = filas,
+            TiposBaseMargen = tiposBaseMargen,
             Tipos = tipos,
             Entrada = entrada,
             Busqueda = busqueda
         };
 
+        // Si el usuario está buscando un material, cargamos sus referencias
+        // de proveedores para que pueda elegir una de forma explícita.
         if (puedeAgregar && entrada.TipoId == TipoConcepto.MaterialId && !string.IsNullOrWhiteSpace(busqueda))
         {
             var materiales = await _consultarMateriales.EjecutarAsync(busqueda, null, null, cancellationToken);
             var cultura = CultureInfo.GetCultureInfo("es-UY");
+
             foreach (var material in materiales)
             {
                 var grupo = new SelectListGroup { Name = material.Nombre };
+
                 foreach (var referencia in material.Referencias)
                 {
                     string precio = referencia.PrecioUnitario.ToString("0.##########", cultura);
-                    DateTime actualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(referencia.FechaUltimaActualizacion);
+
+                    DateTime actualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(
+                        referencia.FechaUltimaActualizacion);
+
                     pantalla.Referencias.Add(new SelectListItem
                     {
                         Group = grupo,
@@ -343,4 +444,5 @@ public class ConceptosPresupuestoController : Controller
 
         return pantalla;
     }
+
 }
