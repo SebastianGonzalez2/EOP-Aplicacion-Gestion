@@ -1,5 +1,6 @@
 using System.Data;
 using EOP.Gestion.Core.DTOs.Presupuestos;
+using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
@@ -115,22 +116,12 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             IsolationLevel.RepeatableRead, cancellationToken);
 
         // Primero el acceso: si no tiene permiso no revelamos ni siquiera si la fila existe.
-        var usuarioActual = await _contexto.Usuarios.AsNoTracking()
-            .SingleOrDefaultAsync(actual => actual.Id == usuario.Id, cancellationToken);
-        var presupuesto = await ObtenerPresupuestoAsync(presupuestoId, cancellationToken);
-        if (usuarioActual == null || usuarioActual.EntraObjectId != usuario.EntraObjectId
-            || presupuesto == null || !PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuarioActual))
+        if (!await UsuarioPuedeEditarAsync(presupuestoId, usuario, cancellationToken))
         {
             return ResultadoSeleccionarMaterial.EdicionNoPermitida;
         }
 
-        // La fila se busca por su Id Y por el presupuesto: así nadie puede modificar una fila de
-        // otro presupuesto cambiando el Id en la URL. UPDLOCK reserva la fila para modificarla; sin
-        // eso, dos sustituciones simultáneas de la misma fila se bloquearían entre sí (deadlock).
-        var concepto = await _contexto.ConceptosPresupuesto
-            .FromSqlInterpolated($@"SELECT * FROM ConceptosPresupuesto WITH (UPDLOCK)
-                WHERE Id = {conceptoId} AND PresupuestoId = {presupuestoId}")
-            .SingleOrDefaultAsync(cancellationToken);
+        var concepto = await ObtenerFilaBloqueadaAsync(presupuestoId, conceptoId, cancellationToken);
         if (concepto == null)
         {
             return ResultadoSeleccionarMaterial.ConceptoInexistente;
@@ -155,12 +146,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             return ResultadoSeleccionarMaterial.SinCambios;
         }
 
-        var referenciaSeleccionada = await (
-            from referencia in _contexto.MaterialProveedores.AsNoTracking()
-            join material in _contexto.Materiales.AsNoTracking() on referencia.MaterialId equals material.Id
-            where referencia.Id == referenciaId
-            select new { Material = material, Referencia = referencia }
-        ).SingleOrDefaultAsync(cancellationToken);
+        var referenciaSeleccionada = await ObtenerReferenciaConMaterialAsync(referenciaId, cancellationToken);
         if (referenciaSeleccionada == null)
         {
             return ResultadoSeleccionarMaterial.ReferenciaInexistente;
@@ -203,4 +189,105 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
         await transaccion.CommitAsync(cancellationToken);
         return ResultadoSeleccionarMaterial.Seleccionado;
     }
+
+    // S3-T12 (US-010A, RF-020): actualiza a pedido los valores de la referencia que la fila YA
+    // tiene. Vuelve a copiar los cuatro datos históricos (DT-11) con los valores vigentes del
+    // catálogo. No cambia el material, el proveedor, ConceptoDetectado ni la cantidad.
+    //
+    // La referencia no viene de la pantalla: es la que la fila ya guarda. Así esta acción no puede
+    // usarse para cambiar de proveedor ni de material, y no hay un Id que alguien pueda manipular.
+    public async Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
+        int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken)
+    {
+        // Misma transacción, mismo control de acceso y mismo bloqueo que los otros dos flujos.
+        await using var transaccion = await _contexto.Database.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, cancellationToken);
+
+        if (!await UsuarioPuedeEditarAsync(presupuestoId, usuario, cancellationToken))
+        {
+            return ResultadoSeleccionarMaterial.EdicionNoPermitida;
+        }
+
+        var concepto = await ObtenerFilaBloqueadaAsync(presupuestoId, conceptoId, cancellationToken);
+        if (concepto == null)
+        {
+            return ResultadoSeleccionarMaterial.ConceptoInexistente;
+        }
+
+        if (concepto.TipoConceptoId != TipoConcepto.MaterialId)
+        {
+            return ResultadoSeleccionarMaterial.ConceptoNoEsMaterial;
+        }
+
+        // Sin material (o sin referencia) no hay nada que actualizar.
+        if (concepto.MaterialId == null || concepto.MaterialProveedorId == null)
+        {
+            return ResultadoSeleccionarMaterial.ConceptoSinMaterial;
+        }
+
+        var referenciaActual = await ObtenerReferenciaConMaterialAsync(
+            concepto.MaterialProveedorId.Value, cancellationToken);
+        if (referenciaActual == null)
+        {
+            return ResultadoSeleccionarMaterial.ReferenciaInexistente;
+        }
+
+        // Si los cuatro valores de la fila ya son los del catálogo no hay nada que actualizar.
+        // Se avisa en vez de guardar igual, para que nadie crea que cambió algo.
+        bool yaCoinciden = concepto.Concepto == referenciaActual.Material.Nombre
+            && concepto.Unidad == referenciaActual.Material.Unidad
+            && concepto.PrecioUnitario == referenciaActual.Referencia.PrecioUnitario
+            && concepto.Moneda == referenciaActual.Referencia.Moneda;
+        if (yaCoinciden)
+        {
+            return ResultadoSeleccionarMaterial.SinCambios;
+        }
+
+        // No hace falta mirar duplicados: la combinación material-proveedor de la fila no cambia.
+        // El catálogo se leyó sin seguimiento, así que esta operación no puede modificarlo.
+        concepto.CopiarReferencia(referenciaActual.Material, referenciaActual.Referencia);
+        await _contexto.SaveChangesAsync(cancellationToken);
+
+        await transaccion.CommitAsync(cancellationToken);
+        return ResultadoSeleccionarMaterial.Seleccionado;
+    }
+
+    // Vuelve a comprobar el acceso con los datos de este instante (estado del presupuesto,
+    // responsable, rol y usuario activo), dentro de la transacción.
+    private async Task<bool> UsuarioPuedeEditarAsync(
+        int presupuestoId, Usuario usuario, CancellationToken cancellationToken)
+    {
+        var usuarioActual = await _contexto.Usuarios.AsNoTracking()
+            .SingleOrDefaultAsync(actual => actual.Id == usuario.Id, cancellationToken);
+        var presupuesto = await ObtenerPresupuestoAsync(presupuestoId, cancellationToken);
+
+        return usuarioActual != null && usuarioActual.EntraObjectId == usuario.EntraObjectId
+            && presupuesto != null && PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuarioActual);
+    }
+
+    // La fila se busca por su Id Y por el presupuesto: así nadie puede modificar una fila de
+    // otro presupuesto cambiando el Id en la URL. UPDLOCK reserva la fila para modificarla; sin
+    // eso, dos sustituciones simultáneas de la misma fila se bloquearían entre sí (deadlock).
+    private Task<ConceptoPresupuesto?> ObtenerFilaBloqueadaAsync(
+        int presupuestoId, int conceptoId, CancellationToken cancellationToken)
+    {
+        return _contexto.ConceptosPresupuesto
+            .FromSqlInterpolated($@"SELECT * FROM ConceptosPresupuesto WITH (UPDLOCK)
+                WHERE Id = {conceptoId} AND PresupuestoId = {presupuestoId}")
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    // Lee la referencia y su material sin seguimiento: el catálogo solo se lee, nunca se modifica.
+    private Task<ReferenciaConMaterial?> ObtenerReferenciaConMaterialAsync(
+        int referenciaId, CancellationToken cancellationToken)
+    {
+        return (
+            from referencia in _contexto.MaterialProveedores.AsNoTracking()
+            join material in _contexto.Materiales.AsNoTracking() on referencia.MaterialId equals material.Id
+            where referencia.Id == referenciaId
+            select new ReferenciaConMaterial(material, referencia)
+        ).SingleOrDefaultAsync(cancellationToken);
+    }
+
+    private sealed record ReferenciaConMaterial(Material Material, MaterialProveedor Referencia);
 }

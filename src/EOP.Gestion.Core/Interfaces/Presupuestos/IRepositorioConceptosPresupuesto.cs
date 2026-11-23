@@ -24,4 +24,10 @@ public interface IRepositorioConceptosPresupuesto
     Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
         int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
         CancellationToken cancellationToken);
+
+    // S3-T12 (RF-020): vuelve a copiar a la fila los cuatro valores vigentes de la referencia que
+    // la fila ya tiene. Devuelve Seleccionado si actualizó y SinCambios si ya coincidían con el
+    // catálogo. No cambia material ni proveedor y no modifica el catálogo.
+    Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
+        int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken);
 }

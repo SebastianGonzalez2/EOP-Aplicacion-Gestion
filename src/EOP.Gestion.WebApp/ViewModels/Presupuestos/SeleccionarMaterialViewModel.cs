@@ -20,6 +20,43 @@ public class SeleccionarMaterialViewModel
     // del mismo material. Los datos del panel siguen siendo solo para mostrar.
     public MaterialListadoDto? MaterialActual { get; init; }
 
+    // S3-T12 (RF-020): la referencia que la fila ya tiene, tal como está HOY en el catálogo. Es null
+    // si la fila no tiene material o si esa referencia ya no figura entre las del material.
+    public ReferenciaPrecioMaterialDto? ReferenciaActualEnCatalogo
+    {
+        get
+        {
+            if (MaterialActual == null || Fila.MaterialProveedorId == null)
+            {
+                return null;
+            }
+
+            return MaterialActual.Referencias.FirstOrDefault(
+                referencia => referencia.RelacionId == Fila.MaterialProveedorId);
+        }
+    }
+
+    // True si alguno de los cuatro valores que la fila copió (nombre, unidad, precio, moneda) ya no
+    // coincide con el catálogo. Solo sirve para decidir si la pantalla ofrece actualizar; el servidor
+    // vuelve a comparar al guardar. Nunca se actualiza nada por el solo hecho de que difieran.
+    public bool ElCatalogoCambioLaReferenciaActual
+    {
+        get
+        {
+            ReferenciaPrecioMaterialDto? referenciaActual = ReferenciaActualEnCatalogo;
+            if (MaterialActual == null || referenciaActual == null)
+            {
+                return false;
+            }
+
+            bool coinciden = Fila.Concepto == MaterialActual.Nombre
+                && Fila.Unidad == MaterialActual.Unidad
+                && Fila.PrecioUnitario == referenciaActual.PrecioUnitario
+                && Fila.Moneda == referenciaActual.Moneda;
+            return !coinciden;
+        }
+    }
+
     public string? Busqueda { get; init; }
 
     // Solo se llena cuando el usuario buscó algo. Son materiales del catálogo, solo para leer.
