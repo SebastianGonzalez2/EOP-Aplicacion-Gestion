@@ -809,9 +809,19 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         Assert.DoesNotContain("Material actualizado", tabla);
     }
 
+
+    // S3-T16: comprobamos que el servidor rechace los cambios
+    // cuando el usuario no es responsable o el estado no permite editar.
     [TheoryConSqlServer]
     [InlineData(EstadoPresupuesto.Borrador, false, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.ParaRevisionInterna, false, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.SolicitudDeModificacionDelCliente, false, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente, true, RolUsuario.Operador)]
     [InlineData(EstadoPresupuesto.Aprobado, true, RolUsuario.Administrador)]
+    [InlineData(EstadoPresupuesto.Rechazado, true, RolUsuario.Supervisor)]
+    [InlineData(EstadoPresupuesto.Vencido, true, RolUsuario.Administrador)]
+    [InlineData(EstadoPresupuesto.Cancelado, true, RolUsuario.Supervisor)]
+
     public async Task AltaManual_SinPermisoOcultaElFormularioYRechazaElPost(
         EstadoPresupuesto estado, bool responsable, RolUsuario rol)
     {
