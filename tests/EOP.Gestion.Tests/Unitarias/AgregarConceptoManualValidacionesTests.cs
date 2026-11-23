@@ -143,5 +143,11 @@ public class AgregarConceptoManualValidacionesTests
         {
             throw new NotSupportedException("Estas pruebas no cambian el proveedor de filas existentes.");
         }
+
+        public Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
+            int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken)
+        {
+            throw new NotSupportedException("Estas pruebas no actualizan la referencia de filas existentes.");
+        }
     }
 }
