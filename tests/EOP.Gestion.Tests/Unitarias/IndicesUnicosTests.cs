@@ -1,3 +1,4 @@
+
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Presupuestos;
@@ -49,12 +50,46 @@ public class IndicesUnicosTests
         using var contexto = new EopDbContext(new DbContextOptionsBuilder<EopDbContext>()
             .UseSqlServer("Server=.;Database=SinConexion")
             .Options);
-        var entidad = contexto.GetService<IDesignTimeModel>().Model.FindEntityType(typeof(ConceptoPresupuesto))!;
+
+        var entidad = contexto.GetService<IDesignTimeModel>().Model
+            .FindEntityType(typeof(ConceptoPresupuesto))!;
+
         var indice = Assert.Single(entidad.GetIndexes(), indice =>
             indice.Properties.Select(propiedad => propiedad.Name).SequenceEqual(
                 [nameof(ConceptoPresupuesto.PresupuestoId), nameof(ConceptoPresupuesto.MaterialProveedorId)]));
 
         Assert.True(indice.IsUnique);
         Assert.Equal(IndicesUnicos.ConceptosPresupuestoMaterialProveedor, indice.GetDatabaseName());
+    }
+
+    // S3-T07: comprobamos que el índice que impide registrar
+    // dos márgenes tenga el mismo nombre que usa el repositorio.
+    [Fact]
+    public void IndiceDeMargen_CoincideConElQueUsaElRepositorio()
+    {
+        using var contexto = new EopDbContext(
+            new DbContextOptionsBuilder<EopDbContext>()
+                .UseSqlServer("Server=.;Database=SinConexion")
+                .Options);
+
+        IModel modelo = contexto.GetService<IDesignTimeModel>().Model;
+
+        var entidad = modelo.FindEntityType(typeof(ConceptoPresupuesto))!;
+
+        var indice = Assert.Single(
+            entidad.GetIndexes(),
+            indice => indice.Properties
+                .Select(propiedad => propiedad.Name)
+                .SequenceEqual(
+                [
+                    nameof(ConceptoPresupuesto.PresupuestoId),
+                    nameof(ConceptoPresupuesto.TipoConceptoId)
+                ]));
+
+        Assert.True(indice.IsUnique);
+
+        Assert.Equal(
+            IndicesUnicos.ConceptosPresupuestoUnicoMargen,
+            indice.GetDatabaseName());
     }
 }

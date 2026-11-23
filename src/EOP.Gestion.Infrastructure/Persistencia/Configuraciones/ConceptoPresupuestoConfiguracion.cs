@@ -103,7 +103,7 @@ public class ConceptoPresupuestoConfiguracion : IEntityTypeConfiguration<Concept
         builder.HasIndex(c => new { c.PresupuestoId, c.TipoConceptoId })
             .IsUnique()
             .HasFilter($"[TipoConceptoId] = {TipoConcepto.MargenId}")
-            .HasDatabaseName("IX_ConceptosPresupuesto_UnicoMargen");
+            .HasDatabaseName(IndicesUnicos.ConceptosPresupuestoUnicoMargen);
 
         builder.Property(c => c.Concepto)
             .HasMaxLength(200);
