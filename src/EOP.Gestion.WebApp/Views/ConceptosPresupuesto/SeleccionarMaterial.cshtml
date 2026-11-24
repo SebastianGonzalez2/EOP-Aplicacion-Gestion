@@ -10,8 +10,10 @@
 
     // Registrar materiales es del catálogo y solo lo hacen Supervisor y Administrador (US-041).
     bool puedeRegistrarMaterial = User.IsInRole("Supervisor") || User.IsInRole("Administrador");
+    string indicadorPendientes = Model.TieneCambiosPendientes ? "true" : "false";
 }
 
+<div data-borrador-presupuesto data-presupuesto-id="@Model.PresupuestoId" data-cambios-pendientes="@indicadorPendientes">
 <nav aria-label="Ruta de navegación">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a asp-controller="Presupuestos" asp-action="Index">Presupuestos</a></li>
@@ -33,6 +35,17 @@
 </div>
 
 <partial name="_Mensajes" />
+
+@if (Model.TieneCambiosPendientes)
+{
+    <div class="alert mensaje mensaje-info" role="status">
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
+        <div class="mensaje-cuerpo">
+            <strong>Tenés cambios pendientes en este presupuesto.</strong>
+            Al volver a los conceptos, presioná Guardar borrador para conservarlos definitivamente.
+        </div>
+    </div>
+}
 
 <section class="panel mb-3" aria-label="Fila del presupuesto">
     <div class="panel-cuerpo">
@@ -356,6 +369,7 @@ else
 
 <div class="d-flex justify-content-end gap-2">
     <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Volver a los conceptos</a>
+</div>
 </div>
 
 @section Scripts {

@@ -1,6 +1,5 @@
 using System.Data;
 using EOP.Gestion.Core.DTOs.Presupuestos;
-using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
@@ -24,270 +23,495 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             .SingleOrDefaultAsync(presupuesto => presupuesto.Id == presupuestoId, cancellationToken);
     }
 
-    public async Task<ResultadoGuardarConcepto> AgregarSiPuedeEditarAsync(
-        ConceptoPresupuesto concepto, Usuario usuario, CancellationToken cancellationToken)
-    {
-        // Volvemos a comprobar el acceso dentro de la transacción para que el estado,
-        // el responsable y los permisos del usuario no cambien antes de guardar.
-        await using var transaccion = await _contexto.Database.BeginTransactionAsync(
-            IsolationLevel.RepeatableRead, cancellationToken);
-        var usuarioActual = await _contexto.Usuarios.AsNoTracking()
-            .SingleOrDefaultAsync(actual => actual.Id == usuario.Id, cancellationToken);
-        var presupuesto = await ObtenerPresupuestoAsync(concepto.PresupuestoId, cancellationToken);
-
-        if (usuarioActual == null || usuarioActual.EntraObjectId != usuario.EntraObjectId
-            || presupuesto == null || !PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuarioActual))
-        {
-            return ResultadoGuardarConcepto.EdicionNoPermitida;
-        }
-
-        if (concepto.TipoConceptoId == TipoConcepto.MaterialId)
-        {
-            var referenciaSeleccionada = await (
-                from referencia in _contexto.MaterialProveedores.AsNoTracking()
-                join material in _contexto.Materiales.AsNoTracking() on referencia.MaterialId equals material.Id
-                where referencia.Id == concepto.MaterialProveedorId
-                select new { Material = material, Referencia = referencia }
-            ).SingleOrDefaultAsync(cancellationToken);
-
-            if (referenciaSeleccionada == null)
-            {
-                return ResultadoGuardarConcepto.ReferenciaInexistente;
-            }
-
-            bool duplicado = await _contexto.ConceptosPresupuesto.AnyAsync(
-                fila => fila.PresupuestoId == concepto.PresupuestoId
-                    && fila.MaterialProveedorId == concepto.MaterialProveedorId,
-                cancellationToken);
-            if (duplicado)
-            {
-                return ResultadoGuardarConcepto.ReferenciaDuplicada;
-            }
-
-            concepto.CopiarReferencia(referenciaSeleccionada.Material, referenciaSeleccionada.Referencia);
-        }
-
-        _contexto.ConceptosPresupuesto.Add(concepto);
-        try
-        {
-            await _contexto.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException excepcion) when (
-            IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ConceptosPresupuestoMaterialProveedor))
-        {
-            _contexto.Entry(concepto).State = EntityState.Detached;
-            return ResultadoGuardarConcepto.ReferenciaDuplicada;
-        }
-
-        await transaccion.CommitAsync(cancellationToken);
-        return ResultadoGuardarConcepto.Guardado;
-    }
-
-    // US-007: vincula o sustituye el material de una fila que ya existe. Todo pasa en una sola
-    // transacción para que el permiso, la fila, la referencia y la duplicidad se miren con los
-    // datos de ese mismo instante, igual que al agregar una fila nueva.
-    public Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
-        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-        CancellationToken cancellationToken)
-    {
-        return CopiarReferenciaALaFilaAsync(
-            presupuestoId, conceptoId, referenciaId, usuario, conservarMaterial: false, cancellationToken);
-    }
-
-    // S3-T12 (US-010A): cambia solo el proveedor de una fila que ya tiene material. Es el mismo
-    // recorrido que la selección de US-007 (misma transacción, mismo bloqueo, mismo control de
-    // duplicados), con la condición extra de que la referencia nueva sea del mismo material.
-    public Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
-        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-        CancellationToken cancellationToken)
-    {
-        return CopiarReferenciaALaFilaAsync(
-            presupuestoId, conceptoId, referenciaId, usuario, conservarMaterial: true, cancellationToken);
-    }
-
-    // Cuando conservarMaterial es true (S3-T12), la fila tiene que tener ya un material y la
-    // referencia elegida tiene que ser de ese mismo material. Cuando es false (US-007), la fila
-    // puede quedar con cualquier material del catálogo.
-    private async Task<ResultadoSeleccionarMaterial> CopiarReferenciaALaFilaAsync(
-        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario, bool conservarMaterial,
-        CancellationToken cancellationToken)
-    {
-        await using var transaccion = await _contexto.Database.BeginTransactionAsync(
-            IsolationLevel.RepeatableRead, cancellationToken);
-
-        // Primero el acceso: si no tiene permiso no revelamos ni siquiera si la fila existe.
-        if (!await UsuarioPuedeEditarAsync(presupuestoId, usuario, cancellationToken))
-        {
-            return ResultadoSeleccionarMaterial.EdicionNoPermitida;
-        }
-
-        var concepto = await ObtenerFilaBloqueadaAsync(presupuestoId, conceptoId, cancellationToken);
-        if (concepto == null)
-        {
-            return ResultadoSeleccionarMaterial.ConceptoInexistente;
-        }
-
-        if (concepto.TipoConceptoId != TipoConcepto.MaterialId)
-        {
-            return ResultadoSeleccionarMaterial.ConceptoNoEsMaterial;
-        }
-
-        // S3-T12: sin material en la fila no hay un "otro proveedor" que elegir. Esto va antes de
-        // mirar la referencia para dar el mensaje más útil: primero hay que elegir el material.
-        if (conservarMaterial && concepto.MaterialId == null)
-        {
-            return ResultadoSeleccionarMaterial.ConceptoSinMaterial;
-        }
-
-        // Si la fila ya usa esta referencia no se copia nada de nuevo: volver a copiar pisaría
-        // los valores históricos que la fila conserva con los actuales del catálogo (DT-11).
-        if (concepto.MaterialProveedorId == referenciaId)
-        {
-            return ResultadoSeleccionarMaterial.SinCambios;
-        }
-
-        var referenciaSeleccionada = await ObtenerReferenciaConMaterialAsync(referenciaId, cancellationToken);
-        if (referenciaSeleccionada == null)
-        {
-            return ResultadoSeleccionarMaterial.ReferenciaInexistente;
-        }
-
-        // S3-T12: el cambio de proveedor no puede cambiar el material. Se compara contra el material
-        // que la fila ya tiene guardado, no contra lo que mande la pantalla (RNF-4, RNF-10).
-        if (conservarMaterial && referenciaSeleccionada.Material.Id != concepto.MaterialId)
-        {
-            return ResultadoSeleccionarMaterial.ReferenciaDeOtroMaterial;
-        }
-
-        // RF-20: la misma combinación material-proveedor no puede estar en dos filas del
-        // presupuesto. La fila que estamos modificando no cuenta como duplicada de sí misma.
-        bool duplicado = await _contexto.ConceptosPresupuesto.AnyAsync(
-            fila => fila.PresupuestoId == presupuestoId
-                && fila.MaterialProveedorId == referenciaId
-                && fila.Id != conceptoId,
-            cancellationToken);
-        if (duplicado)
-        {
-            return ResultadoSeleccionarMaterial.ReferenciaDuplicada;
-        }
-
-        // Se reemplazan solo los cuatro datos históricos y la referencia. ConceptoDetectado y
-        // Cantidad no se tocan. El catálogo se leyó sin seguimiento, así que no se puede modificar.
-        concepto.CopiarReferencia(referenciaSeleccionada.Material, referenciaSeleccionada.Referencia);
-        try
-        {
-            await _contexto.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException excepcion) when (
-            IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ConceptosPresupuestoMaterialProveedor))
-        {
-            // Otra solicitud simultánea tomó la misma referencia entre la consulta y el guardado.
-            _contexto.Entry(concepto).State = EntityState.Detached;
-            return ResultadoSeleccionarMaterial.ReferenciaDuplicada;
-        }
-
-        await transaccion.CommitAsync(cancellationToken);
-        return ResultadoSeleccionarMaterial.Seleccionado;
-    }
-
-    // S3-T12 (US-010A, RF-020): actualiza a pedido los valores de la referencia que la fila YA
-    // tiene. Vuelve a copiar los cuatro datos históricos (DT-11) con los valores vigentes del
-    // catálogo. No cambia el material, el proveedor, ConceptoDetectado ni la cantidad.
-    //
-    // La referencia no viene de la pantalla: es la que la fila ya guarda. Así esta acción no puede
-    // usarse para cambiar de proveedor ni de material, y no hay un Id que alguien pueda manipular.
-    public async Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
-        int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken)
-    {
-        // Misma transacción, mismo control de acceso y mismo bloqueo que los otros dos flujos.
-        await using var transaccion = await _contexto.Database.BeginTransactionAsync(
-            IsolationLevel.RepeatableRead, cancellationToken);
-
-        if (!await UsuarioPuedeEditarAsync(presupuestoId, usuario, cancellationToken))
-        {
-            return ResultadoSeleccionarMaterial.EdicionNoPermitida;
-        }
-
-        var concepto = await ObtenerFilaBloqueadaAsync(presupuestoId, conceptoId, cancellationToken);
-        if (concepto == null)
-        {
-            return ResultadoSeleccionarMaterial.ConceptoInexistente;
-        }
-
-        if (concepto.TipoConceptoId != TipoConcepto.MaterialId)
-        {
-            return ResultadoSeleccionarMaterial.ConceptoNoEsMaterial;
-        }
-
-        // Sin material (o sin referencia) no hay nada que actualizar.
-        if (concepto.MaterialId == null || concepto.MaterialProveedorId == null)
-        {
-            return ResultadoSeleccionarMaterial.ConceptoSinMaterial;
-        }
-
-        var referenciaActual = await ObtenerReferenciaConMaterialAsync(
-            concepto.MaterialProveedorId.Value, cancellationToken);
-        if (referenciaActual == null)
-        {
-            return ResultadoSeleccionarMaterial.ReferenciaInexistente;
-        }
-
-        // Si los cuatro valores de la fila ya son los del catálogo no hay nada que actualizar.
-        // Se avisa en vez de guardar igual, para que nadie crea que cambió algo.
-        bool yaCoinciden = concepto.Concepto == referenciaActual.Material.Nombre
-            && concepto.Unidad == referenciaActual.Material.Unidad
-            && concepto.PrecioUnitario == referenciaActual.Referencia.PrecioUnitario
-            && concepto.Moneda == referenciaActual.Referencia.Moneda;
-        if (yaCoinciden)
-        {
-            return ResultadoSeleccionarMaterial.SinCambios;
-        }
-
-        // No hace falta mirar duplicados: la combinación material-proveedor de la fila no cambia.
-        // El catálogo se leyó sin seguimiento, así que esta operación no puede modificarlo.
-        concepto.CopiarReferencia(referenciaActual.Material, referenciaActual.Referencia);
-        await _contexto.SaveChangesAsync(cancellationToken);
-
-        await transaccion.CommitAsync(cancellationToken);
-        return ResultadoSeleccionarMaterial.Seleccionado;
-    }
-
-    // Vuelve a comprobar el acceso con los datos de este instante (estado del presupuesto,
-    // responsable, rol y usuario activo), dentro de la transacción.
-    private async Task<bool> UsuarioPuedeEditarAsync(
+    public async Task<bool> PuedeEditarEnBaseAsync(
         int presupuestoId, Usuario usuario, CancellationToken cancellationToken)
     {
-        var usuarioActual = await _contexto.Usuarios.AsNoTracking()
+        Usuario? usuarioActual = await _contexto.Usuarios.AsNoTracking()
             .SingleOrDefaultAsync(actual => actual.Id == usuario.Id, cancellationToken);
-        var presupuesto = await ObtenerPresupuestoAsync(presupuestoId, cancellationToken);
 
-        return usuarioActual != null && usuarioActual.EntraObjectId == usuario.EntraObjectId
-            && presupuesto != null && PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuarioActual);
+        Presupuesto? presupuesto = await ObtenerPresupuestoAsync(presupuestoId, cancellationToken);
+
+        if (usuarioActual == null
+            || usuarioActual.EntraObjectId != usuario.EntraObjectId
+            || presupuesto == null)
+        {
+            return false;
+        }
+
+        return PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuarioActual);
     }
 
-    // La fila se busca por su Id Y por el presupuesto: así nadie puede modificar una fila de
-    // otro presupuesto cambiando el Id en la URL. UPDLOCK reserva la fila para modificarla; sin
-    // eso, dos sustituciones simultáneas de la misma fila se bloquearían entre sí (deadlock).
-    private Task<ConceptoPresupuesto?> ObtenerFilaBloqueadaAsync(
-        int presupuestoId, int conceptoId, CancellationToken cancellationToken)
+    // Construye el punto de partida del borrador a partir de los datos realmente guardados en SQL Server.
+    // Todo se lee con AsNoTracking para que consultar o iniciar una edición nunca modifique la base.
+    public async Task<BorradorPresupuestoDto?> ObtenerBorradorBaseAsync(
+        int presupuestoId, CancellationToken cancellationToken)
     {
-        return _contexto.ConceptosPresupuesto
-            .FromSqlInterpolated($@"SELECT * FROM ConceptosPresupuesto WITH (UPDLOCK)
-                WHERE Id = {conceptoId} AND PresupuestoId = {presupuestoId}")
-            .SingleOrDefaultAsync(cancellationToken);
+        bool existePresupuesto = await _contexto.Presupuestos.AsNoTracking()
+            .AnyAsync(presupuesto => presupuesto.Id == presupuestoId, cancellationToken);
+
+        if (!existePresupuesto)
+        {
+            return null;
+        }
+
+        List<ConceptoPresupuesto> conceptosPersistidos = await _contexto.ConceptosPresupuesto
+            .AsNoTracking()
+            .Where(concepto => concepto.PresupuestoId == presupuestoId)
+            .OrderBy(concepto => concepto.Id)
+            .ToListAsync(cancellationToken);
+
+        List<int> idsConceptos = new List<int>();
+        foreach (ConceptoPresupuesto concepto in conceptosPersistidos)
+        {
+            idsConceptos.Add(concepto.Id);
+        }
+
+        List<MargenBaseTipo> margenesBasePersistidos = new List<MargenBaseTipo>();
+        if (idsConceptos.Count > 0)
+        {
+            margenesBasePersistidos = await _contexto.MargenesBaseTipo
+                .AsNoTracking()
+                .Where(baseMargen => idsConceptos.Contains(baseMargen.ConceptoPresupuestoId))
+                .OrderBy(baseMargen => baseMargen.ConceptoPresupuestoId)
+                .ThenBy(baseMargen => baseMargen.TipoConceptoId)
+                .ToListAsync(cancellationToken);
+        }
+
+        Dictionary<int, string> nombresTipos = await _contexto.TiposConcepto
+            .AsNoTracking()
+            .ToDictionaryAsync(tipo => tipo.Id, tipo => tipo.Nombre, cancellationToken);
+
+        // El nombre del proveedor se consulta solo para mostrarlo en la tabla; los cuatro datos
+        // históricos del material (nombre, unidad, precio y moneda) salen siempre del concepto (DT-11).
+        List<int> idsReferencias = new List<int>();
+        foreach (ConceptoPresupuesto concepto in conceptosPersistidos)
+        {
+            if (concepto.MaterialProveedorId.HasValue)
+            {
+                idsReferencias.Add(concepto.MaterialProveedorId.Value);
+            }
+        }
+
+        Dictionary<int, string> proveedoresPorReferencia = new Dictionary<int, string>();
+        if (idsReferencias.Count > 0)
+        {
+            var filasProveedores = await (
+                from referencia in _contexto.MaterialProveedores.AsNoTracking()
+                join proveedor in _contexto.Proveedores.AsNoTracking()
+                    on referencia.ProveedorId equals proveedor.Id
+                where idsReferencias.Contains(referencia.Id)
+                select new
+                {
+                    ReferenciaId = referencia.Id,
+                    ProveedorNombre = proveedor.Nombre
+                }
+            ).ToListAsync(cancellationToken);
+
+            foreach (var filaProveedor in filasProveedores)
+            {
+                proveedoresPorReferencia[filaProveedor.ReferenciaId] = filaProveedor.ProveedorNombre;
+            }
+        }
+
+        var borrador = new BorradorPresupuestoDto
+        {
+            PresupuestoId = presupuestoId,
+            HuellaEstadoBase = CalculadorHuellaBorrador.Calcular(
+                conceptosPersistidos, margenesBasePersistidos)
+        };
+
+        foreach (ConceptoPresupuesto concepto in conceptosPersistidos)
+        {
+            string nombreTipo = string.Empty;
+            if (nombresTipos.TryGetValue(concepto.TipoConceptoId, out string? encontradoTipo))
+            {
+                nombreTipo = encontradoTipo;
+            }
+
+            string? nombreProveedor = null;
+            if (concepto.MaterialProveedorId.HasValue
+                && proveedoresPorReferencia.TryGetValue(concepto.MaterialProveedorId.Value, out string? encontradoProveedor))
+            {
+                nombreProveedor = encontradoProveedor;
+            }
+
+            var tiposBase = new List<int>();
+            foreach (MargenBaseTipo baseMargen in margenesBasePersistidos)
+            {
+                if (baseMargen.ConceptoPresupuestoId == concepto.Id)
+                {
+                    tiposBase.Add(baseMargen.TipoConceptoId);
+                }
+            }
+
+            borrador.Conceptos.Add(new ConceptoBorradorDto
+            {
+                Id = concepto.Id,
+                TipoConceptoId = concepto.TipoConceptoId,
+                TipoNombre = nombreTipo,
+                ConceptoDetectado = concepto.ConceptoDetectado,
+                Concepto = concepto.Concepto,
+                MaterialId = concepto.MaterialId,
+                MaterialProveedorId = concepto.MaterialProveedorId,
+                ProveedorNombre = nombreProveedor,
+                Cantidad = concepto.Cantidad,
+                Unidad = concepto.Unidad,
+                PrecioUnitario = concepto.PrecioUnitario,
+                Moneda = concepto.Moneda,
+                PorcentajeMargen = concepto.PorcentajeMargen,
+                TiposBaseMargen = tiposBase,
+                EsNuevo = false,
+                FueModificado = false
+            });
+        }
+
+        return borrador;
     }
 
-    // Lee la referencia y su material sin seguimiento: el catálogo solo se lee, nunca se modifica.
-    private Task<ReferenciaConMaterial?> ObtenerReferenciaConMaterialAsync(
+    // Lee la referencia, su material y su proveedor sin seguimiento: el catálogo solo se lee,
+    // nunca se crea ni se modifica desde el presupuesto (DT-11, RF-20).
+    public Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(
         int referenciaId, CancellationToken cancellationToken)
     {
         return (
             from referencia in _contexto.MaterialProveedores.AsNoTracking()
-            join material in _contexto.Materiales.AsNoTracking() on referencia.MaterialId equals material.Id
+            join material in _contexto.Materiales.AsNoTracking()
+                on referencia.MaterialId equals material.Id
+            join proveedor in _contexto.Proveedores.AsNoTracking()
+                on referencia.ProveedorId equals proveedor.Id
             where referencia.Id == referenciaId
-            select new ReferenciaConMaterial(material, referencia)
+            select new ReferenciaCatalogoPresupuestoDto(
+                material.Id,
+                referencia.Id,
+                material.Nombre,
+                material.Unidad,
+                proveedor.Nombre,
+                referencia.PrecioUnitario,
+                referencia.Moneda)
         ).SingleOrDefaultAsync(cancellationToken);
     }
 
-    private sealed record ReferenciaConMaterial(Material Material, MaterialProveedor Referencia);
+    public Task<string?> ObtenerNombreTipoConceptoAsync(int tipoId, CancellationToken cancellationToken)
+    {
+        return _contexto.TiposConcepto.AsNoTracking()
+            .Where(tipo => tipo.Id == tipoId)
+            .Select(tipo => (string?)tipo.Nombre)
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    // US-003 (RF-05): persiste de forma atómica todos los cambios pendientes del borrador.
+    //
+    // Todo ocurre dentro de una única transacción con UPDLOCK sobre la fila del Presupuesto:
+    // - Dos guardados simultáneos sobre el mismo presupuesto se ejecutan en orden sin deadlocks.
+    // - Volvemos a comprobar usuario activo, rol, responsabilidad y estado editable en ese instante.
+    // - Verificamos la huella del estado base para detectar ediciones concurrentes sin pisar datos.
+    // - Nunca modificamos Presupuestos ni el catálogo (Materiales, MaterialProveedores, Proveedores).
+    // - Nunca tocamos filas persistidas que no fueron modificadas, preservando sus valores históricos.
+    public async Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+        BorradorPresupuestoDto borrador,
+        Usuario usuario,
+        CancellationToken cancellationToken)
+    {
+        await using var transaccion = await _contexto.Database.BeginTransactionAsync(
+            IsolationLevel.RepeatableRead, cancellationToken);
+
+        Presupuesto? presupuesto = await ObtenerPresupuestoBloqueadoAsync(
+            borrador.PresupuestoId, cancellationToken);
+
+        Usuario? usuarioActual = await _contexto.Usuarios.AsNoTracking()
+            .SingleOrDefaultAsync(actual => actual.Id == usuario.Id, cancellationToken);
+
+        if (usuarioActual == null
+            || usuarioActual.EntraObjectId != usuario.EntraObjectId
+            || presupuesto == null
+            || !PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuarioActual))
+        {
+            return ResultadoGuardarBorrador.EdicionNoPermitida;
+        }
+
+        List<ConceptoPresupuesto> conceptosPersistidos = await _contexto.ConceptosPresupuesto
+            .Where(concepto => concepto.PresupuestoId == borrador.PresupuestoId)
+            .OrderBy(concepto => concepto.Id)
+            .ToListAsync(cancellationToken);
+
+        List<int> idsPersistidos = new List<int>();
+        foreach (ConceptoPresupuesto concepto in conceptosPersistidos)
+        {
+            idsPersistidos.Add(concepto.Id);
+        }
+
+        List<MargenBaseTipo> margenesBasePersistidos = new List<MargenBaseTipo>();
+        if (idsPersistidos.Count > 0)
+        {
+            margenesBasePersistidos = await _contexto.MargenesBaseTipo
+                .AsNoTracking()
+                .Where(baseMargen => idsPersistidos.Contains(baseMargen.ConceptoPresupuestoId))
+                .OrderBy(baseMargen => baseMargen.ConceptoPresupuestoId)
+                .ThenBy(baseMargen => baseMargen.TipoConceptoId)
+                .ToListAsync(cancellationToken);
+        }
+
+        // Control de concurrencia optimista: si algo cambió en la base desde que empezó la edición,
+        // rechazamos el guardado para no perder ni duplicar datos en silencio.
+        string huellaActual = CalculadorHuellaBorrador.Calcular(
+            conceptosPersistidos, margenesBasePersistidos);
+
+        if (!string.Equals(huellaActual, borrador.HuellaEstadoBase, StringComparison.Ordinal))
+        {
+            return ResultadoGuardarBorrador.ConflictoConcurrencia;
+        }
+
+        if (!borrador.TieneCambiosPendientes)
+        {
+            return ResultadoGuardarBorrador.SinCambios;
+        }
+
+        // Volvemos a validar el borrador completo dentro de la transacción.
+        if (ValidadorBorradorPresupuesto.ValidarBorrador(borrador) != null)
+        {
+            return ResultadoGuardarBorrador.DatosInvalidos;
+        }
+
+        Dictionary<int, ConceptoPresupuesto> persistidosPorId = new Dictionary<int, ConceptoPresupuesto>();
+        foreach (ConceptoPresupuesto concepto in conceptosPersistidos)
+        {
+            persistidosPorId[concepto.Id] = concepto;
+        }
+
+        // Separamos las filas nuevas y las filas modificadas; las filas sin cambios no se tocan.
+        var conceptosModificados = new List<ConceptoBorradorDto>();
+        var conceptosNuevosSinMargen = new List<ConceptoBorradorDto>();
+        ConceptoBorradorDto? margenNuevo = null;
+
+        var referenciasAValidar = new Dictionary<int, int>();
+        var referenciasFinalesDeCambios = new HashSet<int>();
+        var referenciasFinalesDelPresupuesto = new HashSet<int>();
+        var tiposPresentesSinMargen = new HashSet<int>();
+
+        bool yaExisteMargenPersistido = false;
+        foreach (ConceptoPresupuesto persistido in conceptosPersistidos)
+        {
+            if (persistido.TipoConceptoId == TipoConcepto.MargenId)
+            {
+                yaExisteMargenPersistido = true;
+            }
+            else
+            {
+                tiposPresentesSinMargen.Add(persistido.TipoConceptoId);
+            }
+        }
+
+        foreach (ConceptoBorradorDto fila in borrador.Conceptos)
+        {
+            if (fila.MaterialProveedorId.HasValue)
+            {
+                if (!referenciasFinalesDelPresupuesto.Add(fila.MaterialProveedorId.Value))
+                {
+                    return ResultadoGuardarBorrador.ReferenciaDuplicada;
+                }
+            }
+
+            if (fila.EsNuevo)
+            {
+                if (fila.TipoConceptoId == TipoConcepto.MargenId)
+                {
+                    if (yaExisteMargenPersistido || margenNuevo != null)
+                    {
+                        return ResultadoGuardarBorrador.MargenExistente;
+                    }
+
+                    margenNuevo = fila;
+                }
+                else
+                {
+                    conceptosNuevosSinMargen.Add(fila);
+                    tiposPresentesSinMargen.Add(fila.TipoConceptoId);
+                }
+
+                if (fila.MaterialProveedorId.HasValue && fila.MaterialId.HasValue)
+                {
+                    referenciasAValidar[fila.MaterialProveedorId.Value] = fila.MaterialId.Value;
+                    referenciasFinalesDeCambios.Add(fila.MaterialProveedorId.Value);
+                }
+            }
+            else if (fila.FueModificado)
+            {
+                if (!persistidosPorId.TryGetValue(fila.Id, out ConceptoPresupuesto? entidadExistente))
+                {
+                    return ResultadoGuardarBorrador.ConflictoConcurrencia;
+                }
+
+                // Actualmente solo las filas de tipo Material se modifican al seleccionar o cambiar
+                // su referencia de proveedor o actualizar sus valores históricos.
+                if (entidadExistente.TipoConceptoId != TipoConcepto.MaterialId
+                    || fila.TipoConceptoId != TipoConcepto.MaterialId)
+                {
+                    return ResultadoGuardarBorrador.DatosInvalidos;
+                }
+
+                conceptosModificados.Add(fila);
+
+                if (fila.MaterialProveedorId.HasValue && fila.MaterialId.HasValue)
+                {
+                    referenciasAValidar[fila.MaterialProveedorId.Value] = fila.MaterialId.Value;
+                    referenciasFinalesDeCambios.Add(fila.MaterialProveedorId.Value);
+                }
+            }
+        }
+
+        // Validamos que los tipos seleccionados como base del margen nuevo existan en el presupuesto.
+        if (margenNuevo != null)
+        {
+            foreach (int tipoBaseId in margenNuevo.TiposBaseMargen)
+            {
+                if (!tiposPresentesSinMargen.Contains(tipoBaseId))
+                {
+                    return ResultadoGuardarBorrador.TiposBaseMargenNoDisponibles;
+                }
+            }
+        }
+
+        // Comprobamos sin seguimiento que todas las referencias del catálogo elegidas existan y
+        // correspondan exactamente al material indicado (integridad referencial y sin tocar el catálogo).
+        if (referenciasAValidar.Count > 0)
+        {
+            List<int> idsReferenciasAValidar = new List<int>(referenciasAValidar.Keys);
+
+            Dictionary<int, int> materialesPorReferenciaEnBase = await _contexto.MaterialProveedores
+                .AsNoTracking()
+                .Where(referencia => idsReferenciasAValidar.Contains(referencia.Id))
+                .ToDictionaryAsync(
+                    referencia => referencia.Id,
+                    referencia => referencia.MaterialId,
+                    cancellationToken);
+
+            foreach (KeyValuePair<int, int> par in referenciasAValidar)
+            {
+                if (!materialesPorReferenciaEnBase.TryGetValue(par.Key, out int materialIdEnBase)
+                    || materialIdEnBase != par.Value)
+                {
+                    return ResultadoGuardarBorrador.ReferenciaInexistente;
+                }
+            }
+        }
+
+        // Si alguna fila modificada cede una referencia que otra fila del mismo borrador pasa a usar
+        // (por ejemplo, un intercambio de proveedores entre dos filas), limpiamos primero las
+        // referencias en conflicto dentro de la misma transacción para evitar choques transitorios
+        // con el índice único filtrado IX_ConceptosPresupuesto_PresupuestoId_MaterialProveedorId.
+        var filasParaDespejar = new List<ConceptoPresupuesto>();
+        foreach (ConceptoBorradorDto filaModificada in conceptosModificados)
+        {
+            ConceptoPresupuesto entidad = persistidosPorId[filaModificada.Id];
+            if (entidad.MaterialProveedorId.HasValue
+                && entidad.MaterialProveedorId != filaModificada.MaterialProveedorId
+                && referenciasFinalesDeCambios.Contains(entidad.MaterialProveedorId.Value))
+            {
+                filasParaDespejar.Add(entidad);
+            }
+        }
+
+        try
+        {
+            if (filasParaDespejar.Count > 0)
+            {
+                foreach (ConceptoPresupuesto entidad in filasParaDespejar)
+                {
+                    entidad.MaterialId = null;
+                    entidad.MaterialProveedorId = null;
+                }
+
+                await _contexto.SaveChangesAsync(cancellationToken);
+            }
+
+            // Aplicamos las actualizaciones sobre las filas persistidas que cambiaron.
+            // Conservamos ConceptoDetectado y Cantidad sin tocarlos.
+            foreach (ConceptoBorradorDto filaModificada in conceptosModificados)
+            {
+                ConceptoPresupuesto entidad = persistidosPorId[filaModificada.Id];
+                entidad.MaterialId = filaModificada.MaterialId;
+                entidad.MaterialProveedorId = filaModificada.MaterialProveedorId;
+                entidad.Concepto = filaModificada.Concepto;
+                entidad.Unidad = filaModificada.Unidad;
+                entidad.PrecioUnitario = filaModificada.PrecioUnitario;
+                entidad.Moneda = filaModificada.Moneda;
+            }
+
+            // Insertamos las filas nuevas que no son Margen.
+            foreach (ConceptoBorradorDto filaNueva in conceptosNuevosSinMargen)
+            {
+                var nuevaEntidad = new ConceptoPresupuesto
+                {
+                    PresupuestoId = borrador.PresupuestoId,
+                    TipoConceptoId = filaNueva.TipoConceptoId,
+                    Concepto = filaNueva.Concepto,
+                    ConceptoDetectado = filaNueva.ConceptoDetectado,
+                    MaterialId = filaNueva.MaterialId,
+                    MaterialProveedorId = filaNueva.MaterialProveedorId,
+                    Cantidad = filaNueva.Cantidad,
+                    Unidad = filaNueva.Unidad,
+                    PrecioUnitario = filaNueva.PrecioUnitario,
+                    Moneda = filaNueva.Moneda
+                };
+
+                _contexto.ConceptosPresupuesto.Add(nuevaEntidad);
+            }
+
+            // Si hay un margen nuevo, guardamos primero los conceptos para obtener el Id del margen
+            // y luego registramos sus tipos base en la misma transacción atómica.
+            if (margenNuevo != null)
+            {
+                var entidadMargen = new ConceptoPresupuesto
+                {
+                    PresupuestoId = borrador.PresupuestoId,
+                    TipoConceptoId = TipoConcepto.MargenId,
+                    PorcentajeMargen = margenNuevo.PorcentajeMargen
+                };
+
+                _contexto.ConceptosPresupuesto.Add(entidadMargen);
+                await _contexto.SaveChangesAsync(cancellationToken);
+
+                foreach (int tipoBaseId in margenNuevo.TiposBaseMargen)
+                {
+                    _contexto.MargenesBaseTipo.Add(new MargenBaseTipo
+                    {
+                        ConceptoPresupuestoId = entidadMargen.Id,
+                        TipoConceptoId = tipoBaseId
+                    });
+                }
+
+                await _contexto.SaveChangesAsync(cancellationToken);
+            }
+            else
+            {
+                await _contexto.SaveChangesAsync(cancellationToken);
+            }
+        }
+        catch (DbUpdateException excepcion) when (
+            IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ConceptosPresupuestoMaterialProveedor))
+        {
+            _contexto.ChangeTracker.Clear();
+            return ResultadoGuardarBorrador.ReferenciaDuplicada;
+        }
+        catch (DbUpdateException excepcion) when (
+            IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ConceptosPresupuestoUnicoMargen))
+        {
+            _contexto.ChangeTracker.Clear();
+            return ResultadoGuardarBorrador.MargenExistente;
+        }
+
+        await transaccion.CommitAsync(cancellationToken);
+        return ResultadoGuardarBorrador.Guardado;
+    }
+
+    // Bloquea la fila del presupuesto durante la transacción con UPDLOCK y sin seguimiento
+    // (AsNoTracking): serializa guardados simultáneos y garantiza que nunca se altere el presupuesto.
+    private Task<Presupuesto?> ObtenerPresupuestoBloqueadoAsync(
+        int presupuestoId, CancellationToken cancellationToken)
+    {
+        return _contexto.Presupuestos
+            .FromSqlInterpolated($"SELECT * FROM Presupuestos WITH (UPDLOCK) WHERE Id = {presupuestoId}")
+            .AsNoTracking()
+            .SingleOrDefaultAsync(cancellationToken);
+    }
 }

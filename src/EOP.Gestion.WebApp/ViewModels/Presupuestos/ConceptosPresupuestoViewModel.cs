@@ -10,6 +10,7 @@ public class ConceptosPresupuestoViewModel
     public int PresupuestoId { get; init; }
     public string Codigo { get; init; } = string.Empty;
     public bool PuedeAgregar { get; init; }
+    public bool TieneCambiosPendientes { get; init; }
     public IReadOnlyList<FilaConceptoDto> Filas { get; init; } = [];
     public IReadOnlyList<TipoBaseMargenDto> TiposBaseMargen { get; init; } = [];
     public IReadOnlyList<TipoConceptoOpcionDto> Tipos { get; init; } = [];

@@ -8,6 +8,7 @@ public class SeleccionarMaterialViewModel
 {
     public int PresupuestoId { get; init; }
     public string Codigo { get; init; } = string.Empty;
+    public bool TieneCambiosPendientes { get; init; }
 
     // La fila que se está completando o corrigiendo: sirve para mostrar su Concepto detectado
     // (que no cambia) y el material que tiene hoy.

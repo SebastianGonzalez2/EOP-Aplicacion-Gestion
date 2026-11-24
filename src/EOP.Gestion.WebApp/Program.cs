@@ -12,9 +12,11 @@ using System.Security.Claims;
 using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
+using EOP.Gestion.Core.Interfaces.Presupuestos;
 using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 
 using EOP.Gestion.Infrastructure.Consultas.Usuarios;
+using EOP.Gestion.WebApp.Servicios;
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -55,6 +57,22 @@ builder.Services.AddScoped<AgregarConceptoManual>();
 builder.Services.AddScoped<SeleccionarMaterialDeConcepto>();
 builder.Services.AddScoped<CambiarProveedorDeConcepto>();
 builder.Services.AddScoped<ActualizarReferenciaDeConcepto>();
+builder.Services.AddScoped<GuardarBorradorPresupuesto>();
+
+// US-003 (RF-05): conservamos los cambios pendientes de un presupuesto en la sesión del servidor
+// hasta que el usuario presiona explícitamente «Guardar borrador». La cookie de sesión respeta
+// las mismas reglas de seguridad que la cookie de autenticación (HttpOnly y HTTPS obligatorio).
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.Name = ".EOP.Borrador";
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.IsEssential = true;
+});
+builder.Services.AddScoped<IAlmacenBorradorPresupuesto, AlmacenBorradorPresupuestoEnSesion>();
 
 // Registramos el caso de uso que valida los datos del proveedor.
 builder.Services.AddScoped<ValidarDatosProveedor>();
@@ -483,6 +501,10 @@ app.UseAuthentication();
 // (más arriba) carga desde la tabla Usuarios en cada pedido. Si su rol
 // no alcanza, la acción no se ejecuta y va a la pantalla de acceso denegado.
 app.UseAuthorization();
+
+// Habilitamos la sesión del servidor para conservar cambios pendientes de presupuestos durante la
+// elaboración sin guardarlos todavía en la base de datos (US-003, RF-05).
+app.UseSession();
 
 // Los archivos estáticos (CSS de Bootstrap, JavaScript, imágenes)
 // se pueden descargar sin sesión. Si no, la política de respaldo
