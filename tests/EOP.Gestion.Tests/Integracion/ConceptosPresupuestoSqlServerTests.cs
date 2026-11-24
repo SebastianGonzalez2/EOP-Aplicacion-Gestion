@@ -1,5 +1,6 @@
 
 using System.Net;
+using System.Text.RegularExpressions;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Presupuestos;
@@ -7,6 +8,7 @@ using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
 using EOP.Gestion.Tests.Compartido;
@@ -719,13 +721,23 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
     }
 
     private async Task<HttpResponseMessage> GuardarBorradorAsync(
-        FabricaConEntraSimulado.Navegador navegador, bool esperabaCambiosPendientes = true)
+        FabricaConEntraSimulado.Navegador navegador, bool? esperabaCambiosPendientes = null)
     {
         string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}";
+        string html = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
+        string token = Regex.Match(html, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
+        string version = Regex.Match(html, "name=\"versionBorrador\" value=\"([^\"]+)\"").Groups[1].Value;
+        string esperaba = Regex.Match(html, "name=\"esperabaCambiosPendientes\" value=\"([^\"]+)\"").Groups[1].Value;
+        string huella = Regex.Match(html, "name=\"huellaEstadoBase\" value=\"([^\"]*)\"").Groups[1].Value;
+
         return await navegador.PostAsync($"/ConceptosPresupuesto/GuardarBorrador/{_presupuestoId}", new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync(ruta),
-            ["esperabaCambiosPendientes"] = esperabaCambiosPendientes ? "true" : "false"
+            ["__RequestVerificationToken"] = token,
+            ["esperabaCambiosPendientes"] = esperabaCambiosPendientes.HasValue
+                ? (esperabaCambiosPendientes.Value ? "true" : "false")
+                : (string.IsNullOrEmpty(esperaba) ? "false" : esperaba),
+            ["versionBorrador"] = string.IsNullOrEmpty(version) ? "0" : version,
+            ["huellaEstadoBase"] = huella
         });
     }
 
@@ -934,14 +946,16 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             using EopDbContext otroContexto = CrearContexto();
             var repositorio = new RepositorioConceptosPresupuesto(otroContexto);
             var almacen = new AlmacenBorradorEnMemoria();
-            var agregar = new AgregarConceptoManual(repositorio, almacen);
+            var sincronizador = new SincronizadorBorradorPresupuesto();
+            var agregar = new AgregarConceptoManual(repositorio, almacen, sincronizador);
             string? errorAgregar = await agregar.EjecutarAsync(
                 _presupuestoId, TipoConcepto.MaterialId, null, null, null,
                 _materialProveedorId, 2m, responsable, CancellationToken.None);
             Assert.Null(errorAgregar);
 
-            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
-            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
+            return await guardar.EjecutarAsync(
+                _presupuestoId, new ContextoEdicionBorrador(true, 1), responsable, CancellationToken.None);
         }
 
         var resultados = await Task.WhenAll(AgregarYGuardarAsync(), AgregarYGuardarAsync());
@@ -967,7 +981,8 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
 
         var repositorio = new RepositorioConceptosPresupuesto(contexto);
         var almacen = new AlmacenBorradorEnMemoria();
-        var registrarMargen = new RegistrarMargen(repositorio, almacen);
+        var sincronizador = new SincronizadorBorradorPresupuesto();
+        var registrarMargen = new RegistrarMargen(repositorio, almacen, sincronizador);
 
         string? errorAgregar = await registrarMargen.EjecutarAsync(
             _presupuestoId,
@@ -979,8 +994,9 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         Assert.Null(errorAgregar);
         Assert.False(await contexto.ConceptosPresupuesto.AnyAsync(c => c.TipoConceptoId == TipoConcepto.MargenId));
 
-        var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
-        var resultado = await guardar.EjecutarAsync(_presupuestoId, true, usuario, CancellationToken.None);
+        var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
+        var resultado = await guardar.EjecutarAsync(
+            _presupuestoId, new ContextoEdicionBorrador(true, 1), usuario, CancellationToken.None);
 
         Assert.True(resultado.GuardadoCorrectamente);
 
@@ -1018,13 +1034,15 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
 
         var repositorio = new RepositorioConceptosPresupuesto(contexto);
         var almacen = new AlmacenBorradorEnMemoria();
-        var registrarMargen = new RegistrarMargen(repositorio, almacen);
-        var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
+        var sincronizador = new SincronizadorBorradorPresupuesto();
+        var registrarMargen = new RegistrarMargen(repositorio, almacen, sincronizador);
+        var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
 
         string? primero = await registrarMargen.EjecutarAsync(
             _presupuestoId, 20m, [TipoConcepto.ManoDeObraId], usuario, CancellationToken.None);
         Assert.Null(primero);
-        Assert.True((await guardar.EjecutarAsync(_presupuestoId, true, usuario, CancellationToken.None)).GuardadoCorrectamente);
+        Assert.True((await guardar.EjecutarAsync(
+            _presupuestoId, new ContextoEdicionBorrador(true, 1), usuario, CancellationToken.None)).GuardadoCorrectamente);
 
         string? segundo = await registrarMargen.EjecutarAsync(
             _presupuestoId, 30m, [TipoConcepto.ManoDeObraId], usuario, CancellationToken.None);
@@ -1052,7 +1070,7 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
 
         var repositorio = new RepositorioConceptosPresupuesto(contexto);
         var almacen = new AlmacenBorradorEnMemoria();
-        var registrarMargen = new RegistrarMargen(repositorio, almacen);
+        var registrarMargen = new RegistrarMargen(repositorio, almacen, new SincronizadorBorradorPresupuesto());
 
         // En este presupuesto solo hay Mano de obra.
         // Intentamos seleccionar también Alquiler.

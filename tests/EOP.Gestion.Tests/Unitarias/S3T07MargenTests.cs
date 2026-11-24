@@ -134,7 +134,7 @@ public class S3T07MargenTests
             }
         };
         var almacen = new AlmacenBorradorEnMemoria();
-        var casoDeUso = new RegistrarMargen(repositorio, almacen);
+        var casoDeUso = new RegistrarMargen(repositorio, almacen, new SincronizadorBorradorPresupuesto());
         var usuario = new Usuario { Id = 1 };
 
         string? error = await casoDeUso.EjecutarAsync(
@@ -159,7 +159,7 @@ public class S3T07MargenTests
     {
         var repositorio = new RepositorioConceptosFalso();
         var almacen = new AlmacenBorradorEnMemoria();
-        var casoDeUso = new RegistrarMargen(repositorio, almacen);
+        var casoDeUso = new RegistrarMargen(repositorio, almacen, new SincronizadorBorradorPresupuesto());
 
         string? error = await casoDeUso.EjecutarAsync(
             10,
@@ -178,7 +178,7 @@ public class S3T07MargenTests
     {
         var repositorio = new RepositorioConceptosFalso { PuedeEditar = false };
         var almacen = new AlmacenBorradorEnMemoria();
-        var casoDeUso = new RegistrarMargen(repositorio, almacen);
+        var casoDeUso = new RegistrarMargen(repositorio, almacen, new SincronizadorBorradorPresupuesto());
 
         string? error = await casoDeUso.EjecutarAsync(
             10, 20m, [TipoConcepto.MaterialId], new Usuario { Id = 1 }, CancellationToken.None);
@@ -203,7 +203,7 @@ public class S3T07MargenTests
             }
         };
         var almacen = new AlmacenBorradorEnMemoria();
-        var casoDeUso = new RegistrarMargen(repositorio, almacen);
+        var casoDeUso = new RegistrarMargen(repositorio, almacen, new SincronizadorBorradorPresupuesto());
 
         string? error = await casoDeUso.EjecutarAsync(
             10, 20m, [TipoConcepto.MaterialId], new Usuario { Id = 1 }, CancellationToken.None);
@@ -227,7 +227,7 @@ public class S3T07MargenTests
             }
         };
         var almacen = new AlmacenBorradorEnMemoria();
-        var casoDeUso = new RegistrarMargen(repositorio, almacen);
+        var casoDeUso = new RegistrarMargen(repositorio, almacen, new SincronizadorBorradorPresupuesto());
 
         string? error = await casoDeUso.EjecutarAsync(
             10, 20m, [TipoConcepto.MaterialId], new Usuario { Id = 1 }, CancellationToken.None);
@@ -256,17 +256,20 @@ public class S3T07MargenTests
         public Task<BorradorPresupuestoDto?> ObtenerBorradorBaseAsync(int presupuestoId, CancellationToken cancellationToken) =>
             Task.FromResult<BorradorPresupuestoDto?>(BorradorBase.Clonar());
 
+        public Task<string?> ObtenerHuellaPersistidaAsync(int presupuestoId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(BorradorBase.HuellaEstadoBase);
+
         public Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(int referenciaId, CancellationToken cancellationToken) =>
             Task.FromResult<ReferenciaCatalogoPresupuestoDto?>(null);
 
         public Task<string?> ObtenerNombreTipoConceptoAsync(int tipoId, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Margen");
 
-        public Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+        public Task<ResultadoPersistenciaBorrador> GuardarBorradorSiPuedeEditarAsync(
             BorradorPresupuestoDto borrador, Usuario usuario, CancellationToken cancellationToken)
         {
             GuardadosEnBase++;
-            return Task.FromResult(ResultadoGuardarBorrador.Guardado);
+            return Task.FromResult(new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.Guardado, "NUEVA"));
         }
     }
 }

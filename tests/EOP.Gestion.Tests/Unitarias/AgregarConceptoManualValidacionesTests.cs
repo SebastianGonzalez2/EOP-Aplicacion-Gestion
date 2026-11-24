@@ -5,6 +5,7 @@ using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 using EOP.Gestion.Tests.Compartido;
 
 namespace EOP.Gestion.Tests.Unitarias;
@@ -13,6 +14,7 @@ public class AgregarConceptoManualValidacionesTests
 {
     private readonly RepositorioConceptosFalso _repositorio = new();
     private readonly AlmacenBorradorEnMemoria _almacen = new();
+    private readonly SincronizadorBorradorPresupuesto _sincronizador = new();
     private readonly Usuario _usuario = new() { Id = 1, Activo = true, Rol = RolUsuario.Operador };
 
     [Theory]
@@ -105,14 +107,15 @@ public class AgregarConceptoManualValidacionesTests
         decimal? importe = null,
         Moneda? moneda = null,
         int? referenciaId = null,
-        decimal? cantidad = null)
+        decimal? cantidad = null,
+        ContextoEdicionBorrador? contextoEdicion = null)
     {
-        var casoDeUso = new AgregarConceptoManual(_repositorio, _almacen);
+        var casoDeUso = new AgregarConceptoManual(_repositorio, _almacen, _sincronizador);
 
         return casoDeUso.EjecutarAsync(
             1, tipoId, descripcion, importe, moneda,
             referenciaId, cantidad, _usuario,
-            CancellationToken.None);
+            CancellationToken.None, contextoEdicion);
     }
 
     private class RepositorioConceptosFalso
@@ -137,6 +140,10 @@ public class AgregarConceptoManualValidacionesTests
                 HuellaEstadoBase = "BASE"
             });
 
+        public Task<string?> ObtenerHuellaPersistidaAsync(
+            int presupuestoId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("BASE");
+
         public Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(
             int referenciaId, CancellationToken cancellationToken) =>
             Task.FromResult<ReferenciaCatalogoPresupuestoDto?>(new ReferenciaCatalogoPresupuestoDto(
@@ -146,11 +153,11 @@ public class AgregarConceptoManualValidacionesTests
             int tipoId, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Traslado");
 
-        public Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+        public Task<ResultadoPersistenciaBorrador> GuardarBorradorSiPuedeEditarAsync(
             BorradorPresupuestoDto borrador, Usuario usuario, CancellationToken cancellationToken)
         {
             GuardadosEnBase++;
-            return Task.FromResult(ResultadoGuardarBorrador.Guardado);
+            return Task.FromResult(new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.Guardado, "NUEVA"));
         }
     }
 }

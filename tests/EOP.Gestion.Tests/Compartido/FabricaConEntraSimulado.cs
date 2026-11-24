@@ -163,6 +163,20 @@ internal sealed class FabricaConEntraSimulado : WebApplicationFactory<Program>
 
         public string CookiesActuales => string.Join("; ", _cookies.Select(cookie => $"{cookie.Key}={cookie.Value}"));
 
+        // Simula la pérdida de una cookie concreta (por ejemplo .EOP.Borrador) manteniendo la autenticación.
+        public void EliminarCookie(string nombre) => _cookies.Remove(nombre);
+
+        // Crea una segunda pestaña del mismo navegador compartiendo exactamente las cookies actuales.
+        public Navegador ClonarPestana()
+        {
+            var clon = new Navegador(fabrica);
+            foreach (KeyValuePair<string, string> cookie in _cookies)
+            {
+                clon._cookies[cookie.Key] = cookie.Value;
+            }
+            return clon;
+        }
+
         public Task<HttpResponseMessage> GetAsync(string ruta) => EnviarAsync(new HttpRequestMessage(HttpMethod.Get, ruta));
 
         public Task<HttpResponseMessage> PostAsync(string ruta, IEnumerable<KeyValuePair<string, string>> formulario) =>

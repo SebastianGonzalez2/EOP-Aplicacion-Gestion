@@ -5,6 +5,7 @@ using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 using EOP.Gestion.Tests.Compartido;
 
 namespace EOP.Gestion.Tests.Unitarias;
@@ -108,7 +109,7 @@ public class ActualizarReferenciaDeConceptoTests
     }
 
     private Task<string?> EjecutarAsync(bool confirmado) =>
-        new ActualizarReferenciaDeConcepto(_repositorio, _almacen)
+        new ActualizarReferenciaDeConcepto(_repositorio, _almacen, new SincronizadorBorradorPresupuesto())
             .EjecutarAsync(3, 5, confirmado, _usuario, CancellationToken.None);
 
     private class RepositorioFalso : IRepositorioConceptosPresupuesto
@@ -155,17 +156,20 @@ public class ActualizarReferenciaDeConceptoTests
         public Task<BorradorPresupuestoDto?> ObtenerBorradorBaseAsync(int presupuestoId, CancellationToken cancellationToken) =>
             Task.FromResult<BorradorPresupuestoDto?>(BorradorBase.Clonar());
 
+        public Task<string?> ObtenerHuellaPersistidaAsync(int presupuestoId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(BorradorBase.HuellaEstadoBase);
+
         public Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(int referenciaId, CancellationToken cancellationToken) =>
             Task.FromResult(ReferenciaActual);
 
         public Task<string?> ObtenerNombreTipoConceptoAsync(int tipoId, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Material");
 
-        public Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+        public Task<ResultadoPersistenciaBorrador> GuardarBorradorSiPuedeEditarAsync(
             BorradorPresupuestoDto borrador, Usuario usuario, CancellationToken cancellationToken)
         {
             GuardadosEnBase++;
-            return Task.FromResult(ResultadoGuardarBorrador.Guardado);
+            return Task.FromResult(new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.Guardado, "NUEVA"));
         }
     }
 }

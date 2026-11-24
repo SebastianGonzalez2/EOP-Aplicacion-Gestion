@@ -8,6 +8,7 @@ using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Proveedores;
 using EOP.Gestion.Core.Entidades.Usuarios;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 using EOP.Gestion.Infrastructure.Persistencia;
 using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
 using EOP.Gestion.Tests.Compartido;
@@ -205,13 +206,23 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
     }
 
     private async Task<HttpResponseMessage> GuardarBorradorAsync(
-        FabricaConEntraSimulado.Navegador navegador, int? presupuestoId = null, bool esperabaCambiosPendientes = true)
+        FabricaConEntraSimulado.Navegador navegador, int? presupuestoId = null, bool? esperabaCambiosPendientes = null)
     {
         int idObjetivo = presupuestoId ?? _presupuestoId;
+        string html = await (await navegador.GetAsync($"/ConceptosPresupuesto/Index/{idObjetivo}")).Content.ReadAsStringAsync();
+        string token = Regex.Match(html, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
+        string version = Regex.Match(html, "name=\"versionBorrador\" value=\"([^\"]+)\"").Groups[1].Value;
+        string esperaba = Regex.Match(html, "name=\"esperabaCambiosPendientes\" value=\"([^\"]+)\"").Groups[1].Value;
+        string huella = Regex.Match(html, "name=\"huellaEstadoBase\" value=\"([^\"]*)\"").Groups[1].Value;
+
         var formulario = new Dictionary<string, string>
         {
-            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync($"/ConceptosPresupuesto/Index/{idObjetivo}"),
-            ["esperabaCambiosPendientes"] = esperabaCambiosPendientes ? "true" : "false"
+            ["__RequestVerificationToken"] = token,
+            ["esperabaCambiosPendientes"] = esperabaCambiosPendientes.HasValue
+                ? (esperabaCambiosPendientes.Value ? "true" : "false")
+                : (string.IsNullOrEmpty(esperaba) ? "false" : esperaba),
+            ["versionBorrador"] = string.IsNullOrEmpty(version) ? "0" : version,
+            ["huellaEstadoBase"] = huella
         };
         return await navegador.PostAsync($"/ConceptosPresupuesto/GuardarBorrador/{idObjetivo}", formulario);
     }
@@ -597,11 +608,13 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             using EopDbContext contexto = CrearContexto();
             var repositorio = new RepositorioConceptosPresupuesto(contexto);
             var almacen = new AlmacenBorradorEnMemoria();
-            var seleccionar = new SeleccionarMaterialDeConcepto(repositorio, almacen);
+            var sincronizador = new SincronizadorBorradorPresupuesto();
+            var seleccionar = new SeleccionarMaterialDeConcepto(repositorio, almacen, sincronizador);
             Assert.Null(await seleccionar.EjecutarAsync(_presupuestoId, conceptoId, _cableProveedorAId, responsable, CancellationToken.None));
 
-            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
-            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
+            return await guardar.EjecutarAsync(
+                _presupuestoId, new ContextoEdicionBorrador(true, 1), responsable, CancellationToken.None);
         }
 
         var resultados = await Task.WhenAll(SeleccionarYGuardarAsync(_filaSinMaterialId), SeleccionarYGuardarAsync(otraFila.Id));
@@ -622,11 +635,13 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             using EopDbContext contexto = CrearContexto();
             var repositorio = new RepositorioConceptosPresupuesto(contexto);
             var almacen = new AlmacenBorradorEnMemoria();
-            var seleccionar = new SeleccionarMaterialDeConcepto(repositorio, almacen);
+            var sincronizador = new SincronizadorBorradorPresupuesto();
+            var seleccionar = new SeleccionarMaterialDeConcepto(repositorio, almacen, sincronizador);
             Assert.Null(await seleccionar.EjecutarAsync(_presupuestoId, _filaSinMaterialId, referenciaId, responsable, CancellationToken.None));
 
-            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
-            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
+            return await guardar.EjecutarAsync(
+                _presupuestoId, new ContextoEdicionBorrador(true, 1), responsable, CancellationToken.None);
         }
 
         var resultados = await Task.WhenAll(SeleccionarYGuardarAsync(_cableProveedorAId), SeleccionarYGuardarAsync(_cableProveedorBId));
@@ -810,7 +825,9 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         string formularios = string.Join("\n", Regex.Matches(pagina, @"<form[^>]*CambiarProveedor.*?</form>", RegexOptions.Singleline).Select(m => m.Value));
         var campos = Regex.Matches(formularios, @"<input[^>]*name=""([^""]+)""").Select(m => m.Groups[1].Value).Distinct().Order();
 
-        Assert.Equal(new[] { "__RequestVerificationToken", "referenciaId" }, campos);
+        Assert.Equal(
+            new[] { "__RequestVerificationToken", "esperabaCambiosPendientes", "huellaEstadoBase", "referenciaId", "versionBorrador" },
+            campos);
     }
 
     [FactConSqlServer]
@@ -1193,11 +1210,13 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             using EopDbContext contexto = CrearContexto();
             var repositorio = new RepositorioConceptosPresupuesto(contexto);
             var almacen = new AlmacenBorradorEnMemoria();
-            var cambiar = new CambiarProveedorDeConcepto(repositorio, almacen);
+            var sincronizador = new SincronizadorBorradorPresupuesto();
+            var cambiar = new CambiarProveedorDeConcepto(repositorio, almacen, sincronizador);
             Assert.Null(await cambiar.EjecutarAsync(_presupuestoId, filaId, _cableProveedorBId, responsable, CancellationToken.None));
 
-            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
-            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
+            return await guardar.EjecutarAsync(
+                _presupuestoId, new ContextoEdicionBorrador(true, 1), responsable, CancellationToken.None);
         }
 
         var resultados = await Task.WhenAll(CambiarYGuardarAsync(), CambiarYGuardarAsync());
@@ -1481,11 +1500,13 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             using EopDbContext contexto = CrearContexto();
             var repositorio = new RepositorioConceptosPresupuesto(contexto);
             var almacen = new AlmacenBorradorEnMemoria();
-            var actualizar = new ActualizarReferenciaDeConcepto(repositorio, almacen);
+            var sincronizador = new SincronizadorBorradorPresupuesto();
+            var actualizar = new ActualizarReferenciaDeConcepto(repositorio, almacen, sincronizador);
             Assert.Null(await actualizar.EjecutarAsync(_presupuestoId, filaId, true, responsable, CancellationToken.None));
 
-            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
-            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
+            return await guardar.EjecutarAsync(
+                _presupuestoId, new ContextoEdicionBorrador(true, 1), responsable, CancellationToken.None);
         }
 
         var resultados = await Task.WhenAll(ActualizarYGuardarAsync(), ActualizarYGuardarAsync());
