@@ -7,6 +7,7 @@
     var cultura = CultureInfo.GetCultureInfo("es-UY");
     var tipoElegido = Model.Tipos.FirstOrDefault(tipo => tipo.Id == Model.Entrada.TipoId);
     bool esMaterial = tipoElegido?.Id == TipoConcepto.MaterialId;
+    bool esMargen = tipoElegido?.Id == TipoConcepto.MargenId;
 }
 
 <nav aria-label="Ruta de navegación">
@@ -43,7 +44,7 @@
                         <th scope="col" class="text-end">Cantidad</th>
                         <th scope="col">Unidad</th>
                         <th scope="col" class="text-end">Precio unitario</th>
-                        <th scope="col" class="text-end">Subtotal directo</th>
+                        <th scope="col" class="text-end">Subtotal</th>
                         @if (Model.PuedeAgregar)
                         {
                             <th scope="col"><span class="visually-hidden">Acciones</span></th>
@@ -60,6 +61,17 @@
                         }
 
                         bool filaMaterial = fila.TipoId == TipoConcepto.MaterialId;
+
+                        // S3-T17: calculamos el subtotal usando los valores
+                        // históricos que ya tiene guardados el presupuesto.
+                        // Conservamos su moneda original, sin hacer conversiones.
+                        string subtotalTexto = "—";
+
+                        if (fila.Subtotal is decimal subtotal && fila.Moneda.HasValue)
+                        {
+                            subtotalTexto = $"{fila.Moneda} {subtotal.ToString("0.##########", cultura)}";
+                        }
+
                         <tr>
                             <td>@fila.Tipo</td>
                             <td class="col-texto">@(fila.ConceptoDetectado ?? "—")</td>
@@ -76,7 +88,7 @@
                             <td class="text-end">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
                             <td>@(fila.Unidad?.ToString() ?? "—")</td>
                             <td class="text-end">@(filaMaterial ? valor : "—")</td>
-                            <td class="text-end">@(TipoConcepto.AdmiteImporteDirecto(fila.TipoId) ? valor : "—")</td>
+                            <td class="text-end">@subtotalTexto</td>
                             @if (Model.PuedeAgregar)
                             {
                                 <td class="text-end">
@@ -176,6 +188,65 @@
                     {
                         <p class="descripcion mb-0">Buscá un material del catálogo para elegir su referencia.</p>
                     }
+                    else if (esMargen)
+                    {
+                        @* S3-T07 (RF-27): el margen se calcula sobre los tipos de
+                           conceptos que el usuario selecciona expresamente.
+                           No se ingresa un importe ni se elige una moneda. *@
+
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label asp-for="Entrada.PorcentajeMargen" class="form-label">
+                                    Porcentaje de margen
+                                    <span class="obligatorio" aria-hidden="true">*</span>
+                                </label>
+
+                                <input asp-for="Entrada.PorcentajeMargen"
+                                       class="form-control"
+                                       inputmode="decimal"
+                                       required />
+
+                                <span asp-validation-for="Entrada.PorcentajeMargen"
+                                      class="text-danger"></span>
+                            </div>
+
+                            <div class="col-12">
+                                <fieldset>
+                                    <legend class="form-label">
+                                        Tipos de conceptos para la base del margen
+                                    </legend>
+
+                                    <p class="form-text">
+                                        Seleccioná uno o más tipos de conceptos.
+                                        Los subtotales se muestran separados por moneda.
+                                    </p>
+
+                                    @foreach (var tipo in Model.TiposBaseMargen)
+                                    {
+                                        string identificador = $"base-margen-{tipo.TipoId}";
+
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   id="@identificador"
+                                                   name="Entrada.TiposBaseSeleccionados"
+                                                   value="@tipo.TipoId"
+                                                   checked="@(Model.Entrada.TiposBaseSeleccionados.Contains(tipo.TipoId))" />
+
+                                            <label class="form-check-label" for="@identificador">
+                                                @tipo.Nombre —
+                                                UYU @tipo.SubtotalUYU.ToString("0.##########", cultura)
+                                                · USD @tipo.SubtotalUSD.ToString("0.##########", cultura)
+                                            </label>
+                                        </div>
+                                    }
+
+                                    <span asp-validation-for="Entrada.TiposBaseSeleccionados"
+                                          class="text-danger"></span>
+                                </fieldset>
+                            </div>
+                        </div>
+                    }
                     else
                     {
                         <div class="row g-3">
@@ -202,6 +273,7 @@
                         </div>
                     }
                 </div>
+
                 <div class="panel-pie d-flex justify-content-end gap-2">
                     <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Cancelar</a>
                     @if (!esMaterial || Model.Referencias.Count > 0)

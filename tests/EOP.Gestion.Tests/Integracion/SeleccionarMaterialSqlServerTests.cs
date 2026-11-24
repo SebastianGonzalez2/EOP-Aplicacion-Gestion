@@ -384,6 +384,53 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         Assert.Equal(TextoDetectadoPorIa, fila.ConceptoDetectado);
     }
 
+
+
+
+    // S3-T13 (US-010A): se puede usar el mismo material en dos filas
+    // siempre que los proveedores sean distintos.
+    [FactConSqlServer]
+    public async Task MismoMaterial_ConDistintosProveedores_SePermiteEnFilasDiferentes()
+    {
+        int filaProveedorAId = await CrearFilaConCableElegidoAsync();
+        string catalogoAntes = await FotoDelCatalogoAsync();
+
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await AsignarAsync(
+            navegador,
+            _filaSinMaterialId,
+            _cableProveedorBId.ToString(),
+            "cable");
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+
+        var filaProveedorA = await LeerFilaAsync(filaProveedorAId);
+        var filaProveedorB = await LeerFilaAsync(_filaSinMaterialId);
+
+        // Las dos filas utilizan el mismo material.
+        Assert.Equal(filaProveedorA.MaterialId, filaProveedorB.MaterialId);
+
+        // Cada fila utiliza un proveedor diferente.
+        Assert.Equal(_cableProveedorAId, filaProveedorA.MaterialProveedorId);
+        Assert.Equal(_cableProveedorBId, filaProveedorB.MaterialProveedorId);
+
+        // Se guardan los valores históricos de la referencia elegida.
+        Assert.Equal(2.5m, filaProveedorB.PrecioUnitario);
+        Assert.Equal(Moneda.USD, filaProveedorB.Moneda);
+        Assert.Equal(30m, filaProveedorB.Cantidad);
+
+        // Seleccionar una referencia no modifica el catálogo.
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+    }
+
+
+
+
+
+
+
     [TheoryConSqlServer]
     [InlineData("999999", "La referencia seleccionada no existe")]
     [InlineData("0", "Seleccioná una referencia de material y proveedor.")]
@@ -909,34 +956,77 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         Assert.Equal(100m, (await LeerFilaAsync(filaId)).PrecioUnitario);
     }
 
+
+    // S3-T13 (US-010A): no se puede repetir la misma combinación
+    // material-proveedor en dos filas del mismo presupuesto.
     [FactConSqlServer]
     public async Task CambioDeProveedor_ALaCombinacionDeOtraFila_SeRechazaPorDuplicada()
     {
         int filaId = await CrearFilaConCableElegidoAsync();
+
         // Otra fila del mismo presupuesto ya usa el cable del proveedor B (RF-20).
         using (EopDbContext contexto = CrearContexto())
         {
-            var cable = await contexto.Materiales.SingleAsync(m => m.Nombre == "Cable de cobre");
-            var referenciaB = await contexto.MaterialProveedores.SingleAsync(r => r.Id == _cableProveedorBId);
+            var cable = await contexto.Materiales.SingleAsync(
+                m => m.Nombre == "Cable de cobre");
+
+            var referenciaB = await contexto.MaterialProveedores.SingleAsync(
+                r => r.Id == _cableProveedorBId);
+
             var filaConB = new ConceptoPresupuesto
             {
                 PresupuestoId = _presupuestoId,
                 TipoConceptoId = TipoConcepto.MaterialId,
                 Cantidad = 1m
             };
+
             filaConB.CopiarReferencia(cable, referenciaB);
+
             contexto.ConceptosPresupuesto.Add(filaConB);
             await contexto.SaveChangesAsync();
         }
-        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
-        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
-        var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+        var filaAntes = await LeerFilaAsync(filaId);
+        string catalogoAntes = await FotoDelCatalogoAsync();
+
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(
+            fabrica, RolUsuario.Operador);
+
+        // Intentamos utilizar una combinación que ya está ocupada.
+        var respuesta = await CambiarProveedorAsync(
+            navegador, filaId, _cableProveedorBId.ToString());
 
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
-        Assert.Contains("ya están en otra fila", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
-        Assert.Equal(_cableProveedorAId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+
+        Assert.Contains(
+            "ya están en otra fila",
+            WebUtility.HtmlDecode(
+                await respuesta.Content.ReadAsStringAsync()));
+
+        var filaDespues = await LeerFilaAsync(filaId);
+
+        // El rechazo no puede modificar la referencia original.
+        Assert.Equal(_cableProveedorAId, filaDespues.MaterialProveedorId);
+
+        // Tampoco puede modificar los datos históricos de la fila.
+        Assert.Equal(filaAntes.MaterialId, filaDespues.MaterialId);
+        Assert.Equal(filaAntes.Concepto, filaDespues.Concepto);
+        Assert.Equal(filaAntes.Unidad, filaDespues.Unidad);
+        Assert.Equal(filaAntes.PrecioUnitario, filaDespues.PrecioUnitario);
+        Assert.Equal(filaAntes.Moneda, filaDespues.Moneda);
+        Assert.Equal(filaAntes.Cantidad, filaDespues.Cantidad);
+
+        // El catálogo tampoco debe cambiar por un intento rechazado.
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
     }
+
+
+
+
+
+
+
 
     [TheoryConSqlServer]
     [InlineData("999999", "La referencia seleccionada no existe")]

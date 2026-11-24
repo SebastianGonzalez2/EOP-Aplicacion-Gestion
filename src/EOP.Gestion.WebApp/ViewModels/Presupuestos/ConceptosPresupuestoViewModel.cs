@@ -11,6 +11,7 @@ public class ConceptosPresupuestoViewModel
     public string Codigo { get; init; } = string.Empty;
     public bool PuedeAgregar { get; init; }
     public IReadOnlyList<FilaConceptoDto> Filas { get; init; } = [];
+    public IReadOnlyList<TipoBaseMargenDto> TiposBaseMargen { get; init; } = [];
     public IReadOnlyList<TipoConceptoOpcionDto> Tipos { get; init; } = [];
     public List<SelectListItem> Referencias { get; } = [];
     public string? Busqueda { get; init; }
@@ -25,6 +26,12 @@ public class ConceptoManualViewModel
     public Moneda? Moneda { get; set; }
     public int? ReferenciaId { get; set; }
     public string? Cantidad { get; set; }
+
+    // Porcentaje que el usuario quiere aplicar como margen.
+    public string? PorcentajeMargen { get; set; }
+
+    // Id de los tipos elegidos para formar la base del margen.
+    public List<int> TiposBaseSeleccionados { get; set; } = [];
 
     public static bool InterpretarDecimal(string? texto, out decimal? valor)
     {
