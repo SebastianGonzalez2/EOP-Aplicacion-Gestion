@@ -9,32 +9,54 @@ namespace EOP.Gestion.Core.CasosDeUso.Presupuestos;
 // presupuesto cuando el usuario presiona explícitamente «Guardar borrador».
 //
 // Lo que garantiza este caso de uso:
+// - Sincroniza el ciclo completo (cargar sesión -> validar -> persistir -> limpiar y confirmar sesión)
+//   para evitar choques entre pestañas o con ediciones simultáneas del mismo usuario.
 // - Comprueba permisos y estado editable en el servidor, incluso si no hay cambios pendientes.
-// - Si la pantalla esperaba cambios pendientes pero la sesión se perdió, informa el error en vez
-//   de responder éxito en silencio.
-// - Valida el borrador completo antes de persistir y delega en el repositorio una única
-//   transacción atómica con control de concurrencia.
+// - Si la pantalla esperaba cambios pendientes pero ya no están disponibles, informa claramente
+//   sin confirmar éxito en silencio.
+// - Diferencia conflictos entre pestañas del mismo usuario de conflictos por cambios de otro usuario.
 // - Solo limpia los cambios pendientes cuando SQL Server confirmó el guardado; si ocurre un error,
 //   el borrador pendiente se conserva para que el usuario pueda reintentar.
+
+/*El caso de uso GuardarBorradorPresupuesto recupera los cambios pendientes que tiene el usuario en su sesión, 
+ * comprueba que sean válidos y le solicita al repositorio que los guarde definitivamente en la base de datos. 
+ * Si el guardado es exitoso, elimina el borrador temporal. Si ocurre un error, conserva los cambios pendientes.*/
 public class GuardarBorradorPresupuesto
 {
     private readonly IRepositorioConceptosPresupuesto _repositorio;
     private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
+    private readonly ISincronizadorBorradorPresupuesto _sincronizador;
 
     public GuardarBorradorPresupuesto(
         IRepositorioConceptosPresupuesto repositorio,
-        IAlmacenBorradorPresupuesto almacenBorrador)
+        IAlmacenBorradorPresupuesto almacenBorrador,
+        ISincronizadorBorradorPresupuesto sincronizador)
     {
         _repositorio = repositorio;
         _almacenBorrador = almacenBorrador;
+        _sincronizador = sincronizador;
     }
 
-    public async Task<ResultadoAccionGuardarBorrador> EjecutarAsync(
+    public Task<ResultadoAccionGuardarBorrador> EjecutarAsync(
         int presupuestoId,
-        bool esperabaCambiosPendientes,
+        ContextoEdicionBorrador contextoEdicion,
         Usuario usuario,
         CancellationToken cancellationToken)
     {
+        return _sincronizador.EjecutarConBloqueoAsync(
+            usuario.Id,
+            () => EjecutarDentroDelBloqueoAsync(presupuestoId, contextoEdicion, usuario, cancellationToken),
+            cancellationToken);
+    }
+
+    private async Task<ResultadoAccionGuardarBorrador> EjecutarDentroDelBloqueoAsync(
+        int presupuestoId,
+        ContextoEdicionBorrador contextoEdicion,
+        Usuario usuario,
+        CancellationToken cancellationToken)
+    {
+        await _almacenBorrador.CargarAsync(cancellationToken);
+
         BorradorPresupuestoDto? borrador = _almacenBorrador.Obtener(presupuestoId, usuario.Id);
 
         if (borrador == null || !borrador.TieneCambiosPendientes)
@@ -51,21 +73,69 @@ public class GuardarBorradorPresupuesto
                     "El presupuesto ya no está disponible para edición.");
             }
 
-            // Si la pantalla mostraba cambios pendientes pero el almacén temporal ya no los tiene
-            // (por ejemplo, venció la sesión), avisamos explícitamente para evitar pérdidas silenciosas.
-            if (esperabaCambiosPendientes)
+            string? huellaPersistida = await _repositorio.ObtenerHuellaPersistidaAsync(
+                presupuestoId, cancellationToken);
+
+            bool fueGuardadoEnOtraPestana = !string.IsNullOrWhiteSpace(huellaPersistida)
+                && _almacenBorrador.CoincideConUltimoGuardadoEnSesion(presupuestoId, usuario.Id, huellaPersistida);
+
+            // Si la pantalla esperaba cambios pendientes (o una versión > 0) y el borrador ya no
+            // está en la sesión, distinguimos si lo guardó otra pestaña o si se perdió el borrador.
+            if (contextoEdicion.EsperabaCambiosPendientes || contextoEdicion.VersionBorradorEsperada > 0)
             {
+                if (fueGuardadoEnOtraPestana)
+                {
+                    return ResultadoAccionGuardarBorrador.Error(
+                        ResultadoGuardarBorrador.BorradorDesactualizado,
+                        MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana);
+                }
+
                 return ResultadoAccionGuardarBorrador.Error(
                     ResultadoGuardarBorrador.CambiosPendientesPerdidos,
-                    "No se encontraron los cambios pendientes de esta sesión. Revisá el presupuesto antes de volver a guardar.");
+                    MensajesBorradorPresupuesto.CambiosPendientesPerdidos);
+            }
+
+            if (!string.IsNullOrWhiteSpace(contextoEdicion.HuellaEstadoBaseEsperada)
+                && !string.Equals(contextoEdicion.HuellaEstadoBaseEsperada, huellaPersistida, StringComparison.Ordinal))
+            {
+                if (fueGuardadoEnOtraPestana)
+                {
+                    return ResultadoAccionGuardarBorrador.Error(
+                        ResultadoGuardarBorrador.BorradorDesactualizado,
+                        MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana);
+                }
+
+                return ResultadoAccionGuardarBorrador.Error(
+                    ResultadoGuardarBorrador.ConflictoConcurrencia,
+                    MensajesBorradorPresupuesto.PresupuestoModificadoSinPendientes);
             }
 
             if (borrador != null)
             {
                 _almacenBorrador.Eliminar(presupuestoId, usuario.Id);
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
             }
 
             return ResultadoAccionGuardarBorrador.Exito(huboCambiosGuardados: false);
+        }
+
+        // Si la pantalla intenta guardar desde una versión anterior a la que tiene la sesión,
+        // rechazamos la solicitud para no persistir cambios que esa pestaña todavía no vio.
+        if (contextoEdicion.VersionBorradorEsperada != borrador.Version)
+        {
+            bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
+                presupuestoId, usuario, cancellationToken);
+
+            if (!puedeEditar)
+            {
+                return ResultadoAccionGuardarBorrador.Error(
+                    ResultadoGuardarBorrador.EdicionNoPermitida,
+                    "El presupuesto ya no está disponible para edición.");
+            }
+
+            return ResultadoAccionGuardarBorrador.Error(
+                ResultadoGuardarBorrador.BorradorDesactualizado,
+                MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana);
         }
 
         // Validamos todas las reglas de dominio del borrador antes de abrir la transacción.
@@ -89,18 +159,26 @@ public class GuardarBorradorPresupuesto
                 errorValidacion);
         }
 
-        ResultadoGuardarBorrador resultado = await _repositorio.GuardarBorradorSiPuedeEditarAsync(
+        ResultadoPersistenciaBorrador persistencia = await _repositorio.GuardarBorradorSiPuedeEditarAsync(
             borrador, usuario, cancellationToken);
 
-        switch (resultado)
+        switch (persistencia.Estado)
         {
             case ResultadoGuardarBorrador.Guardado:
-                // Recién después del Commit exitoso limpiamos los cambios pendientes.
+                // Recién después del Commit exitoso limpiamos los cambios pendientes y registramos
+                // la huella guardada para distinguir guardados desde otra pestaña de pérdidas.
                 _almacenBorrador.Eliminar(presupuestoId, usuario.Id);
+                if (!string.IsNullOrWhiteSpace(persistencia.HuellaPersistida))
+                {
+                    _almacenBorrador.RegistrarHuellaGuardada(presupuestoId, usuario.Id, persistencia.HuellaPersistida);
+                }
+
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
                 return ResultadoAccionGuardarBorrador.Exito(huboCambiosGuardados: true);
 
             case ResultadoGuardarBorrador.SinCambios:
                 _almacenBorrador.Eliminar(presupuestoId, usuario.Id);
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
                 return ResultadoAccionGuardarBorrador.Exito(huboCambiosGuardados: false);
 
             case ResultadoGuardarBorrador.EdicionNoPermitida:
@@ -136,7 +214,7 @@ public class GuardarBorradorPresupuesto
             case ResultadoGuardarBorrador.ConflictoConcurrencia:
                 return ResultadoAccionGuardarBorrador.Error(
                     ResultadoGuardarBorrador.ConflictoConcurrencia,
-                    "No se pudo guardar el borrador porque el presupuesto fue modificado desde otra operación. Revisá los cambios antes de volver a intentarlo.");
+                    MensajesBorradorPresupuesto.PresupuestoModificadoConPendientesConservados);
 
             default:
                 throw new InvalidOperationException("El repositorio devolvió un resultado desconocido.");

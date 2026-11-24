@@ -110,6 +110,10 @@ public class BorradorPresupuestoDto
     // Permite detectar si otra operación modificó el presupuesto antes de guardar este borrador.
     public string HuellaEstadoBase { get; set; } = string.Empty;
 
+    // Versión incremental del borrador temporal en sesión (1, 2, 3...).
+    // Permite detectar cuando una pestaña intenta enviar cambios sobre una versión desactualizada.
+    public int Version { get; set; } = 1;
+
     // Secuencia negativa para identificar conceptos nuevos mientras siguen pendientes de guardado.
     public int SiguienteIdTemporal { get; set; } = -1;
 
@@ -140,12 +144,18 @@ public class BorradorPresupuestoDto
         return idAsignado;
     }
 
+    public void IncrementarVersion()
+    {
+        Version = Version + 1;
+    }
+
     public BorradorPresupuestoDto Clonar()
     {
         var copia = new BorradorPresupuestoDto
         {
             PresupuestoId = PresupuestoId,
             HuellaEstadoBase = HuellaEstadoBase,
+            Version = Version,
             SiguienteIdTemporal = SiguienteIdTemporal
         };
 

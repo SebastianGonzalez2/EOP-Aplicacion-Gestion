@@ -14,18 +14,22 @@ public class AgregarConceptoManual
 {
     private readonly IRepositorioConceptosPresupuesto _repositorio;
     private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
+    private readonly ISincronizadorBorradorPresupuesto _sincronizador;
 
     public AgregarConceptoManual(
         IRepositorioConceptosPresupuesto repositorio,
-        IAlmacenBorradorPresupuesto almacenBorrador)
+        IAlmacenBorradorPresupuesto almacenBorrador,
+        ISincronizadorBorradorPresupuesto sincronizador)
     {
         _repositorio = repositorio;
         _almacenBorrador = almacenBorrador;
+        _sincronizador = sincronizador;
     }
 
     public async Task<string?> EjecutarAsync(
         int presupuestoId, int tipoId, string? descripcion, decimal? importe, Moneda? moneda,
-        int? referenciaId, decimal? cantidad, Usuario usuario, CancellationToken cancellationToken)
+        int? referenciaId, decimal? cantidad, Usuario usuario, CancellationToken cancellationToken,
+        ContextoEdicionBorrador? contextoEdicion = null)
     {
         string? descripcionLimpia = null;
 
@@ -83,91 +87,97 @@ public class AgregarConceptoManual
             return "Seleccioná un tipo de concepto disponible.";
         }
 
-        // Verificamos permisos y estado editable en el servidor antes de modificar el borrador.
-        bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
-            presupuestoId, usuario, cancellationToken);
+        ContextoEdicionBorrador contexto = contextoEdicion ?? ContextoEdicionBorrador.Inicial;
 
-        if (!puedeEditar)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
-
-        BorradorPresupuestoDto? borrador = await ObtenerOInicializarBorradorAsync(
-            presupuestoId, usuario.Id, cancellationToken);
-
-        if (borrador == null)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
-
-        string? nombreTipo = await _repositorio.ObtenerNombreTipoConceptoAsync(tipoId, cancellationToken);
-        if (string.IsNullOrWhiteSpace(nombreTipo))
-        {
-            return "Seleccioná un tipo de concepto disponible.";
-        }
-
-        var nuevoConcepto = new ConceptoBorradorDto
-        {
-            Id = borrador.ObtenerSiguienteIdTemporal(),
-            TipoConceptoId = tipoId,
-            TipoNombre = nombreTipo,
-            EsNuevo = true
-        };
-
-        if (tipoId == TipoConcepto.MaterialId)
-        {
-            // Leemos la referencia del catálogo sin seguimiento (solo lectura).
-            ReferenciaCatalogoPresupuestoDto? referencia = await _repositorio.ObtenerReferenciaCatalogoAsync(
-                referenciaId!.Value, cancellationToken);
-
-            if (referencia == null)
+        return await _sincronizador.EjecutarConBloqueoAsync(
+            usuario.Id,
+            async () =>
             {
-                return "La referencia seleccionada no existe. Buscá otra referencia del catálogo.";
-            }
+                await _almacenBorrador.CargarAsync(cancellationToken);
 
-            // RF-20: una misma combinación material-proveedor no puede repetirse en el presupuesto.
-            bool combinacionRepetida = false;
-            foreach (ConceptoBorradorDto filaExistente in borrador.Conceptos)
-            {
-                if (filaExistente.MaterialProveedorId == referencia.MaterialProveedorId)
+                // Verificamos permisos y estado editable en el servidor antes de modificar el borrador.
+                bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
+                    presupuestoId, usuario, cancellationToken);
+
+                if (!puedeEditar)
                 {
-                    combinacionRepetida = true;
-                    break;
+                    return "El presupuesto ya no está disponible para edición.";
                 }
-            }
 
-            if (combinacionRepetida)
-            {
-                return "Ese material y proveedor ya están en el presupuesto. Conservá la fila existente o seleccioná otra referencia.";
-            }
+                ResultadoVerificacionBorrador verificacion = await ControladorEstadoBorrador.PrepararParaEdicionAsync(
+                    presupuestoId, usuario.Id, contexto, _repositorio, _almacenBorrador, cancellationToken);
 
-            // Copiamos los cuatro valores históricos (DT-11) en el servidor, ignorando cualquier
-            // texto, precio o moneda que pudiera venir manipulado en el formulario.
-            nuevoConcepto.CopiarReferencia(referencia);
-            nuevoConcepto.Cantidad = cantidad;
-        }
-        else
-        {
-            nuevoConcepto.Concepto = descripcionLimpia;
-            nuevoConcepto.PrecioUnitario = importe;
-            nuevoConcepto.Moneda = moneda;
-        }
+                if (verificacion.MensajeError != null || verificacion.BorradorParaEditar == null)
+                {
+                    return verificacion.MensajeError;
+                }
 
-        borrador.Conceptos.Add(nuevoConcepto);
-        _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
+                BorradorPresupuestoDto borrador = verificacion.BorradorParaEditar;
 
-        return null;
-    }
+                string? nombreTipo = await _repositorio.ObtenerNombreTipoConceptoAsync(tipoId, cancellationToken);
+                if (string.IsNullOrWhiteSpace(nombreTipo))
+                {
+                    return "Seleccioná un tipo de concepto disponible.";
+                }
 
-    private async Task<BorradorPresupuestoDto?> ObtenerOInicializarBorradorAsync(
-        int presupuestoId, int usuarioId, CancellationToken cancellationToken)
-    {
-        BorradorPresupuestoDto? borradorExistente = _almacenBorrador.Obtener(presupuestoId, usuarioId);
-        if (borradorExistente != null)
-        {
-            return borradorExistente.Clonar();
-        }
+                var nuevoConcepto = new ConceptoBorradorDto
+                {
+                    Id = borrador.ObtenerSiguienteIdTemporal(),
+                    TipoConceptoId = tipoId,
+                    TipoNombre = nombreTipo,
+                    EsNuevo = true
+                };
 
-        return await _repositorio.ObtenerBorradorBaseAsync(presupuestoId, cancellationToken);
+                if (tipoId == TipoConcepto.MaterialId)
+                {
+                    // Leemos la referencia del catálogo sin seguimiento (solo lectura).
+                    ReferenciaCatalogoPresupuestoDto? referencia = await _repositorio.ObtenerReferenciaCatalogoAsync(
+                        referenciaId!.Value, cancellationToken);
+
+                    if (referencia == null)
+                    {
+                        return "La referencia seleccionada no existe. Buscá otra referencia del catálogo.";
+                    }
+
+                    // RF-20: una misma combinación material-proveedor no puede repetirse en el presupuesto.
+                    bool combinacionRepetida = false;
+                    foreach (ConceptoBorradorDto filaExistente in borrador.Conceptos)
+                    {
+                        if (filaExistente.MaterialProveedorId == referencia.MaterialProveedorId)
+                        {
+                            combinacionRepetida = true;
+                            break;
+                        }
+                    }
+
+                    if (combinacionRepetida)
+                    {
+                        return "Ese material y proveedor ya están en el presupuesto. Conservá la fila existente o seleccioná otra referencia.";
+                    }
+
+                    // Copiamos los cuatro valores históricos (DT-11) en el servidor, ignorando cualquier
+                    // texto, precio o moneda que pudiera venir manipulado en el formulario.
+                    nuevoConcepto.CopiarReferencia(referencia);
+                    nuevoConcepto.Cantidad = cantidad;
+                }
+                else
+                {
+                    nuevoConcepto.Concepto = descripcionLimpia;
+                    nuevoConcepto.PrecioUnitario = importe;
+                    nuevoConcepto.Moneda = moneda;
+                }
+
+                borrador.Conceptos.Add(nuevoConcepto);
+                if (!verificacion.EsNuevoBorrador)
+                {
+                    borrador.IncrementarVersion();
+                }
+
+                _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
+
+                return null;
+            },
+            cancellationToken);
     }
 }

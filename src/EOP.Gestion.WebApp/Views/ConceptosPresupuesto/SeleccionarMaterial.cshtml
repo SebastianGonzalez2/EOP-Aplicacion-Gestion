@@ -153,6 +153,9 @@
                                         <form asp-action="CambiarProveedor" asp-route-id="@Model.PresupuestoId"
                                               asp-route-conceptoId="@fila.Id" method="post" class="form-seleccion-material">
                                             <input type="hidden" name="referenciaId" value="@referenciaActual.RelacionId" />
+                                            <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                                            <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+                                            <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
                                             <button type="submit" class="btn btn-outline-primary btn-sm"
                                                     aria-label="@("Usar el precio de " + referenciaActual.ProveedorNombre + " para " + Model.MaterialActual.Nombre)">
                                                 <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
@@ -185,6 +188,9 @@
                 <form class="modal-content form-seleccion-material" asp-action="ActualizarReferencia"
                       asp-route-id="@Model.PresupuestoId" asp-route-conceptoId="@fila.Id" method="post">
                     <input type="hidden" name="confirmar" value="true" />
+                    <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+                    <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
 
                     <div class="modal-header">
                         <h2 class="modal-title" id="confirmarActualizarReferenciaTitulo">
@@ -245,6 +251,10 @@
 
 <form asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId" asp-route-conceptoId="@fila.Id"
       method="get" class="panel mb-3" role="search" aria-label="Buscar material en el catálogo">
+    @if (Model.TieneCambiosPendientes)
+    {
+        <input type="hidden" name="esperabaCambiosPendientes" value="true" />
+    }
     <div class="panel-cuerpo">
         <div class="row g-3 align-items-end">
             <div class="col-12 col-md-8 col-xl-5">
@@ -340,6 +350,9 @@
                                                   asp-route-conceptoId="@fila.Id" method="post" class="form-seleccion-material">
                                                 <input type="hidden" name="referenciaId" value="@referencia.RelacionId" />
                                                 <input type="hidden" name="busqueda" value="@Model.Busqueda" />
+                                                <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                                                <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+                                                <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
                                                 <button type="submit" class="btn btn-outline-primary btn-sm"
                                                         aria-label="@((tieneMaterial ? "Sustituir por " : "Seleccionar ") + material.Nombre + " de " + referencia.ProveedorNombre)">
                                                     <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
@@ -368,7 +381,15 @@ else
 }
 
 <div class="d-flex justify-content-end gap-2">
-    <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Volver a los conceptos</a>
+    @if (Model.TieneCambiosPendientes)
+    {
+        <a asp-action="Index" asp-route-id="@Model.PresupuestoId" asp-route-esperabaCambiosPendientes="true"
+           class="btn btn-outline-secondary">Volver a los conceptos</a>
+    }
+    else
+    {
+        <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Volver a los conceptos</a>
+    }
 </div>
 </div>
 

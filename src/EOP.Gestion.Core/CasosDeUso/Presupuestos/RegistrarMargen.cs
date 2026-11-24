@@ -13,13 +13,16 @@ public class RegistrarMargen
 {
     private readonly IRepositorioConceptosPresupuesto _repositorio;
     private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
+    private readonly ISincronizadorBorradorPresupuesto _sincronizador;
 
     public RegistrarMargen(
         IRepositorioConceptosPresupuesto repositorio,
-        IAlmacenBorradorPresupuesto almacenBorrador)
+        IAlmacenBorradorPresupuesto almacenBorrador,
+        ISincronizadorBorradorPresupuesto sincronizador)
     {
         _repositorio = repositorio;
         _almacenBorrador = almacenBorrador;
+        _sincronizador = sincronizador;
     }
 
     public async Task<string?> EjecutarAsync(
@@ -27,7 +30,8 @@ public class RegistrarMargen
         decimal? porcentaje,
         IReadOnlyCollection<int>? tiposBase,
         Usuario usuario,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        ContextoEdicionBorrador? contextoEdicion = null)
     {
         // Validamos el porcentaje y los tipos seleccionados.
         string? error = ValidadorBaseMargen.ObtenerError(porcentaje, tiposBase);
@@ -37,86 +41,92 @@ public class RegistrarMargen
             return error;
         }
 
-        // Comprobamos permisos y estado editable en el servidor.
-        bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
-            presupuestoId, usuario, cancellationToken);
+        ContextoEdicionBorrador contexto = contextoEdicion ?? ContextoEdicionBorrador.Inicial;
 
-        if (!puedeEditar)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
-
-        BorradorPresupuestoDto? borrador = await ObtenerOInicializarBorradorAsync(
-            presupuestoId, usuario.Id, cancellationToken);
-
-        if (borrador == null)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
-
-        // RF-27: un presupuesto no puede tener más de un concepto Margen.
-        bool yaTieneMargen = false;
-        var tiposDisponibles = new HashSet<int>();
-
-        foreach (ConceptoBorradorDto concepto in borrador.Conceptos)
-        {
-            if (concepto.TipoConceptoId == TipoConcepto.MargenId)
+        return await _sincronizador.EjecutarConBloqueoAsync(
+            usuario.Id,
+            async () =>
             {
-                yaTieneMargen = true;
-            }
-            else
-            {
-                tiposDisponibles.Add(concepto.TipoConceptoId);
-            }
-        }
+                await _almacenBorrador.CargarAsync(cancellationToken);
 
-        if (yaTieneMargen)
-        {
-            return "Este presupuesto ya tiene un margen registrado.";
-        }
+                // Comprobamos permisos y estado editable en el servidor.
+                bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
+                    presupuestoId, usuario, cancellationToken);
 
-        // Comprobamos que todos los tipos seleccionados estén realmente presentes en el borrador.
-        foreach (int tipoSeleccionado in tiposBase!)
-        {
-            if (!tiposDisponibles.Contains(tipoSeleccionado))
-            {
-                return "Seleccioná tipos de concepto que estén presentes en el presupuesto.";
-            }
-        }
+                if (!puedeEditar)
+                {
+                    return "El presupuesto ya no está disponible para edición.";
+                }
 
-        string? nombreTipoMargen = await _repositorio.ObtenerNombreTipoConceptoAsync(
-            TipoConcepto.MargenId, cancellationToken);
+                ResultadoVerificacionBorrador verificacion = await ControladorEstadoBorrador.PrepararParaEdicionAsync(
+                    presupuestoId, usuario.Id, contexto, _repositorio, _almacenBorrador, cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(nombreTipoMargen))
-        {
-            nombreTipoMargen = "Margen";
-        }
+                if (verificacion.MensajeError != null || verificacion.BorradorParaEditar == null)
+                {
+                    return verificacion.MensajeError;
+                }
 
-        var nuevoMargen = new ConceptoBorradorDto
-        {
-            Id = borrador.ObtenerSiguienteIdTemporal(),
-            TipoConceptoId = TipoConcepto.MargenId,
-            TipoNombre = nombreTipoMargen,
-            PorcentajeMargen = porcentaje!.Value,
-            TiposBaseMargen = new List<int>(tiposBase),
-            EsNuevo = true
-        };
+                BorradorPresupuestoDto borrador = verificacion.BorradorParaEditar;
 
-        borrador.Conceptos.Add(nuevoMargen);
-        _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
+                // RF-27: un presupuesto no puede tener más de un concepto Margen.
+                bool yaTieneMargen = false;
+                var tiposDisponibles = new HashSet<int>();
 
-        return null;
-    }
+                foreach (ConceptoBorradorDto concepto in borrador.Conceptos)
+                {
+                    if (concepto.TipoConceptoId == TipoConcepto.MargenId)
+                    {
+                        yaTieneMargen = true;
+                    }
+                    else
+                    {
+                        tiposDisponibles.Add(concepto.TipoConceptoId);
+                    }
+                }
 
-    private async Task<BorradorPresupuestoDto?> ObtenerOInicializarBorradorAsync(
-        int presupuestoId, int usuarioId, CancellationToken cancellationToken)
-    {
-        BorradorPresupuestoDto? borradorExistente = _almacenBorrador.Obtener(presupuestoId, usuarioId);
-        if (borradorExistente != null)
-        {
-            return borradorExistente.Clonar();
-        }
+                if (yaTieneMargen)
+                {
+                    return "Este presupuesto ya tiene un margen registrado.";
+                }
 
-        return await _repositorio.ObtenerBorradorBaseAsync(presupuestoId, cancellationToken);
+                // Comprobamos que todos los tipos seleccionados estén realmente presentes en el borrador.
+                foreach (int tipoSeleccionado in tiposBase!)
+                {
+                    if (!tiposDisponibles.Contains(tipoSeleccionado))
+                    {
+                        return "Seleccioná tipos de concepto que estén presentes en el presupuesto.";
+                    }
+                }
+
+                string? nombreTipoMargen = await _repositorio.ObtenerNombreTipoConceptoAsync(
+                    TipoConcepto.MargenId, cancellationToken);
+
+                if (string.IsNullOrWhiteSpace(nombreTipoMargen))
+                {
+                    nombreTipoMargen = "Margen";
+                }
+
+                var nuevoMargen = new ConceptoBorradorDto
+                {
+                    Id = borrador.ObtenerSiguienteIdTemporal(),
+                    TipoConceptoId = TipoConcepto.MargenId,
+                    TipoNombre = nombreTipoMargen,
+                    PorcentajeMargen = porcentaje!.Value,
+                    TiposBaseMargen = new List<int>(tiposBase),
+                    EsNuevo = true
+                };
+
+                borrador.Conceptos.Add(nuevoMargen);
+                if (!verificacion.EsNuevoBorrador)
+                {
+                    borrador.IncrementarVersion();
+                }
+
+                _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
+
+                return null;
+            },
+            cancellationToken);
     }
 }

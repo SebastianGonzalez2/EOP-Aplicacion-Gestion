@@ -2,6 +2,7 @@ using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 
 namespace EOP.Gestion.Core.CasosDeUso.Presupuestos;
 
@@ -19,19 +20,22 @@ public class SeleccionarMaterialDeConcepto
 {
     private readonly IRepositorioConceptosPresupuesto _repositorio;
     private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
+    private readonly ISincronizadorBorradorPresupuesto _sincronizador;
 
     public SeleccionarMaterialDeConcepto(
         IRepositorioConceptosPresupuesto repositorio,
-        IAlmacenBorradorPresupuesto almacenBorrador)
+        IAlmacenBorradorPresupuesto almacenBorrador,
+        ISincronizadorBorradorPresupuesto sincronizador)
     {
         _repositorio = repositorio;
         _almacenBorrador = almacenBorrador;
+        _sincronizador = sincronizador;
     }
 
     // Devuelve null si se aplicó al borrador, o el mensaje que hay que mostrarle al usuario.
     public async Task<string?> EjecutarAsync(
         int presupuestoId, int conceptoId, int? referenciaId, Usuario usuario,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, ContextoEdicionBorrador? contextoEdicion = null)
     {
         // La validación de la vista no alcanza (RNF-10): el servidor revisa que haya una selección
         // expresa. Nunca se elige una referencia por defecto, ni siquiera si hay una sola.
@@ -40,78 +44,84 @@ public class SeleccionarMaterialDeConcepto
             return "Seleccioná una referencia de material y proveedor.";
         }
 
-        // Primero el acceso: si no tiene permiso no revelamos ni siquiera si la fila existe.
-        bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
-            presupuestoId, usuario, cancellationToken);
+        ContextoEdicionBorrador contexto = contextoEdicion ?? ContextoEdicionBorrador.Inicial;
 
-        if (!puedeEditar)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
-
-        BorradorPresupuestoDto? borrador = await ObtenerOInicializarBorradorAsync(
-            presupuestoId, usuario.Id, cancellationToken);
-
-        if (borrador == null)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
-
-        ConceptoBorradorDto? fila = BuscarFila(borrador, conceptoId);
-        if (fila == null)
-        {
-            return "La fila que querés modificar ya no existe en el presupuesto.";
-        }
-
-        if (fila.TipoConceptoId != TipoConcepto.MaterialId)
-        {
-            return "Solo se puede seleccionar un material en las filas de tipo Material.";
-        }
-
-        // Si la fila ya usa esta referencia no se copia nada de nuevo: volver a copiar pisaría
-        // los valores históricos que la fila conserva con los actuales del catálogo (DT-11).
-        if (fila.MaterialProveedorId == referenciaId.Value)
-        {
-            return "Esa referencia ya es la seleccionada en la fila. Elegí otra si querés sustituirla.";
-        }
-
-        ReferenciaCatalogoPresupuestoDto? referencia = await _repositorio.ObtenerReferenciaCatalogoAsync(
-            referenciaId.Value, cancellationToken);
-
-        if (referencia == null)
-        {
-            return "La referencia seleccionada no existe. Buscá otra referencia del catálogo.";
-        }
-
-        // RF-20: la misma combinación material-proveedor no puede estar en dos filas del presupuesto.
-        foreach (ConceptoBorradorDto otraFila in borrador.Conceptos)
-        {
-            if (otraFila.Id != fila.Id && otraFila.MaterialProveedorId == referencia.MaterialProveedorId)
+        return await _sincronizador.EjecutarConBloqueoAsync(
+            usuario.Id,
+            async () =>
             {
-                return "Ese material y proveedor ya están en otra fila del presupuesto. Conservá la fila existente o seleccioná otra referencia.";
-            }
-        }
+                await _almacenBorrador.CargarAsync(cancellationToken);
 
-        fila.CopiarReferencia(referencia);
-        if (!fila.EsNuevo)
-        {
-            fila.FueModificado = true;
-        }
+                // Primero el acceso: si no tiene permiso no revelamos ni siquiera si la fila existe.
+                bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
+                    presupuestoId, usuario, cancellationToken);
 
-        _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
-        return null;
-    }
+                if (!puedeEditar)
+                {
+                    return "El presupuesto ya no está disponible para edición.";
+                }
 
-    private async Task<BorradorPresupuestoDto?> ObtenerOInicializarBorradorAsync(
-        int presupuestoId, int usuarioId, CancellationToken cancellationToken)
-    {
-        BorradorPresupuestoDto? borradorExistente = _almacenBorrador.Obtener(presupuestoId, usuarioId);
-        if (borradorExistente != null)
-        {
-            return borradorExistente.Clonar();
-        }
+                ResultadoVerificacionBorrador verificacion = await ControladorEstadoBorrador.PrepararParaEdicionAsync(
+                    presupuestoId, usuario.Id, contexto, _repositorio, _almacenBorrador, cancellationToken);
 
-        return await _repositorio.ObtenerBorradorBaseAsync(presupuestoId, cancellationToken);
+                if (verificacion.MensajeError != null || verificacion.BorradorParaEditar == null)
+                {
+                    return verificacion.MensajeError;
+                }
+
+                BorradorPresupuestoDto borrador = verificacion.BorradorParaEditar;
+
+                ConceptoBorradorDto? fila = BuscarFila(borrador, conceptoId);
+                if (fila == null)
+                {
+                    return "La fila que querés modificar ya no existe en el presupuesto.";
+                }
+
+                if (fila.TipoConceptoId != TipoConcepto.MaterialId)
+                {
+                    return "Solo se puede seleccionar un material en las filas de tipo Material.";
+                }
+
+                // Si la fila ya usa esta referencia no se copia nada de nuevo: volver a copiar pisaría
+                // los valores históricos que la fila conserva con los actuales del catálogo (DT-11).
+                if (fila.MaterialProveedorId == referenciaId.Value)
+                {
+                    return "Esa referencia ya es la seleccionada en la fila. Elegí otra si querés sustituirla.";
+                }
+
+                ReferenciaCatalogoPresupuestoDto? referencia = await _repositorio.ObtenerReferenciaCatalogoAsync(
+                    referenciaId.Value, cancellationToken);
+
+                if (referencia == null)
+                {
+                    return "La referencia seleccionada no existe. Buscá otra referencia del catálogo.";
+                }
+
+                // RF-20: la misma combinación material-proveedor no puede estar en dos filas del presupuesto.
+                foreach (ConceptoBorradorDto otraFila in borrador.Conceptos)
+                {
+                    if (otraFila.Id != fila.Id && otraFila.MaterialProveedorId == referencia.MaterialProveedorId)
+                    {
+                        return "Ese material y proveedor ya están en otra fila del presupuesto. Conservá la fila existente o seleccioná otra referencia.";
+                    }
+                }
+
+                fila.CopiarReferencia(referencia);
+                if (!fila.EsNuevo)
+                {
+                    fila.FueModificado = true;
+                }
+
+                if (!verificacion.EsNuevoBorrador)
+                {
+                    borrador.IncrementarVersion();
+                }
+
+                _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
+                return null;
+            },
+            cancellationToken);
     }
 
     private static ConceptoBorradorDto? BuscarFila(BorradorPresupuestoDto borrador, int conceptoId)

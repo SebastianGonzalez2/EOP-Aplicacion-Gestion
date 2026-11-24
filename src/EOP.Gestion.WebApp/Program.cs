@@ -13,6 +13,7 @@ using EOP.Gestion.Core.CasosDeUso.Materiales;
 using EOP.Gestion.Infrastructure.Consultas.Proveedores;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 
 using EOP.Gestion.Infrastructure.Consultas.Usuarios;
@@ -61,17 +62,20 @@ builder.Services.AddScoped<GuardarBorradorPresupuesto>();
 
 // US-003 (RF-05): conservamos los cambios pendientes de un presupuesto en la sesión del servidor
 // hasta que el usuario presiona explícitamente «Guardar borrador». La cookie de sesión respeta
-// las mismas reglas de seguridad que la cookie de autenticación (HttpOnly y HTTPS obligatorio).
+// las mismas reglas de seguridad que la cookie de autenticación (HttpOnly y HTTPS obligatorio)
+// y mantiene una ventana de ocho horas de inactividad antes de expirar.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
+    options.IdleTimeout = TimeSpan.FromHours(8);
     options.Cookie.Name = ".EOP.Borrador";
     options.Cookie.HttpOnly = true;
     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.IsEssential = true;
 });
+builder.Services.AddSingleton<ISincronizadorBorradorPresupuesto, SincronizadorBorradorPresupuesto>();
 builder.Services.AddScoped<IAlmacenBorradorPresupuesto, AlmacenBorradorPresupuestoEnSesion>();
 
 // Registramos el caso de uso que valida los datos del proveedor.

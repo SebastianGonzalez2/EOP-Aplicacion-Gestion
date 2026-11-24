@@ -12,6 +12,12 @@ namespace EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 // de lo que había en SQL Server en ese momento. Al presionar «Guardar borrador», volvemos a
 // calcular la huella dentro de la transacción: si no coincide, significa que otra operación ya
 // modificó el presupuesto y rechazamos el guardado en vez de pisar cambios en silencio.
+
+/*Generamos una huella de los datos guardados cuando el usuario comienza a editar.
+* Antes de guardar, volvemos a calcularla. 
+* Si es diferente, significa que los datos cambiaron y rechazamos la operación
+* para evitar sobrescribir información utilizando un borrador desactualizado. */
+
 public static class CalculadorHuellaBorrador
 {
     public static string Calcular(

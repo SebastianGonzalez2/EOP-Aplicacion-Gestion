@@ -11,6 +11,8 @@ public class ConceptosPresupuestoViewModel
     public string Codigo { get; init; } = string.Empty;
     public bool PuedeAgregar { get; init; }
     public bool TieneCambiosPendientes { get; init; }
+    public int VersionBorrador { get; init; }
+    public string? HuellaEstadoBase { get; init; }
     public IReadOnlyList<FilaConceptoDto> Filas { get; init; } = [];
     public IReadOnlyList<TipoBaseMargenDto> TiposBaseMargen { get; init; } = [];
     public IReadOnlyList<TipoConceptoOpcionDto> Tipos { get; init; } = [];

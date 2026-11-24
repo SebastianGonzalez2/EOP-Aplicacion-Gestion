@@ -2,6 +2,7 @@ using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 
 namespace EOP.Gestion.Core.CasosDeUso.Presupuestos;
 
@@ -20,19 +21,22 @@ public class ActualizarReferenciaDeConcepto
 {
     private readonly IRepositorioConceptosPresupuesto _repositorio;
     private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
+    private readonly ISincronizadorBorradorPresupuesto _sincronizador;
 
     public ActualizarReferenciaDeConcepto(
         IRepositorioConceptosPresupuesto repositorio,
-        IAlmacenBorradorPresupuesto almacenBorrador)
+        IAlmacenBorradorPresupuesto almacenBorrador,
+        ISincronizadorBorradorPresupuesto sincronizador)
     {
         _repositorio = repositorio;
         _almacenBorrador = almacenBorrador;
+        _sincronizador = sincronizador;
     }
 
     // Devuelve null si se actualizó en el borrador, o el mensaje que hay que mostrarle al usuario.
     public async Task<string?> EjecutarAsync(
         int presupuestoId, int conceptoId, bool confirmado, Usuario usuario,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, ContextoEdicionBorrador? contextoEdicion = null)
     {
         // La confirmación se exige en el servidor (RNF-10): el diálogo de la pantalla es una
         // comodidad, pero una solicitud sin confirmar nunca debe pisar los valores históricos.
@@ -41,77 +45,83 @@ public class ActualizarReferenciaDeConcepto
             return "Confirmá la actualización para reemplazar los valores de la fila por los del catálogo.";
         }
 
-        bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
-            presupuestoId, usuario, cancellationToken);
+        ContextoEdicionBorrador contexto = contextoEdicion ?? ContextoEdicionBorrador.Inicial;
 
-        if (!puedeEditar)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
+        return await _sincronizador.EjecutarConBloqueoAsync(
+            usuario.Id,
+            async () =>
+            {
+                await _almacenBorrador.CargarAsync(cancellationToken);
 
-        BorradorPresupuestoDto? borrador = await ObtenerOInicializarBorradorAsync(
-            presupuestoId, usuario.Id, cancellationToken);
+                bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
+                    presupuestoId, usuario, cancellationToken);
 
-        if (borrador == null)
-        {
-            return "El presupuesto ya no está disponible para edición.";
-        }
+                if (!puedeEditar)
+                {
+                    return "El presupuesto ya no está disponible para edición.";
+                }
 
-        ConceptoBorradorDto? fila = BuscarFila(borrador, conceptoId);
-        if (fila == null)
-        {
-            return "La fila que querés modificar ya no existe en el presupuesto.";
-        }
+                ResultadoVerificacionBorrador verificacion = await ControladorEstadoBorrador.PrepararParaEdicionAsync(
+                    presupuestoId, usuario.Id, contexto, _repositorio, _almacenBorrador, cancellationToken);
 
-        if (fila.TipoConceptoId != TipoConcepto.MaterialId)
-        {
-            return "Solo se pueden actualizar los valores de las filas de tipo Material.";
-        }
+                if (verificacion.MensajeError != null || verificacion.BorradorParaEditar == null)
+                {
+                    return verificacion.MensajeError;
+                }
 
-        if (fila.MaterialId == null || fila.MaterialProveedorId == null)
-        {
-            return "La fila todavía no tiene un material. Buscá y seleccioná primero el material.";
-        }
+                BorradorPresupuestoDto borrador = verificacion.BorradorParaEditar;
 
-        ReferenciaCatalogoPresupuestoDto? referenciaActual = await _repositorio.ObtenerReferenciaCatalogoAsync(
-            fila.MaterialProveedorId.Value, cancellationToken);
+                ConceptoBorradorDto? fila = BuscarFila(borrador, conceptoId);
+                if (fila == null)
+                {
+                    return "La fila que querés modificar ya no existe en el presupuesto.";
+                }
 
-        if (referenciaActual == null)
-        {
-            return "La referencia de la fila ya no existe en el catálogo. Elegí otra referencia del material.";
-        }
+                if (fila.TipoConceptoId != TipoConcepto.MaterialId)
+                {
+                    return "Solo se pueden actualizar los valores de las filas de tipo Material.";
+                }
 
-        // Si los cuatro valores de la fila ya son los del catálogo no hay nada que actualizar.
-        bool yaCoinciden = fila.Concepto == referenciaActual.NombreMaterial
-            && fila.Unidad == referenciaActual.Unidad
-            && fila.PrecioUnitario == referenciaActual.PrecioUnitario
-            && fila.Moneda == referenciaActual.Moneda;
+                if (fila.MaterialId == null || fila.MaterialProveedorId == null)
+                {
+                    return "La fila todavía no tiene un material. Buscá y seleccioná primero el material.";
+                }
 
-        if (yaCoinciden)
-        {
-            return "Los valores de la fila ya coinciden con los del catálogo. No hay nada que actualizar.";
-        }
+                ReferenciaCatalogoPresupuestoDto? referenciaActual = await _repositorio.ObtenerReferenciaCatalogoAsync(
+                    fila.MaterialProveedorId.Value, cancellationToken);
 
-        fila.CopiarReferencia(referenciaActual);
-        if (!fila.EsNuevo)
-        {
-            fila.FueModificado = true;
-        }
+                if (referenciaActual == null)
+                {
+                    return "La referencia de la fila ya no existe en el catálogo. Elegí otra referencia del material.";
+                }
 
-        _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
-        return null;
-    }
+                // Si los cuatro valores de la fila ya son los del catálogo no hay nada que actualizar.
+                bool yaCoinciden = fila.Concepto == referenciaActual.NombreMaterial
+                    && fila.Unidad == referenciaActual.Unidad
+                    && fila.PrecioUnitario == referenciaActual.PrecioUnitario
+                    && fila.Moneda == referenciaActual.Moneda;
 
-    private async Task<BorradorPresupuestoDto?> ObtenerOInicializarBorradorAsync(
-        int presupuestoId, int usuarioId, CancellationToken cancellationToken)
-    {
-        BorradorPresupuestoDto? borradorExistente = _almacenBorrador.Obtener(presupuestoId, usuarioId);
-        if (borradorExistente != null)
-        {
-            return borradorExistente.Clonar();
-        }
+                if (yaCoinciden)
+                {
+                    return "Los valores de la fila ya coinciden con los del catálogo. No hay nada que actualizar.";
+                }
 
-        return await _repositorio.ObtenerBorradorBaseAsync(presupuestoId, cancellationToken);
+                fila.CopiarReferencia(referenciaActual);
+                if (!fila.EsNuevo)
+                {
+                    fila.FueModificado = true;
+                }
+
+                if (!verificacion.EsNuevoBorrador)
+                {
+                    borrador.IncrementarVersion();
+                }
+
+                _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
+                return null;
+            },
+            cancellationToken);
     }
 
     private static ConceptoBorradorDto? BuscarFila(BorradorPresupuestoDto borrador, int conceptoId)

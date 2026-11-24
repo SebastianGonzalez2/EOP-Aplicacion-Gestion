@@ -21,15 +21,43 @@ public class AlmacenBorradorPresupuestoEnSesion : IAlmacenBorradorPresupuesto
         _accesoHttpContext = accesoHttpContext;
     }
 
+    public async Task CargarAsync(CancellationToken cancellationToken)
+    {
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null)
+        {
+            return;
+        }
+
+        await sesion.LoadAsync(cancellationToken);
+    }
+
+    public async Task ConfirmarAsync(CancellationToken cancellationToken)
+    {
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null)
+        {
+            return;
+        }
+
+        await sesion.CommitAsync(cancellationToken);
+    }
+
+    // Obtiene el borrador de presupuesto desde la sesión del usuario, deserializado desde JSON.
     public BorradorPresupuestoDto? Obtener(int presupuestoId, int usuarioId)
     {
+        //La sesion permite conservar informacion entre diferentes solicitudes HTTP del mismo usuari
+        //Por ejemplo si va al catalogo y vuelve al presupuest, se conserva la informacion que estaba en el borrador
         ISession? sesion = ObtenerSesion();
         if (sesion == null)
         {
             return null;
         }
-
+        //Con el metodo armar clave se genera una clave unica para cada usuario y presupuesto,
+        //de esta manera se evita que un usuario pueda acceder a los borradores de otro usuario
         string clave = ArmarClave(presupuestoId, usuarioId);
+
+        //Se obtiene el contenido del borrador en formato JSON desde la sesión
         string? contenidoJson = sesion.GetString(clave);
 
         if (string.IsNullOrWhiteSpace(contenidoJson))
@@ -56,6 +84,7 @@ public class AlmacenBorradorPresupuestoEnSesion : IAlmacenBorradorPresupuesto
         }
     }
 
+    // Guarda el borrador en la sesión del usuario, serializado como JSON.
     public void Guardar(int presupuestoId, int usuarioId, BorradorPresupuestoDto borrador)
     {
         ISession? sesion = ObtenerSesion();
@@ -92,6 +121,37 @@ public class AlmacenBorradorPresupuestoEnSesion : IAlmacenBorradorPresupuesto
         return borrador.TieneCambiosPendientes;
     }
 
+    public void RegistrarHuellaGuardada(int presupuestoId, int usuarioId, string huellaGuardada)
+    {
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null || string.IsNullOrWhiteSpace(huellaGuardada))
+        {
+            return;
+        }
+
+        string clave = ArmarClaveUltimaHuella(presupuestoId, usuarioId);
+        sesion.SetString(clave, huellaGuardada);
+    }
+
+    public bool CoincideConUltimoGuardadoEnSesion(int presupuestoId, int usuarioId, string huellaActual)
+    {
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null || string.IsNullOrWhiteSpace(huellaActual))
+        {
+            return false;
+        }
+
+        string clave = ArmarClaveUltimaHuella(presupuestoId, usuarioId);
+        string? huellaGuardada = sesion.GetString(clave);
+
+        if (string.IsNullOrWhiteSpace(huellaGuardada))
+        {
+            return false;
+        }
+
+        return string.Equals(huellaGuardada, huellaActual, StringComparison.Ordinal);
+    }
+
     private ISession? ObtenerSesion()
     {
         HttpContext? contexto = _accesoHttpContext.HttpContext;
@@ -106,5 +166,10 @@ public class AlmacenBorradorPresupuestoEnSesion : IAlmacenBorradorPresupuesto
     private static string ArmarClave(int presupuestoId, int usuarioId)
     {
         return $"BorradorPresupuesto:{usuarioId}:{presupuestoId}";
+    }
+
+    private static string ArmarClaveUltimaHuella(int presupuestoId, int usuarioId)
+    {
+        return $"BorradorPresupuestoUltimaHuella:{usuarioId}:{presupuestoId}";
     }
 }

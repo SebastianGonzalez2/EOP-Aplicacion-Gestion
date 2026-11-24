@@ -7,6 +7,7 @@ public enum ResultadoGuardarBorrador
     SinCambios,
     EdicionNoPermitida,
     CambiosPendientesPerdidos,
+    BorradorDesactualizado,
     DatosInvalidos,
     ReferenciaInexistente,
     ReferenciaDuplicada,
@@ -14,6 +15,13 @@ public enum ResultadoGuardarBorrador
     TiposBaseMargenNoDisponibles,
     ConflictoConcurrencia
 }
+
+// Resultado devuelto por el repositorio tras intentar persistir el borrador en SQL Server.
+// Cuando el guardado se confirma, incluye la nueva huella persistida para que la sesión pueda
+// distinguir un guardado hecho desde otra pestaña de una pérdida del borrador temporal.
+public record ResultadoPersistenciaBorrador(
+    ResultadoGuardarBorrador Estado,
+    string? HuellaPersistida = null);
 
 // Resultado que devuelve el caso de uso GuardarBorradorPresupuesto al Controller.
 // Distingue claramente un guardado efectivo, un guardado sin cambios pendientes, una falta de

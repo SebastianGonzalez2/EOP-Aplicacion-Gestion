@@ -199,6 +199,19 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             .SingleOrDefaultAsync(cancellationToken);
     }
 
+    public async Task<string?> ObtenerHuellaPersistidaAsync(int presupuestoId, CancellationToken cancellationToken)
+    {
+        bool existePresupuesto = await _contexto.Presupuestos.AsNoTracking()
+            .AnyAsync(presupuesto => presupuesto.Id == presupuestoId, cancellationToken);
+
+        if (!existePresupuesto)
+        {
+            return null;
+        }
+
+        return await CalcularHuellaActualEnBaseAsync(presupuestoId, cancellationToken);
+    }
+
     // US-003 (RF-05): persiste de forma atómica todos los cambios pendientes del borrador.
     //
     // Todo ocurre dentro de una única transacción con UPDLOCK sobre la fila del Presupuesto:
@@ -207,7 +220,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
     // - Verificamos la huella del estado base para detectar ediciones concurrentes sin pisar datos.
     // - Nunca modificamos Presupuestos ni el catálogo (Materiales, MaterialProveedores, Proveedores).
     // - Nunca tocamos filas persistidas que no fueron modificadas, preservando sus valores históricos.
-    public async Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+    public async Task<ResultadoPersistenciaBorrador> GuardarBorradorSiPuedeEditarAsync(
         BorradorPresupuestoDto borrador,
         Usuario usuario,
         CancellationToken cancellationToken)
@@ -226,7 +239,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             || presupuesto == null
             || !PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuarioActual))
         {
-            return ResultadoGuardarBorrador.EdicionNoPermitida;
+            return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.EdicionNoPermitida);
         }
 
         List<ConceptoPresupuesto> conceptosPersistidos = await _contexto.ConceptosPresupuesto
@@ -258,18 +271,18 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
 
         if (!string.Equals(huellaActual, borrador.HuellaEstadoBase, StringComparison.Ordinal))
         {
-            return ResultadoGuardarBorrador.ConflictoConcurrencia;
+            return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.ConflictoConcurrencia);
         }
 
         if (!borrador.TieneCambiosPendientes)
         {
-            return ResultadoGuardarBorrador.SinCambios;
+            return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.SinCambios, huellaActual);
         }
 
         // Volvemos a validar el borrador completo dentro de la transacción.
         if (ValidadorBorradorPresupuesto.ValidarBorrador(borrador) != null)
         {
-            return ResultadoGuardarBorrador.DatosInvalidos;
+            return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.DatosInvalidos);
         }
 
         Dictionary<int, ConceptoPresupuesto> persistidosPorId = new Dictionary<int, ConceptoPresupuesto>();
@@ -307,7 +320,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             {
                 if (!referenciasFinalesDelPresupuesto.Add(fila.MaterialProveedorId.Value))
                 {
-                    return ResultadoGuardarBorrador.ReferenciaDuplicada;
+                    return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.ReferenciaDuplicada);
                 }
             }
 
@@ -317,7 +330,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
                 {
                     if (yaExisteMargenPersistido || margenNuevo != null)
                     {
-                        return ResultadoGuardarBorrador.MargenExistente;
+                        return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.MargenExistente);
                     }
 
                     margenNuevo = fila;
@@ -338,7 +351,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             {
                 if (!persistidosPorId.TryGetValue(fila.Id, out ConceptoPresupuesto? entidadExistente))
                 {
-                    return ResultadoGuardarBorrador.ConflictoConcurrencia;
+                    return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.ConflictoConcurrencia);
                 }
 
                 // Actualmente solo las filas de tipo Material se modifican al seleccionar o cambiar
@@ -346,7 +359,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
                 if (entidadExistente.TipoConceptoId != TipoConcepto.MaterialId
                     || fila.TipoConceptoId != TipoConcepto.MaterialId)
                 {
-                    return ResultadoGuardarBorrador.DatosInvalidos;
+                    return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.DatosInvalidos);
                 }
 
                 conceptosModificados.Add(fila);
@@ -366,7 +379,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             {
                 if (!tiposPresentesSinMargen.Contains(tipoBaseId))
                 {
-                    return ResultadoGuardarBorrador.TiposBaseMargenNoDisponibles;
+                    return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.TiposBaseMargenNoDisponibles);
                 }
             }
         }
@@ -390,7 +403,7 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
                 if (!materialesPorReferenciaEnBase.TryGetValue(par.Key, out int materialIdEnBase)
                     || materialIdEnBase != par.Value)
                 {
-                    return ResultadoGuardarBorrador.ReferenciaInexistente;
+                    return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.ReferenciaInexistente);
                 }
             }
         }
@@ -491,17 +504,49 @@ public class RepositorioConceptosPresupuesto : IRepositorioConceptosPresupuesto
             IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ConceptosPresupuestoMaterialProveedor))
         {
             _contexto.ChangeTracker.Clear();
-            return ResultadoGuardarBorrador.ReferenciaDuplicada;
+            return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.ReferenciaDuplicada);
         }
         catch (DbUpdateException excepcion) when (
             IndicesUnicos.RepitioElIndice(excepcion, IndicesUnicos.ConceptosPresupuestoUnicoMargen))
         {
             _contexto.ChangeTracker.Clear();
-            return ResultadoGuardarBorrador.MargenExistente;
+            return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.MargenExistente);
         }
 
+        // Calculamos la huella del estado recién guardado dentro de la misma transacción bloqueada.
+        string nuevaHuella = await CalcularHuellaActualEnBaseAsync(borrador.PresupuestoId, cancellationToken);
+
         await transaccion.CommitAsync(cancellationToken);
-        return ResultadoGuardarBorrador.Guardado;
+        return new ResultadoPersistenciaBorrador(ResultadoGuardarBorrador.Guardado, nuevaHuella);
+    }
+
+    private async Task<string> CalcularHuellaActualEnBaseAsync(
+        int presupuestoId, CancellationToken cancellationToken)
+    {
+        List<ConceptoPresupuesto> conceptos = await _contexto.ConceptosPresupuesto
+            .AsNoTracking()
+            .Where(concepto => concepto.PresupuestoId == presupuestoId)
+            .OrderBy(concepto => concepto.Id)
+            .ToListAsync(cancellationToken);
+
+        List<int> idsConceptos = new List<int>();
+        foreach (ConceptoPresupuesto concepto in conceptos)
+        {
+            idsConceptos.Add(concepto.Id);
+        }
+
+        List<MargenBaseTipo> margenesBase = new List<MargenBaseTipo>();
+        if (idsConceptos.Count > 0)
+        {
+            margenesBase = await _contexto.MargenesBaseTipo
+                .AsNoTracking()
+                .Where(baseMargen => idsConceptos.Contains(baseMargen.ConceptoPresupuestoId))
+                .OrderBy(baseMargen => baseMargen.ConceptoPresupuestoId)
+                .ThenBy(baseMargen => baseMargen.TipoConceptoId)
+                .ToListAsync(cancellationToken);
+        }
+
+        return CalculadorHuellaBorrador.Calcular(conceptos, margenesBase);
     }
 
     // Bloquea la fila del presupuesto durante la transacción con UPDLOCK y sin seguimiento
