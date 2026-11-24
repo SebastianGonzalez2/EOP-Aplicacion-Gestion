@@ -176,6 +176,7 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
     private sealed record EstadoFormularioPagina(
         string Token,
         string EsperabaCambiosPendientes,
+        string BorradorId,
         string VersionBorrador,
         string HuellaEstadoBase,
         string Html);
@@ -189,12 +190,14 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
 
         string token = Regex.Match(html, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
         string esperaba = Regex.Match(html, "name=\"esperabaCambiosPendientes\" value=\"([^\"]+)\"").Groups[1].Value;
+        string borradorId = Regex.Match(html, "name=\"borradorId\" value=\"([^\"]*)\"").Groups[1].Value;
         string version = Regex.Match(html, "name=\"versionBorrador\" value=\"([^\"]+)\"").Groups[1].Value;
         string huella = Regex.Match(html, "name=\"huellaEstadoBase\" value=\"([^\"]*)\"").Groups[1].Value;
 
         return new EstadoFormularioPagina(
             token,
             string.IsNullOrEmpty(esperaba) ? "false" : esperaba,
+            borradorId,
             string.IsNullOrEmpty(version) ? "0" : version,
             huella,
             html);
@@ -213,6 +216,7 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
         {
             ["__RequestVerificationToken"] = estado.Token,
             ["esperabaCambiosPendientes"] = estado.EsperabaCambiosPendientes,
+            ["borradorId"] = estado.BorradorId,
             ["versionBorrador"] = estado.VersionBorrador,
             ["huellaEstadoBase"] = estado.HuellaEstadoBase
         };
@@ -234,6 +238,7 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
             ["esperabaCambiosPendientes"] = esperabaCambiosPendientes.HasValue
                 ? (esperabaCambiosPendientes.Value ? "true" : "false")
                 : estado.EsperabaCambiosPendientes,
+            ["borradorId"] = estado.BorradorId,
             ["versionBorrador"] = estado.VersionBorrador,
             ["huellaEstadoBase"] = estado.HuellaEstadoBase
         };
@@ -331,6 +336,7 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
                 ["__RequestVerificationToken"] = estadoConPendientes.Token,
                 ["referenciaId"] = _cableProveedorBId.ToString(),
                 ["esperabaCambiosPendientes"] = estadoConPendientes.EsperabaCambiosPendientes,
+                ["borradorId"] = estadoConPendientes.BorradorId,
                 ["versionBorrador"] = estadoConPendientes.VersionBorrador,
                 ["huellaEstadoBase"] = estadoConPendientes.HuellaEstadoBase
             });
@@ -723,6 +729,7 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
                 ["referenciaId"] = _pinturaProveedorAId.ToString(),
                 ["busqueda"] = "pintura",
                 ["esperabaCambiosPendientes"] = estado1.EsperabaCambiosPendientes,
+                ["borradorId"] = estado1.BorradorId,
                 ["versionBorrador"] = estado1.VersionBorrador,
                 ["huellaEstadoBase"] = estado1.HuellaEstadoBase
             });
@@ -736,6 +743,7 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
                 ["__RequestVerificationToken"] = estado2.Token,
                 ["referenciaId"] = _cableProveedorAId.ToString(),
                 ["esperabaCambiosPendientes"] = estado2.EsperabaCambiosPendientes,
+                ["borradorId"] = estado2.BorradorId,
                 ["versionBorrador"] = estado2.VersionBorrador,
                 ["huellaEstadoBase"] = estado2.HuellaEstadoBase
             });
@@ -1042,6 +1050,72 @@ public class GuardarBorradorSqlServerTests : IAsyncLifetime
         Assert.Contains(MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, pagina);
         Assert.Contains("Guardado en pestaña 1", pagina);
         Assert.DoesNotContain("Desactualizado", pagina);
+    }
+
+    [FactConSqlServer]
+    public async Task PestanaAntiguaConVersion1_NoPuedeEditarNiGuardarUnNuevoBorradorQueTambienEstaEnVersion1()
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var pestana1 = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        // 1) Pestaña 1 crea el primer borrador (versión 1, BorradorId = A).
+        Assert.Equal(HttpStatusCode.Redirect, (await AgregarConceptoAsync(pestana1, new()
+        {
+            ["Entrada.TipoId"] = TipoConcepto.ManoDeObraId.ToString(),
+            ["Entrada.Descripcion"] = "Concepto borrador 1",
+            ["Entrada.Importe"] = "1000",
+            ["Entrada.Moneda"] = "UYU"
+        })).StatusCode);
+
+        // 2) Pestaña 2 queda abierta viendo el primer borrador en versión 1.
+        var pestana2 = pestana1.ClonarPestana();
+        EstadoFormularioPagina estadoAntiguoPestana2 = await LeerEstadoFormularioAsync(pestana2);
+        Assert.Equal("1", estadoAntiguoPestana2.VersionBorrador);
+        Assert.False(string.IsNullOrWhiteSpace(estadoAntiguoPestana2.BorradorId));
+
+        // 3) Pestaña 1 guarda el primer borrador e inicia un SEGUNDO borrador nuevo (vuelve a versión 1,
+        // pero con un BorradorId distinto).
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(pestana1)).StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await AgregarConceptoAsync(pestana1, new()
+        {
+            ["Entrada.TipoId"] = TipoConcepto.AlquilerId.ToString(),
+            ["Entrada.Descripcion"] = "Concepto borrador 2",
+            ["Entrada.Importe"] = "2000",
+            ["Entrada.Moneda"] = "UYU"
+        })).StatusCode);
+
+        EstadoFormularioPagina estadoNuevoBorrador = await LeerEstadoFormularioAsync(pestana1);
+        Assert.Equal("1", estadoNuevoBorrador.VersionBorrador);
+        Assert.NotEqual(estadoAntiguoPestana2.BorradorId, estadoNuevoBorrador.BorradorId);
+
+        // 4) Pestaña 2 (antigua, también con versión 1) intenta EDITAR: debe rechazarse.
+        var intentoEditar = await AgregarConceptoAsync(pestana2, new()
+        {
+            ["Entrada.TipoId"] = TipoConcepto.TrasladoId.ToString(),
+            ["Entrada.Descripcion"] = "Edición desde pestaña vieja",
+            ["Entrada.Importe"] = "300",
+            ["Entrada.Moneda"] = "UYU"
+        }, estadoCapturado: estadoAntiguoPestana2);
+        Assert.Equal(HttpStatusCode.Redirect, intentoEditar.StatusCode);
+
+        string paginaTrasEditar = await LeerPaginaAsync(pestana2, $"/ConceptosPresupuesto/Index/{_presupuestoId}");
+        Assert.Contains(MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, paginaTrasEditar);
+        Assert.DoesNotContain("Edición desde pestaña vieja", paginaTrasEditar);
+        Assert.Contains("Concepto borrador 2", paginaTrasEditar);
+
+        // 5) Pestaña 2 (antigua, también con versión 1) intenta GUARDAR: debe rechazarse sin persistir el borrador 2.
+        var intentoGuardar = await GuardarBorradorAsync(pestana2, estadoCapturado: estadoAntiguoPestana2);
+        Assert.Equal(HttpStatusCode.Redirect, intentoGuardar.StatusCode);
+
+        string paginaTrasGuardar = await LeerPaginaAsync(pestana2, $"/ConceptosPresupuesto/Index/{_presupuestoId}");
+        Assert.Contains(MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, paginaTrasGuardar);
+        Assert.Contains("Concepto borrador 2", paginaTrasGuardar);
+        Assert.Contains("data-cambios-pendientes=\"true\"", paginaTrasGuardar);
+
+        // En SQL Server solo sigue guardado el concepto del borrador 1; el borrador 2 no se guardó por error.
+        using EopDbContext contexto = CrearContexto();
+        ConceptoPresupuesto unicoPersistido = await contexto.ConceptosPresupuesto.SingleAsync();
+        Assert.Equal("Concepto borrador 1", unicoPersistido.Concepto);
     }
 
     [FactConSqlServer]

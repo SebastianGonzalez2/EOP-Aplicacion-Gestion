@@ -726,6 +726,7 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}";
         string html = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
         string token = Regex.Match(html, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
+        string borradorId = Regex.Match(html, "name=\"borradorId\" value=\"([^\"]*)\"").Groups[1].Value;
         string version = Regex.Match(html, "name=\"versionBorrador\" value=\"([^\"]+)\"").Groups[1].Value;
         string esperaba = Regex.Match(html, "name=\"esperabaCambiosPendientes\" value=\"([^\"]+)\"").Groups[1].Value;
         string huella = Regex.Match(html, "name=\"huellaEstadoBase\" value=\"([^\"]*)\"").Groups[1].Value;
@@ -736,6 +737,7 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             ["esperabaCambiosPendientes"] = esperabaCambiosPendientes.HasValue
                 ? (esperabaCambiosPendientes.Value ? "true" : "false")
                 : (string.IsNullOrEmpty(esperaba) ? "false" : esperaba),
+            ["borradorId"] = borradorId,
             ["versionBorrador"] = string.IsNullOrEmpty(version) ? "0" : version,
             ["huellaEstadoBase"] = huella
         });
@@ -953,9 +955,13 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
                 _materialProveedorId, 2m, responsable, CancellationToken.None);
             Assert.Null(errorAgregar);
 
+            var borradorActual = almacen.Obtener(_presupuestoId, responsable.Id)!;
             var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
             return await guardar.EjecutarAsync(
-                _presupuestoId, new ContextoEdicionBorrador(true, 1), responsable, CancellationToken.None);
+                _presupuestoId,
+                new ContextoEdicionBorrador(true, borradorActual.Version, borradorActual.HuellaEstadoBase, borradorActual.BorradorId),
+                responsable,
+                CancellationToken.None);
         }
 
         var resultados = await Task.WhenAll(AgregarYGuardarAsync(), AgregarYGuardarAsync());
@@ -994,9 +1000,13 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         Assert.Null(errorAgregar);
         Assert.False(await contexto.ConceptosPresupuesto.AnyAsync(c => c.TipoConceptoId == TipoConcepto.MargenId));
 
+        var borradorActual = almacen.Obtener(_presupuestoId, usuario.Id)!;
         var guardar = new GuardarBorradorPresupuesto(repositorio, almacen, sincronizador);
         var resultado = await guardar.EjecutarAsync(
-            _presupuestoId, new ContextoEdicionBorrador(true, 1), usuario, CancellationToken.None);
+            _presupuestoId,
+            new ContextoEdicionBorrador(true, borradorActual.Version, borradorActual.HuellaEstadoBase, borradorActual.BorradorId),
+            usuario,
+            CancellationToken.None);
 
         Assert.True(resultado.GuardadoCorrectamente);
 
@@ -1041,8 +1051,12 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         string? primero = await registrarMargen.EjecutarAsync(
             _presupuestoId, 20m, [TipoConcepto.ManoDeObraId], usuario, CancellationToken.None);
         Assert.Null(primero);
+        var borradorActual = almacen.Obtener(_presupuestoId, usuario.Id)!;
         Assert.True((await guardar.EjecutarAsync(
-            _presupuestoId, new ContextoEdicionBorrador(true, 1), usuario, CancellationToken.None)).GuardadoCorrectamente);
+            _presupuestoId,
+            new ContextoEdicionBorrador(true, borradorActual.Version, borradorActual.HuellaEstadoBase, borradorActual.BorradorId),
+            usuario,
+            CancellationToken.None)).GuardadoCorrectamente);
 
         string? segundo = await registrarMargen.EjecutarAsync(
             _presupuestoId, 30m, [TipoConcepto.ManoDeObraId], usuario, CancellationToken.None);

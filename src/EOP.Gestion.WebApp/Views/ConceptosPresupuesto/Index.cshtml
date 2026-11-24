@@ -37,6 +37,7 @@
                   asp-route-id="@Model.PresupuestoId"
                   method="post">
                 <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                <input type="hidden" name="borradorId" value="@Model.BorradorId" />
                 <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
                 <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
                 <button type="submit" class="btn btn-primary">
@@ -238,6 +239,7 @@
                 <form id="formulario-concepto" asp-action="Agregar" asp-route-id="@Model.PresupuestoId"
                       asp-route-busqueda="@Model.Busqueda" method="post">
                     <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
                     <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
                     <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
                     <div class="seccion-form">

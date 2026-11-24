@@ -48,9 +48,13 @@ public static class ControladorEstadoBorrador
 
         if (borradorActual != null && borradorActual.TieneCambiosPendientes)
         {
-            // Ya existe un borrador pendiente en la sesión: la pantalla debe estar parada en la
-            // misma versión para evitar sobrescribir cambios hechos en otra pestaña.
-            if (contexto.VersionBorradorEsperada != borradorActual.Version)
+            // Ya existe un borrador pendiente en la sesión: la pantalla debe coincidir tanto en
+            // el identificador único del borrador como en su versión actual. Así evitamos que una
+            // pestaña vieja coincida accidentalmente con la versión 1 de un borrador nuevo.
+            bool coincideIdentificador = !string.IsNullOrWhiteSpace(borradorActual.BorradorId)
+                && string.Equals(contexto.BorradorIdEsperado, borradorActual.BorradorId, StringComparison.Ordinal);
+
+            if (contexto.VersionBorradorEsperada != borradorActual.Version || !coincideIdentificador)
             {
                 return new ResultadoVerificacionBorrador(
                     null,
@@ -82,9 +86,11 @@ public static class ControladorEstadoBorrador
         bool fueGuardadoDesdeOtraPestana = almacenBorrador.CoincideConUltimoGuardadoEnSesion(
             presupuestoId, usuarioId, borradorBase.HuellaEstadoBase);
 
-        // Si la pantalla esperaba cambios pendientes (o una versión > 0) pero ya no están en sesión,
-        // rechazamos la operación en lugar de iniciar silenciosamente un borrador nuevo.
-        if (contexto.EsperabaCambiosPendientes || contexto.VersionBorradorEsperada > 0)
+        // Si la pantalla esperaba cambios pendientes (o una versión/identificador previo) pero ya
+        // no están en sesión, rechazamos la operación en lugar de iniciar silenciosamente un borrador nuevo.
+        if (contexto.EsperabaCambiosPendientes
+            || contexto.VersionBorradorEsperada > 0
+            || !string.IsNullOrWhiteSpace(contexto.BorradorIdEsperado))
         {
             if (fueGuardadoDesdeOtraPestana)
             {
@@ -123,7 +129,9 @@ public static class ControladorEstadoBorrador
                 MensajesBorradorPresupuesto.PresupuestoModificadoSinPendientes);
         }
 
-        // Es una edición nueva limpia (sin cambios pendientes previos): arrancamos en versión 1.
+        // Es una edición nueva limpia (sin cambios pendientes previos): asignamos un identificador
+        // único nuevo y arrancamos en versión 1.
+        borradorBase.BorradorId = Guid.NewGuid().ToString("N");
         borradorBase.Version = 1;
         return new ResultadoVerificacionBorrador(borradorBase, true, null, null);
     }

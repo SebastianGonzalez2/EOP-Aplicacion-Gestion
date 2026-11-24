@@ -119,6 +119,7 @@ public class ConceptosPresupuestoController : Controller
         bool esperabaCambiosPendientes,
         int versionBorrador,
         string? huellaEstadoBase,
+        string? borradorId,
         CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
@@ -182,7 +183,7 @@ public class ConceptosPresupuestoController : Controller
         if (ModelState.IsValid)
         {
             var contextoEdicion = new ContextoEdicionBorrador(
-                esperabaCambiosPendientes, versionBorrador, huellaEstadoBase);
+                esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
 
             string? error;
 
@@ -261,6 +262,7 @@ public class ConceptosPresupuestoController : Controller
         bool esperabaCambiosPendientes,
         int versionBorrador,
         string? huellaEstadoBase,
+        string? borradorId,
         CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
@@ -281,7 +283,7 @@ public class ConceptosPresupuestoController : Controller
         }
 
         var contextoEdicion = new ContextoEdicionBorrador(
-            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase);
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
 
         try
         {
@@ -413,6 +415,7 @@ public class ConceptosPresupuestoController : Controller
         bool esperabaCambiosPendientes,
         int versionBorrador,
         string? huellaEstadoBase,
+        string? borradorId,
         CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
@@ -433,7 +436,7 @@ public class ConceptosPresupuestoController : Controller
         }
 
         var contextoEdicion = new ContextoEdicionBorrador(
-            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase);
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
 
         string? error = await _seleccionarMaterial.EjecutarAsync(
             id, conceptoId, referenciaId, usuario, cancellationToken, contextoEdicion);
@@ -476,6 +479,7 @@ public class ConceptosPresupuestoController : Controller
         bool esperabaCambiosPendientes,
         int versionBorrador,
         string? huellaEstadoBase,
+        string? borradorId,
         CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
@@ -498,7 +502,7 @@ public class ConceptosPresupuestoController : Controller
         }
 
         var contextoEdicion = new ContextoEdicionBorrador(
-            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase);
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
 
         string? error = await _cambiarProveedor.EjecutarAsync(
             id, conceptoId, referenciaId, usuario, cancellationToken, contextoEdicion);
@@ -541,6 +545,7 @@ public class ConceptosPresupuestoController : Controller
         bool esperabaCambiosPendientes,
         int versionBorrador,
         string? huellaEstadoBase,
+        string? borradorId,
         CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
@@ -562,7 +567,7 @@ public class ConceptosPresupuestoController : Controller
         }
 
         var contextoEdicion = new ContextoEdicionBorrador(
-            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase);
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
 
         string? error = await _actualizarReferencia.EjecutarAsync(
             id, conceptoId, confirmar, usuario, cancellationToken, contextoEdicion);
@@ -668,6 +673,7 @@ public class ConceptosPresupuestoController : Controller
         }
 
         bool tieneCambiosPendientes = borrador != null && borrador.TieneCambiosPendientes;
+        string? borradorId = tieneCambiosPendientes ? borrador!.BorradorId : null;
         int versionBorrador = tieneCambiosPendientes ? borrador!.Version : 0;
         string? huellaEstadoBase = tieneCambiosPendientes
             ? borrador!.HuellaEstadoBase
@@ -678,6 +684,7 @@ public class ConceptosPresupuestoController : Controller
             PresupuestoId = presupuesto.Id,
             Codigo = presupuesto.Codigo,
             TieneCambiosPendientes = tieneCambiosPendientes,
+            BorradorId = borradorId,
             VersionBorrador = versionBorrador,
             HuellaEstadoBase = huellaEstadoBase,
             Fila = fila,
@@ -695,6 +702,7 @@ public class ConceptosPresupuestoController : Controller
 
         List<FilaConceptoDto> filas;
         bool tieneCambiosPendientes = false;
+        string? borradorId = null;
         int versionBorrador = 0;
         string? huellaEstadoBase = null;
 
@@ -722,6 +730,7 @@ public class ConceptosPresupuestoController : Controller
             }
 
             tieneCambiosPendientes = true;
+            borradorId = borrador.BorradorId;
             versionBorrador = borrador.Version;
             huellaEstadoBase = borrador.HuellaEstadoBase;
         }
@@ -769,6 +778,7 @@ public class ConceptosPresupuestoController : Controller
             Codigo = presupuesto.Codigo,
             PuedeAgregar = puedeAgregar,
             TieneCambiosPendientes = tieneCambiosPendientes,
+            BorradorId = borradorId,
             VersionBorrador = versionBorrador,
             HuellaEstadoBase = huellaEstadoBase,
             Filas = filas,

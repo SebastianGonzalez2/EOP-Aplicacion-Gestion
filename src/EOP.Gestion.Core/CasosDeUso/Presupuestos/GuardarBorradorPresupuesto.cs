@@ -79,9 +79,11 @@ public class GuardarBorradorPresupuesto
             bool fueGuardadoEnOtraPestana = !string.IsNullOrWhiteSpace(huellaPersistida)
                 && _almacenBorrador.CoincideConUltimoGuardadoEnSesion(presupuestoId, usuario.Id, huellaPersistida);
 
-            // Si la pantalla esperaba cambios pendientes (o una versión > 0) y el borrador ya no
-            // está en la sesión, distinguimos si lo guardó otra pestaña o si se perdió el borrador.
-            if (contextoEdicion.EsperabaCambiosPendientes || contextoEdicion.VersionBorradorEsperada > 0)
+            // Si la pantalla esperaba cambios pendientes (o una versión/identificador previo) y el
+            // borrador ya no está en la sesión, distinguimos si lo guardó otra pestaña o si se perdió.
+            if (contextoEdicion.EsperabaCambiosPendientes
+                || contextoEdicion.VersionBorradorEsperada > 0
+                || !string.IsNullOrWhiteSpace(contextoEdicion.BorradorIdEsperado))
             {
                 if (fueGuardadoEnOtraPestana)
                 {
@@ -119,9 +121,12 @@ public class GuardarBorradorPresupuesto
             return ResultadoAccionGuardarBorrador.Exito(huboCambiosGuardados: false);
         }
 
-        // Si la pantalla intenta guardar desde una versión anterior a la que tiene la sesión,
-        // rechazamos la solicitud para no persistir cambios que esa pestaña todavía no vio.
-        if (contextoEdicion.VersionBorradorEsperada != borrador.Version)
+        // Si la pantalla intenta guardar desde otro borrador o desde una versión anterior a la que
+        // tiene la sesión, rechazamos la solicitud para no persistir cambios que esa pestaña no vio.
+        bool coincideIdentificador = !string.IsNullOrWhiteSpace(borrador.BorradorId)
+            && string.Equals(contextoEdicion.BorradorIdEsperado, borrador.BorradorId, StringComparison.Ordinal);
+
+        if (contextoEdicion.VersionBorradorEsperada != borrador.Version || !coincideIdentificador)
         {
             bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
                 presupuestoId, usuario, cancellationToken);

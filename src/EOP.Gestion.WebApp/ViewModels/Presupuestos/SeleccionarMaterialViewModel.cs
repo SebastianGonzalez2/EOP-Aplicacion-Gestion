@@ -9,6 +9,7 @@ public class SeleccionarMaterialViewModel
     public int PresupuestoId { get; init; }
     public string Codigo { get; init; } = string.Empty;
     public bool TieneCambiosPendientes { get; init; }
+    public string? BorradorId { get; init; }
     public int VersionBorrador { get; init; }
     public string? HuellaEstadoBase { get; init; }
 

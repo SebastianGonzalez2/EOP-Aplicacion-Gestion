@@ -17,9 +17,13 @@ public class GuardarBorradorPresupuestoTests
     private readonly SincronizadorBorradorPresupuesto _sincronizador = new();
     private readonly Usuario _usuario = new() { Id = 1, Activo = true, Rol = RolUsuario.Operador };
 
-    private static BorradorPresupuestoDto CrearBorradorConCambios(int version = 1) => new()
+    private const string BorradorIdInicial = "borrador-inicial-1";
+
+    private static BorradorPresupuestoDto CrearBorradorConCambios(
+        int version = 1, string borradorId = BorradorIdInicial) => new()
     {
         PresupuestoId = 10,
+        BorradorId = borradorId,
         HuellaEstadoBase = "HUELLA-BASE",
         Version = version,
         Conceptos =
@@ -115,7 +119,7 @@ public class GuardarBorradorPresupuestoTests
         var casoDeUso = new GuardarBorradorPresupuesto(_repositorio, _almacen, _sincronizador);
 
         var resultado = await casoDeUso.EjecutarAsync(
-            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"), _usuario, CancellationToken.None);
+            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial), _usuario, CancellationToken.None);
 
         Assert.True(resultado.GuardadoCorrectamente);
         Assert.True(resultado.HuboCambiosGuardados);
@@ -159,7 +163,7 @@ public class GuardarBorradorPresupuestoTests
         var casoDeUso = new GuardarBorradorPresupuesto(_repositorio, _almacen, _sincronizador);
 
         var resultado = await casoDeUso.EjecutarAsync(
-            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"), _usuario, CancellationToken.None);
+            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial), _usuario, CancellationToken.None);
 
         Assert.Equal(ResultadoGuardarBorrador.CambiosPendientesPerdidos, resultado.Estado);
         Assert.Equal(MensajesBorradorPresupuesto.CambiosPendientesPerdidos, resultado.MensajeError);
@@ -173,7 +177,7 @@ public class GuardarBorradorPresupuestoTests
         var casoDeUso = new GuardarBorradorPresupuesto(_repositorio, _almacen, _sincronizador);
 
         var resultado = await casoDeUso.EjecutarAsync(
-            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"), _usuario, CancellationToken.None);
+            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial), _usuario, CancellationToken.None);
 
         Assert.Equal(ResultadoGuardarBorrador.BorradorDesactualizado, resultado.Estado);
         Assert.Equal(MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, resultado.MensajeError);
@@ -189,10 +193,37 @@ public class GuardarBorradorPresupuestoTests
         var casoDeUso = new GuardarBorradorPresupuesto(_repositorio, _almacen, _sincronizador);
 
         var resultado = await casoDeUso.EjecutarAsync(
-            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"), _usuario, CancellationToken.None);
+            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial), _usuario, CancellationToken.None);
 
         Assert.Equal(ResultadoGuardarBorrador.BorradorDesactualizado, resultado.Estado);
         Assert.Equal(MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, resultado.MensajeError);
+    }
+
+    [Fact]
+    public async Task PestanaViejaConMismaVersion1QueUnNuevoBorrador_EsRechazadaAlEditarYAlGuardar()
+    {
+        // El nuevo borrador también tiene Version = 1, pero posee un BorradorId distinto.
+        _almacen.Guardar(10, _usuario.Id, CrearBorradorConCambios(version: 1, borradorId: "borrador-nuevo-2"));
+        var contextoViejo = new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", "borrador-viejo-1");
+
+        var agregar = new AgregarConceptoManual(_repositorio, _almacen, _sincronizador);
+        string? errorEditar = await agregar.EjecutarAsync(
+            10, TipoConcepto.AlquilerId, "No debe entrar", 300m, Moneda.UYU, null, null,
+            _usuario, CancellationToken.None, contextoViejo);
+
+        var guardar = new GuardarBorradorPresupuesto(_repositorio, _almacen, _sincronizador);
+        var resultadoGuardar = await guardar.EjecutarAsync(10, contextoViejo, _usuario, CancellationToken.None);
+
+        Assert.Equal(MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, errorEditar);
+        Assert.Equal(ResultadoGuardarBorrador.BorradorDesactualizado, resultadoGuardar.Estado);
+        Assert.Equal(MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, resultadoGuardar.MensajeError);
+        Assert.Equal(0, _repositorio.LlamadasGuardar);
+
+        // El borrador nuevo permanece intacto.
+        BorradorPresupuestoDto? borradorActual = _almacen.Obtener(10, _usuario.Id);
+        Assert.NotNull(borradorActual);
+        Assert.Equal("borrador-nuevo-2", borradorActual.BorradorId);
+        Assert.Single(borradorActual.Conceptos);
     }
 
     [Theory]
@@ -210,7 +241,7 @@ public class GuardarBorradorPresupuestoTests
         var casoDeUso = new GuardarBorradorPresupuesto(_repositorio, _almacen, _sincronizador);
 
         var resultado = await casoDeUso.EjecutarAsync(
-            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"), _usuario, CancellationToken.None);
+            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial), _usuario, CancellationToken.None);
 
         Assert.Equal(estadoDevuelto, resultado.Estado);
         Assert.Contains(fragmentoEsperado, resultado.MensajeError);
@@ -226,7 +257,7 @@ public class GuardarBorradorPresupuestoTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             casoDeUso.EjecutarAsync(
-                10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"), _usuario, CancellationToken.None));
+                10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial), _usuario, CancellationToken.None));
 
         Assert.True(_almacen.TieneCambiosPendientes(10, _usuario.Id));
         Assert.Equal(0, _sincronizador.CantidadBloqueosActivos);
@@ -251,14 +282,14 @@ public class GuardarBorradorPresupuestoTests
         var agregar = new AgregarConceptoManual(_repositorio, _almacen, _sincronizador);
 
         Task<ResultadoAccionGuardarBorrador> tareaGuardar = guardar.EjecutarAsync(
-            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"), _usuario, CancellationToken.None);
+            10, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial), _usuario, CancellationToken.None);
 
         // Esperamos a que GuardarBorrador esté dentro del bloqueo antes de lanzar Agregar.
         await guardadoInicio.Task;
 
         Task<string?> tareaAgregar = agregar.EjecutarAsync(
             10, TipoConcepto.AlquilerId, "Andamio", 500m, Moneda.USD, null, null, _usuario,
-            CancellationToken.None, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE"));
+            CancellationToken.None, new ContextoEdicionBorrador(true, 1, "HUELLA-BASE", BorradorIdInicial));
 
         await Task.Delay(30);
         Assert.False(tareaAgregar.IsCompleted);

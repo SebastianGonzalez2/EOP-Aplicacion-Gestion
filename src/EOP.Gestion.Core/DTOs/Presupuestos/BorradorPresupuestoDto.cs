@@ -106,6 +106,11 @@ public class BorradorPresupuestoDto
 {
     public int PresupuestoId { get; set; }
 
+    // Identificador único de esta instancia de borrador temporal.
+    // Evita que una pestaña vieja coincida accidentalmente con la versión 1 de un borrador nuevo
+    // creado después de guardar el anterior.
+    public string BorradorId { get; set; } = string.Empty;
+
     // Huella calculada sobre los datos persistidos en SQL Server al iniciar la edición.
     // Permite detectar si otra operación modificó el presupuesto antes de guardar este borrador.
     public string HuellaEstadoBase { get; set; } = string.Empty;
@@ -154,6 +159,7 @@ public class BorradorPresupuestoDto
         var copia = new BorradorPresupuestoDto
         {
             PresupuestoId = PresupuestoId,
+            BorradorId = BorradorId,
             HuellaEstadoBase = HuellaEstadoBase,
             Version = Version,
             SiguienteIdTemporal = SiguienteIdTemporal

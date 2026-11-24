@@ -154,6 +154,7 @@
                                               asp-route-conceptoId="@fila.Id" method="post" class="form-seleccion-material">
                                             <input type="hidden" name="referenciaId" value="@referenciaActual.RelacionId" />
                                             <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                                            <input type="hidden" name="borradorId" value="@Model.BorradorId" />
                                             <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
                                             <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
                                             <button type="submit" class="btn btn-outline-primary btn-sm"
@@ -189,6 +190,7 @@
                       asp-route-id="@Model.PresupuestoId" asp-route-conceptoId="@fila.Id" method="post">
                     <input type="hidden" name="confirmar" value="true" />
                     <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
                     <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
                     <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
 
@@ -351,6 +353,7 @@
                                                 <input type="hidden" name="referenciaId" value="@referencia.RelacionId" />
                                                 <input type="hidden" name="busqueda" value="@Model.Busqueda" />
                                                 <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                                                <input type="hidden" name="borradorId" value="@Model.BorradorId" />
                                                 <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
                                                 <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
                                                 <button type="submit" class="btn btn-outline-primary btn-sm"
