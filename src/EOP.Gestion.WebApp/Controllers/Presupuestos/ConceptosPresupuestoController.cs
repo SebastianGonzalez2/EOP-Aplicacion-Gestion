@@ -27,13 +27,16 @@ public class ConceptosPresupuestoController : Controller
     private readonly AgregarConceptoManual _agregarConcepto;
     private readonly SeleccionarMaterialDeConcepto _seleccionarMaterial;
     private readonly CambiarProveedorDeConcepto _cambiarProveedor;
+    private readonly ActualizarReferenciaDeConcepto _actualizarReferencia;
 
     private readonly RegistrarMargen _registrarMargen;
     public ConceptosPresupuestoController(
         IRepositorioUsuarios usuarios, IRepositorioConceptosPresupuesto repositorio,
         ConsultarConceptosPresupuesto consultarConceptos, ConsultarMateriales consultarMateriales,
         AgregarConceptoManual agregarConcepto, SeleccionarMaterialDeConcepto seleccionarMaterial,
-        CambiarProveedorDeConcepto cambiarProveedor, RegistrarMargen registrarMargen)
+        CambiarProveedorDeConcepto cambiarProveedor,
+        ActualizarReferenciaDeConcepto actualizarReferencia,
+        RegistrarMargen registrarMargen)
     {
         _usuarios = usuarios;
         _repositorio = repositorio;
@@ -42,6 +45,7 @@ public class ConceptosPresupuestoController : Controller
         _agregarConcepto = agregarConcepto;
         _seleccionarMaterial = seleccionarMaterial;
         _cambiarProveedor = cambiarProveedor;
+        _actualizarReferencia = actualizarReferencia;
         _registrarMargen = registrarMargen;
     }
 
@@ -308,6 +312,54 @@ public class ConceptosPresupuestoController : Controller
         if (error == null)
         {
             TempData["MensajeExito"] = "El proveedor de la fila se actualizó con la referencia seleccionada.";
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        if (fila == null)
+        {
+            TempData["MensajeError"] = error;
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        ModelState.AddModelError(string.Empty, error);
+        return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
+            presupuesto, fila, null, cancellationToken));
+    }
+
+    // S3-T12 (RF-020): el usuario pidió, y confirmó en el diálogo, que la fila vuelva a copiar los
+    // valores vigentes de la referencia que ya tiene. No recibe ninguna referencia por parámetro:
+    // el servidor usa la que la fila ya guarda, así esta acción no puede cambiar de proveedor.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> ActualizarReferencia(
+        int id, int conceptoId, bool confirmar, CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        // Un presupuesto aprobado o en cualquier estado no editable nunca se modifica (RNF-4).
+        // El repositorio lo vuelve a comprobar dentro de la transacción.
+        if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
+        {
+            return Forbid();
+        }
+
+        string? error = await _actualizarReferencia.EjecutarAsync(
+            id, conceptoId, confirmar, usuario, cancellationToken);
+        if (error == null)
+        {
+            TempData["MensajeExito"] = "Los valores de la fila se actualizaron con los vigentes del catálogo.";
             return RedirectToAction(nameof(Index), new { id });
         }
 

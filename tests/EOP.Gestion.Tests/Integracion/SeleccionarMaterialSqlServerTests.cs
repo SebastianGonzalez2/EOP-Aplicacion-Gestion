@@ -1157,6 +1157,282 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         Assert.Equal(_cableProveedorBId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
     }
 
+    // ---- S3-T12 (RF-020): actualizar a pedido y con confirmación la referencia que la fila ya tiene ----
+
+    // El catálogo cambia los cuatro valores de la referencia A del cable: nombre y unidad del material,
+    // precio y moneda de la referencia.
+    private async Task CambiarElCatalogoDeLaReferenciaAAsync()
+    {
+        using EopDbContext contexto = CrearContexto();
+        await contexto.Materiales.Where(m => m.Nombre == "Cable de cobre")
+            .ExecuteUpdateAsync(c => c.SetProperty(m => m.Nombre, "Cable renombrado").SetProperty(m => m.Unidad, UnidadMedida.Unidad));
+        await contexto.MaterialProveedores.Where(r => r.Id == _cableProveedorAId)
+            .ExecuteUpdateAsync(c => c.SetProperty(r => r.PrecioUnitario, 150m).SetProperty(r => r.Moneda, Moneda.USD));
+    }
+
+    // confirmar == null no envía el campo: es una solicitud que no pasó por el diálogo de confirmación.
+    private async Task<HttpResponseMessage> ActualizarReferenciaAsync(
+        FabricaConEntraSimulado.Navegador navegador, int conceptoId, string? confirmar = "true",
+        int? presupuestoId = null, Dictionary<string, string>? camposExtra = null)
+    {
+        var formulario = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync($"/ConceptosPresupuesto/Index/{_presupuestoId}")
+        };
+        if (confirmar != null)
+        {
+            formulario["confirmar"] = confirmar;
+        }
+        foreach (var campo in camposExtra ?? [])
+        {
+            formulario[campo.Key] = campo.Value;
+        }
+        return await navegador.PostAsync(
+            $"/ConceptosPresupuesto/ActualizarReferencia/{presupuestoId ?? _presupuestoId}?conceptoId={conceptoId}", formulario);
+    }
+
+    [FactConSqlServer]
+    public async Task PanelDeReferencias_OfreceActualizarSoloSiElCatalogoCambioLaReferenciaDeLaFila()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string alDia = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+        Assert.DoesNotContain("Actualizar valores", alDia);
+        Assert.Contains("Valores al día con el catálogo", alDia);
+
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        string conCambios = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+
+        Assert.Contains("Actualizar valores", conCambios);
+        Assert.Contains("confirmarActualizarReferencia", conCambios);
+        // El diálogo muestra los valores de la fila y los del catálogo para decidir con información.
+        Assert.Contains("Cable renombrado", conCambios);
+        string dialogo = Regex.Match(conCambios, @"<form[^>]*ActualizarReferencia.*?</form>", RegexOptions.Singleline).Value;
+        Assert.Contains("name=\"confirmar\"", dialogo);
+        Assert.DoesNotContain("name=\"referenciaId\"", dialogo);
+        // Ver el panel, aunque el catálogo haya cambiado, no actualiza nada.
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal("Cable de cobre", fila.Concepto);
+        Assert.Equal(100m, fila.PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task ActualizacionConfirmada_CopiaLosCuatroValoresVigentesYConservaMaterialProveedorDetectadoYCantidad()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        var antes = await LeerFilaAsync(filaId);
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        string catalogoAntes = await FotoDelCatalogoAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, filaId);
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal("Cable renombrado", fila.Concepto);
+        Assert.Equal(UnidadMedida.Unidad, fila.Unidad);
+        Assert.Equal(150m, fila.PrecioUnitario);
+        Assert.Equal(Moneda.USD, fila.Moneda);
+        Assert.Equal(antes.MaterialId, fila.MaterialId);
+        Assert.Equal(antes.MaterialProveedorId, fila.MaterialProveedorId);
+        Assert.Equal("cable de cobre para tablero", fila.ConceptoDetectado);
+        Assert.Equal(10m, fila.Cantidad);
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+
+        // Ahora la fila coincide con el catálogo y ya no ofrece actualizar.
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(filaId));
+        Assert.DoesNotContain("Actualizar valores", pagina);
+    }
+
+    [TheoryConSqlServer]
+    [InlineData(null)]
+    [InlineData("false")]
+    [InlineData("")]
+    public async Task SinConfirmacionExplicita_LaFilaConservaSusValoresHistoricosAunqueElCatalogoCambio(string? confirmar)
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, filaId, confirmar);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("Confirmá la actualización", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal("Cable de cobre", fila.Concepto);
+        Assert.Equal(UnidadMedida.Metro, fila.Unidad);
+        Assert.Equal(100m, fila.PrecioUnitario);
+        Assert.Equal(Moneda.UYU, fila.Moneda);
+        string tabla = await LeerPaginaAsync(navegador, $"/ConceptosPresupuesto/Index/{_presupuestoId}");
+        Assert.DoesNotContain("Cable renombrado", tabla);
+    }
+
+    [FactConSqlServer]
+    public async Task ActualizacionConfirmada_ConLaFilaYaAlDia_InformaQueNoHayNadaQueActualizar()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        var antes = await LeerFilaAsync(filaId);
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, filaId);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("ya coinciden con los del catálogo", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        var despues = await LeerFilaAsync(filaId);
+        Assert.Equal(antes.PrecioUnitario, despues.PrecioUnitario);
+        Assert.Equal(antes.Concepto, despues.Concepto);
+    }
+
+    [FactConSqlServer]
+    public async Task ActualizacionConfirmada_IgnoraUnaReferenciaMandadaEnLaSolicitudYNoCambiaDeProveedor()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        await ActualizarReferenciaAsync(navegador, filaId, camposExtra: new()
+        {
+            ["referenciaId"] = _cableProveedorBId.ToString(),
+            ["PrecioUnitario"] = "999"
+        });
+
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal(_cableProveedorAId, fila.MaterialProveedorId);
+        Assert.Equal(150m, fila.PrecioUnitario);
+    }
+
+    [TheoryConSqlServer]
+    [InlineData(EstadoPresupuesto.Borrador, false, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.Aprobado, true, RolUsuario.Administrador)]
+    [InlineData(EstadoPresupuesto.Rechazado, true, RolUsuario.Supervisor)]
+    [InlineData(EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente, true, RolUsuario.Operador)]
+    [InlineData(EstadoPresupuesto.Vencido, true, RolUsuario.Administrador)]
+    [InlineData(EstadoPresupuesto.Cancelado, true, RolUsuario.Administrador)]
+    public async Task ActualizacionConfirmada_SinPermisoOPresupuestoNoEditable_ElServidorLaRechazaYNoCambiaNada(
+        EstadoPresupuesto estado, bool responsable, RolUsuario rol)
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        string catalogoAntes = await FotoDelCatalogoAsync();
+        using (EopDbContext contexto = CrearContexto())
+        {
+            await contexto.Presupuestos.Where(p => p.Id == _presupuestoId)
+                .ExecuteUpdateAsync(cambios => cambios.SetProperty(p => p.Estado, estado));
+        }
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, rol, responsable);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, filaId);
+
+        Assert.Contains("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
+        var fila = await LeerFilaAsync(filaId);
+        Assert.Equal("Cable de cobre", fila.Concepto);
+        Assert.Equal(100m, fila.PrecioUnitario);
+        Assert.Equal(Moneda.UYU, fila.Moneda);
+        Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
+    }
+
+    [TheoryConSqlServer]
+    [InlineData(RolUsuario.Supervisor)]
+    [InlineData(RolUsuario.Administrador)]
+    public async Task ActualizacionConfirmada_SupervisorYAdministradorPuedenHacerlo(RolUsuario rol)
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, rol, responsable: false);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, filaId);
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Equal(150m, (await LeerFilaAsync(filaId)).PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task ActualizacionConfirmada_EnUnaFilaSinMaterial_SeRechazaYNoLaVincula()
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, _filaSinMaterialId);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("todavía no tiene un material", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        Assert.Null((await LeerFilaAsync(_filaSinMaterialId)).MaterialProveedorId);
+    }
+
+    [FactConSqlServer]
+    public async Task ActualizacionConfirmada_EnUnaFilaQueNoEsMaterial_SeRechazaSinCambios()
+    {
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, _filaManoDeObraId);
+
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("filas de tipo Material", WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync()));
+        Assert.Equal(1500m, (await LeerFilaAsync(_filaManoDeObraId)).PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task ActualizacionConfirmada_EnUnaFilaDeOtroPresupuesto_NoSePuedeCambiandoElIdDeLaUrl()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Administrador, responsable: false);
+
+        var respuesta = await ActualizarReferenciaAsync(navegador, filaId, presupuestoId: _otroPresupuestoId);
+
+        Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.DoesNotContain("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
+        Assert.Equal(100m, (await LeerFilaAsync(filaId)).PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task ActualizacionConfirmada_SinTokenAntifalsificacion_SeRechaza()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        var respuesta = await navegador.PostAsync(
+            $"/ConceptosPresupuesto/ActualizarReferencia/{_presupuestoId}?conceptoId={filaId}",
+            new Dictionary<string, string> { ["confirmar"] = "true" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, respuesta.StatusCode);
+        Assert.Equal(100m, (await LeerFilaAsync(filaId)).PrecioUnitario);
+    }
+
+    [FactConSqlServer]
+    public async Task DosActualizacionesConfirmadasALaVez_SoloUnaCopiaYLaOtraInformaQueYaCoinciden()
+    {
+        int filaId = await CrearFilaConCableElegidoAsync();
+        await CambiarElCatalogoDeLaReferenciaAAsync();
+        using EopDbContext contextoInicial = CrearContexto();
+        var responsable = await contextoInicial.Usuarios.SingleAsync();
+
+        async Task<string?> ActualizarAsync()
+        {
+            using EopDbContext contexto = CrearContexto();
+            var casoDeUso = new ActualizarReferenciaDeConcepto(new RepositorioConceptosPresupuesto(contexto));
+            return await casoDeUso.EjecutarAsync(_presupuestoId, filaId, true, responsable, CancellationToken.None);
+        }
+
+        var resultados = await Task.WhenAll(ActualizarAsync(), ActualizarAsync());
+
+        Assert.Single(resultados, resultado => resultado is null);
+        Assert.Contains(resultados, resultado => resultado?.Contains("ya coinciden") == true);
+        Assert.Equal(150m, (await LeerFilaAsync(filaId)).PrecioUnitario);
+    }
+
     private static int ContarApariciones(string texto, string buscado) =>
         (texto.Length - texto.Replace(buscado, string.Empty).Length) / buscado.Length;
 }

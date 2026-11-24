@@ -84,6 +84,10 @@ public class SeleccionarMaterialDeConceptoTests
             CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
+        public Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
+            int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
         public Task<Presupuesto?> ObtenerPresupuestoAsync(int presupuestoId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 

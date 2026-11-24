@@ -19,6 +19,10 @@ referencia del material, **menos la que la fila ya tiene**, ofrece un botón «S
 3. `ConceptoDetectado` y `Cantidad` no se tocan. El catálogo no se modifica.
 4. Queda guardado en la base de datos y se vuelve a la tabla de conceptos con un mensaje de confirmación.
 
+Además, la **referencia que la fila ya tiene** puede actualizarse a pedido (sección 6): si el catálogo cambió el
+nombre, la unidad, el precio o la moneda, el panel ofrece «Actualizar valores», que pide confirmación y vuelve a
+copiar los cuatro valores vigentes de esa misma referencia.
+
 ## 2. Piezas
 
 | Pieza | Qué hace |
@@ -40,7 +44,8 @@ referencia del material, **menos la que la fila ya tiene**, ofrece un botón «S
 - Cambiar el catálogo después (nombre o unidad del material, precio o moneda de la referencia) no toca las
   filas ya guardadas.
 - Una nueva selección expresa vuelve a copiar los valores **vigentes** de la referencia elegida (RF-020,
-  último párrafo de la descripción).
+  último párrafo de la descripción). Para la referencia que la fila ya tiene, esa nueva selección es la
+  actualización manual con confirmación de la sección 6.
 
 ## 4. Validaciones del servidor
 
@@ -67,11 +72,45 @@ referencia del material, **menos la que la fila ya tiene**, ofrece un botón «S
 - `MatrizDeAutorizacionTests`: la acción `CambiarProveedor` quedó declarada en la matriz de RF-73.
 - Se ajustaron dos expresiones regulares de S3-T11 porque la fila del panel ahora termina con la celda de acción.
 
-## 6. Observación para decidir (no se cambió nada)
+## 6. Actualización manual de la referencia actual (RF-020)
 
-Según el pedido de la tarea, la referencia que la fila ya tiene **no se ofrece de nuevo**, y S3-T09 ya rechaza
-volver a elegirla («ya es la seleccionada») para no pisar los valores históricos. Pero RF-020 dice que, para
-aplicar una referencia **actualizada** del catálogo (por ejemplo, el mismo proveedor con precio nuevo), «el
-usuario deberá realizar una nueva selección». Hoy el único camino es elegir otro proveedor y después volver al
-primero. Si el equipo quiere permitir «refrescar» la referencia actual con los valores vigentes del catálogo,
-habría que definirlo (probablemente una confirmación explícita) en una tarea aparte.
+RF-020 dice que, para aplicar una referencia **actualizada** del catálogo, «el usuario deberá realizar una nueva
+selección». Como la referencia que la fila ya tiene no se ofrece como «otra» (y S3-T09 rechaza volver a elegirla
+para no pisar los valores históricos), el caso quedaba sin camino. Se completó así:
+
+- **Cuándo se ofrece.** En la fila de la referencia actual del panel, si alguno de los cuatro valores que la fila
+  copió (nombre, unidad, precio, moneda) ya no coincide con el catálogo, aparece **«Actualizar valores»**. Si
+  coinciden, el panel indica «Valores al día con el catálogo» y no ofrece nada. Que el catálogo cambie nunca
+  actualiza la fila por sí solo.
+- **Confirmación explícita.** El botón solo abre un diálogo (patrón de `docs/diseno-visual.md` §18.1) que muestra
+  los valores de la fila junto a los del catálogo y avisa que los de la fila no se pueden recuperar después.
+  Recién «Actualizar valores», dentro del diálogo, envía el POST con `confirmar=true`. El servidor exige ese
+  campo (`ActualizarReferenciaDeConcepto`): una solicitud sin confirmar se rechaza y no cambia nada.
+- **Qué hace.** `POST ConceptosPresupuesto/ActualizarReferencia` → `ActualizarReferenciaDeConcepto` →
+  `RepositorioConceptosPresupuesto.ActualizarReferenciaActualSiPuedeEditarAsync`. No recibe ninguna referencia:
+  usa la que la fila ya guarda, así no se puede usar para cambiar de proveedor ni de material. Vuelve a copiar los
+  cuatro valores con `CopiarReferencia` y conserva material, proveedor, `ConceptoDetectado` y cantidad. El
+  catálogo se lee sin seguimiento y no se modifica.
+- **Mismas protecciones que el resto.** Mismo control de rol y de estado editable (controlador y dentro de la
+  transacción, con `UPDLOCK`): un presupuesto aprobado, vencido, cancelado o en cualquier estado no editable nunca
+  se modifica, y el Operador solo si es el responsable. Si la fila no tiene material, no es de tipo Material o no
+  es del presupuesto de la URL, se rechaza.
+- **Sin cambios.** Si al confirmar los cuatro valores ya coinciden (por ejemplo, otra persona acaba de
+  actualizarlos), se informa que no hay nada que actualizar y no se guarda.
+- Los helpers comunes (`UsuarioPuedeEditarAsync`, `ObtenerFilaBloqueadaAsync`, `ObtenerReferenciaConMaterialAsync`)
+  se extrajeron del flujo de selección para que los tres flujos compartan el mismo control sin duplicarlo.
+
+No se elimina ninguna fila ni se amplía el alcance a otras tareas.
+
+## 7. Pruebas de la actualización manual
+
+- `ActualizarReferenciaDeConceptoTests` (unitarias): sin confirmación no se consulta al repositorio; cada
+  resultado se traduce a su mensaje; los resultados que esta acción no debe producir no se ignoran.
+- `SeleccionarMaterialSqlServerTests` (SQL Server real): el botón solo aparece si el catálogo cambió y consultar el
+  panel no actualiza nada; la actualización confirmada copia los cuatro valores y conserva material, proveedor,
+  concepto detectado y cantidad sin tocar el catálogo; sin confirmación (campo ausente, `false` o vacío) la fila
+  conserva su historia aunque el catálogo haya cambiado; fila ya al día; una referencia mandada en la solicitud se
+  ignora; permisos por rol y estado (Borrador sin ser responsable, Aprobado, Rechazado, Enviado, Vencido,
+  Cancelado) sin ningún cambio; fila sin material, que no es Material o de otro presupuesto; token
+  antifalsificación; dos actualizaciones simultáneas.
+- `MatrizDeAutorizacionTests`: la acción `ActualizarReferencia` quedó declarada en la matriz de RF-73.

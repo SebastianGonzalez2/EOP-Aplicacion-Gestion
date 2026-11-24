@@ -54,6 +54,7 @@ builder.Services.AddScoped<RegistrarPresupuesto>();
 builder.Services.AddScoped<AgregarConceptoManual>();
 builder.Services.AddScoped<SeleccionarMaterialDeConcepto>();
 builder.Services.AddScoped<CambiarProveedorDeConcepto>();
+builder.Services.AddScoped<ActualizarReferenciaDeConcepto>();
 
 // Registramos el caso de uso que valida los datos del proveedor.
 builder.Services.AddScoped<ValidarDatosProveedor>();
