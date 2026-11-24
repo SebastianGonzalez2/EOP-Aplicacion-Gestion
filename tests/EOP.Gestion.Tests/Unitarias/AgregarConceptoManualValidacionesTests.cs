@@ -1,17 +1,19 @@
-﻿
-using EOP.Gestion.Core.CasosDeUso.Presupuestos;
+﻿using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Presupuestos;
+using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Tests.Compartido;
 
 namespace EOP.Gestion.Tests.Unitarias;
 
 public class AgregarConceptoManualValidacionesTests
 {
     private readonly RepositorioConceptosFalso _repositorio = new();
-    private readonly Usuario _usuario = new() { Id = 1 };
+    private readonly AlmacenBorradorEnMemoria _almacen = new();
+    private readonly Usuario _usuario = new() { Id = 1, Activo = true, Rol = RolUsuario.Operador };
 
     [Theory]
     [InlineData(0)]
@@ -22,7 +24,8 @@ public class AgregarConceptoManualValidacionesTests
         string? error = await EjecutarAsync(tipoId);
 
         Assert.Equal("Seleccioná un tipo de concepto disponible.", error);
-        Assert.Empty(_repositorio.ConceptosGuardados);
+        Assert.False(_almacen.TieneCambiosPendientes(1, _usuario.Id));
+        Assert.Equal(0, _repositorio.GuardadosEnBase);
     }
 
     [Fact]
@@ -32,7 +35,7 @@ public class AgregarConceptoManualValidacionesTests
             TipoConcepto.MaterialId, cantidad: 2m);
 
         Assert.Contains("referencia", error);
-        Assert.Empty(_repositorio.ConceptosGuardados);
+        Assert.False(_almacen.TieneCambiosPendientes(1, _usuario.Id));
     }
 
     [Theory]
@@ -47,7 +50,7 @@ public class AgregarConceptoManualValidacionesTests
             cantidad: cantidad);
 
         Assert.Contains("cantidad mayor que cero", error);
-        Assert.Empty(_repositorio.ConceptosGuardados);
+        Assert.False(_almacen.TieneCambiosPendientes(1, _usuario.Id));
     }
 
     [Fact]
@@ -58,7 +61,7 @@ public class AgregarConceptoManualValidacionesTests
             moneda: Moneda.UYU);
 
         Assert.Equal("Ingresá el importe del concepto.", error);
-        Assert.Empty(_repositorio.ConceptosGuardados);
+        Assert.False(_almacen.TieneCambiosPendientes(1, _usuario.Id));
     }
 
     [Fact]
@@ -69,11 +72,11 @@ public class AgregarConceptoManualValidacionesTests
             importe: 100m);
 
         Assert.Equal("Seleccioná USD o UYU.", error);
-        Assert.Empty(_repositorio.ConceptosGuardados);
+        Assert.False(_almacen.TieneCambiosPendientes(1, _usuario.Id));
     }
 
     [Fact]
-    public async Task ImporteManualValido_SeGuarda()
+    public async Task ImporteManualValido_SeAgregaAlBorradorSinPersistirEnBase()
     {
         string? error = await EjecutarAsync(
             TipoConcepto.TrasladoId,
@@ -82,9 +85,13 @@ public class AgregarConceptoManualValidacionesTests
             moneda: Moneda.USD);
 
         Assert.Null(error);
-        ConceptoPresupuesto concepto =
-            Assert.Single(_repositorio.ConceptosGuardados);
+        Assert.Equal(0, _repositorio.GuardadosEnBase);
 
+        BorradorPresupuestoDto? borrador = _almacen.Obtener(1, _usuario.Id);
+        Assert.NotNull(borrador);
+        ConceptoBorradorDto concepto = Assert.Single(borrador.Conceptos);
+
+        Assert.True(concepto.EsNuevo);
         Assert.Equal("Transporte", concepto.Concepto);
         Assert.Equal(150m, concepto.PrecioUnitario);
         Assert.Equal(Moneda.USD, concepto.Moneda);
@@ -100,7 +107,7 @@ public class AgregarConceptoManualValidacionesTests
         int? referenciaId = null,
         decimal? cantidad = null)
     {
-        var casoDeUso = new AgregarConceptoManual(_repositorio);
+        var casoDeUso = new AgregarConceptoManual(_repositorio, _almacen);
 
         return casoDeUso.EjecutarAsync(
             1, tipoId, descripcion, importe, moneda,
@@ -111,43 +118,39 @@ public class AgregarConceptoManualValidacionesTests
     private class RepositorioConceptosFalso
         : IRepositorioConceptosPresupuesto
     {
-        public List<ConceptoPresupuesto> ConceptosGuardados { get; } = [];
+        public int GuardadosEnBase { get; private set; }
 
         public Task<Presupuesto?> ObtenerPresupuestoAsync(
             int presupuestoId,
-            CancellationToken cancellationToken)
-        {
-            return Task.FromResult<Presupuesto?>(null);
-        }
+            CancellationToken cancellationToken) =>
+            Task.FromResult<Presupuesto?>(new Presupuesto { Id = presupuestoId });
 
-        public Task<ResultadoGuardarConcepto> AgregarSiPuedeEditarAsync(
-            ConceptoPresupuesto concepto,
-            Usuario usuario,
-            CancellationToken cancellationToken)
-        {
-            ConceptosGuardados.Add(concepto);
+        public Task<bool> PuedeEditarEnBaseAsync(
+            int presupuestoId, Usuario usuario, CancellationToken cancellationToken) =>
+            Task.FromResult(true);
 
-            return Task.FromResult(ResultadoGuardarConcepto.Guardado);
-        }
+        public Task<BorradorPresupuestoDto?> ObtenerBorradorBaseAsync(
+            int presupuestoId, CancellationToken cancellationToken) =>
+            Task.FromResult<BorradorPresupuestoDto?>(new BorradorPresupuestoDto
+            {
+                PresupuestoId = presupuestoId,
+                HuellaEstadoBase = "BASE"
+            });
 
-        public Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
-            int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-            CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException("Estas pruebas no seleccionan materiales de filas existentes.");
-        }
+        public Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(
+            int referenciaId, CancellationToken cancellationToken) =>
+            Task.FromResult<ReferenciaCatalogoPresupuestoDto?>(new ReferenciaCatalogoPresupuestoDto(
+                10, referenciaId, "Cable", UnidadMedida.Metro, "Proveedor A", 100m, Moneda.UYU));
 
-        public Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
-            int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-            CancellationToken cancellationToken)
-        {
-            throw new NotSupportedException("Estas pruebas no cambian el proveedor de filas existentes.");
-        }
+        public Task<string?> ObtenerNombreTipoConceptoAsync(
+            int tipoId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Traslado");
 
-        public Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
-            int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken)
+        public Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+            BorradorPresupuestoDto borrador, Usuario usuario, CancellationToken cancellationToken)
         {
-            throw new NotSupportedException("Estas pruebas no actualizan la referencia de filas existentes.");
+            GuardadosEnBase++;
+            return Task.FromResult(ResultadoGuardarBorrador.Guardado);
         }
     }
 }

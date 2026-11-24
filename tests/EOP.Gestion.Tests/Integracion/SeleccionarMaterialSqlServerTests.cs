@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
+using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Presupuestos;
@@ -203,6 +204,18 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             $"/ConceptosPresupuesto/AsignarMaterial/{presupuestoId ?? _presupuestoId}?conceptoId={conceptoId}", formulario);
     }
 
+    private async Task<HttpResponseMessage> GuardarBorradorAsync(
+        FabricaConEntraSimulado.Navegador navegador, int? presupuestoId = null, bool esperabaCambiosPendientes = true)
+    {
+        int idObjetivo = presupuestoId ?? _presupuestoId;
+        var formulario = new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync($"/ConceptosPresupuesto/Index/{idObjetivo}"),
+            ["esperabaCambiosPendientes"] = esperabaCambiosPendientes ? "true" : "false"
+        };
+        return await navegador.PostAsync($"/ConceptosPresupuesto/GuardarBorrador/{idObjetivo}", formulario);
+    }
+
     private async Task<ConceptoPresupuesto> LeerFilaAsync(int conceptoId)
     {
         using EopDbContext contexto = CrearContexto();
@@ -296,6 +309,12 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var respuesta = await AsignarAsync(navegador, _filaSinMaterialId, _cableProveedorAId.ToString());
 
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        // RF-005: antes de guardar el borrador la base no se modifica.
+        Assert.Null((await LeerFilaAsync(_filaSinMaterialId)).MaterialProveedorId);
+
+        var guardado = await GuardarBorradorAsync(navegador);
+        Assert.Equal(HttpStatusCode.Redirect, guardado.StatusCode);
+
         var fila = await LeerFilaAsync(_filaSinMaterialId);
         Assert.Equal(_cableProveedorAId, fila.MaterialProveedorId);
         Assert.NotNull(fila.MaterialId);
@@ -322,6 +341,10 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var respuesta = await AsignarAsync(navegador, _filaConPinturaId, _cableProveedorBId.ToString());
 
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Equal(_pinturaProveedorAId, (await LeerFilaAsync(_filaConPinturaId)).MaterialProveedorId);
+
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
+
         var fila = await LeerFilaAsync(_filaConPinturaId);
         Assert.Equal(_cableProveedorBId, fila.MaterialProveedorId);
         Assert.Equal("Cable de cobre", fila.Concepto);
@@ -405,6 +428,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             "cable");
 
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
 
         var filaProveedorA = await LeerFilaAsync(filaProveedorAId);
         var filaProveedorB = await LeerFilaAsync(_filaSinMaterialId);
@@ -568,17 +592,22 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         contextoInicial.ConceptosPresupuesto.Add(otraFila);
         await contextoInicial.SaveChangesAsync();
 
-        async Task<string?> SeleccionarAsync(int conceptoId)
+        async Task<ResultadoAccionGuardarBorrador> SeleccionarYGuardarAsync(int conceptoId)
         {
             using EopDbContext contexto = CrearContexto();
-            var casoDeUso = new SeleccionarMaterialDeConcepto(new RepositorioConceptosPresupuesto(contexto));
-            return await casoDeUso.EjecutarAsync(_presupuestoId, conceptoId, _cableProveedorAId, responsable, CancellationToken.None);
+            var repositorio = new RepositorioConceptosPresupuesto(contexto);
+            var almacen = new AlmacenBorradorEnMemoria();
+            var seleccionar = new SeleccionarMaterialDeConcepto(repositorio, almacen);
+            Assert.Null(await seleccionar.EjecutarAsync(_presupuestoId, conceptoId, _cableProveedorAId, responsable, CancellationToken.None));
+
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
+            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
         }
 
-        var resultados = await Task.WhenAll(SeleccionarAsync(_filaSinMaterialId), SeleccionarAsync(otraFila.Id));
+        var resultados = await Task.WhenAll(SeleccionarYGuardarAsync(_filaSinMaterialId), SeleccionarYGuardarAsync(otraFila.Id));
 
-        Assert.Single(resultados, resultado => resultado is null);
-        Assert.Contains(resultados, resultado => resultado?.Contains("ya están en otra fila") == true);
+        Assert.Single(resultados, resultado => resultado.GuardadoCorrectamente);
+        Assert.Single(resultados, resultado => resultado.Estado == ResultadoGuardarBorrador.ConflictoConcurrencia);
         Assert.Equal(1, await contextoInicial.ConceptosPresupuesto.CountAsync(c => c.MaterialProveedorId == _cableProveedorAId));
     }
 
@@ -588,16 +617,22 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         using EopDbContext contextoInicial = CrearContexto();
         var responsable = await contextoInicial.Usuarios.SingleAsync();
 
-        async Task<string?> SeleccionarAsync(int referenciaId)
+        async Task<ResultadoAccionGuardarBorrador> SeleccionarYGuardarAsync(int referenciaId)
         {
             using EopDbContext contexto = CrearContexto();
-            var casoDeUso = new SeleccionarMaterialDeConcepto(new RepositorioConceptosPresupuesto(contexto));
-            return await casoDeUso.EjecutarAsync(_presupuestoId, _filaSinMaterialId, referenciaId, responsable, CancellationToken.None);
+            var repositorio = new RepositorioConceptosPresupuesto(contexto);
+            var almacen = new AlmacenBorradorEnMemoria();
+            var seleccionar = new SeleccionarMaterialDeConcepto(repositorio, almacen);
+            Assert.Null(await seleccionar.EjecutarAsync(_presupuestoId, _filaSinMaterialId, referenciaId, responsable, CancellationToken.None));
+
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
+            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
         }
 
-        var resultados = await Task.WhenAll(SeleccionarAsync(_cableProveedorAId), SeleccionarAsync(_cableProveedorBId));
+        var resultados = await Task.WhenAll(SeleccionarYGuardarAsync(_cableProveedorAId), SeleccionarYGuardarAsync(_cableProveedorBId));
 
-        Assert.All(resultados, Assert.Null);
+        Assert.Single(resultados, resultado => resultado.GuardadoCorrectamente);
+        Assert.Single(resultados, resultado => resultado.Estado == ResultadoGuardarBorrador.ConflictoConcurrencia);
         var fila = await LeerFilaAsync(_filaSinMaterialId);
         Assert.Contains(fila.MaterialProveedorId, new int?[] { _cableProveedorAId, _cableProveedorBId });
         Assert.Equal(TextoDetectadoPorIa, fila.ConceptoDetectado);
@@ -790,6 +825,11 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
 
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        // RF-005: el cambio queda en el borrador hasta guardar explícitamente.
+        Assert.Equal(_cableProveedorAId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
+
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
+
         // Se lee con un contexto nuevo: lo que se ve es lo que quedó guardado en la base.
         var fila = await LeerFilaAsync(filaId);
         Assert.Equal(_cableProveedorBId, fila.MaterialProveedorId);
@@ -822,6 +862,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             ["Moneda"] = "UYU",
             ["Unidad"] = "Litro"
         });
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
 
         var fila = await LeerFilaAsync(filaId);
         Assert.Equal("Cable de cobre", fila.Concepto);
@@ -837,6 +878,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
         await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
 
         // El catálogo cambia por completo: nombre y unidad del material, precio y moneda de la referencia.
         using (EopDbContext contexto = CrearContexto())
@@ -878,6 +920,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
 
         // La nueva selección expresa sí vuelve a copiar los valores vigentes de la referencia elegida.
         await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
         var fila = await LeerFilaAsync(filaId);
         Assert.Equal(_cableProveedorBId, fila.MaterialProveedorId);
         Assert.Equal(3.5m, fila.PrecioUnitario);
@@ -892,6 +935,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
         await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
 
         var otraFilaDespues = await LeerFilaAsync(_filaConPinturaId);
         Assert.Equal(otraFilaAntes.MaterialProveedorId, otraFilaDespues.MaterialProveedorId);
@@ -1118,6 +1162,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var respuesta = await CambiarProveedorAsync(navegador, filaId, _cableProveedorBId.ToString());
 
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
         Assert.Equal(_cableProveedorBId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
     }
 
@@ -1137,23 +1182,28 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
     }
 
     [FactConSqlServer]
-    public async Task DosCambiosSimultaneosALaMismaReferencia_SoloUnoLoHaceYElOtroInformaQueNoHuboCambios()
+    public async Task DosCambiosSimultaneosALaMismaReferencia_SoloUnoLoHaceYElOtroDetectaConcurrencia()
     {
         int filaId = await CrearFilaConCableElegidoAsync();
         using EopDbContext contextoInicial = CrearContexto();
         var responsable = await contextoInicial.Usuarios.SingleAsync();
 
-        async Task<string?> CambiarAsync()
+        async Task<ResultadoAccionGuardarBorrador> CambiarYGuardarAsync()
         {
             using EopDbContext contexto = CrearContexto();
-            var casoDeUso = new CambiarProveedorDeConcepto(new RepositorioConceptosPresupuesto(contexto));
-            return await casoDeUso.EjecutarAsync(_presupuestoId, filaId, _cableProveedorBId, responsable, CancellationToken.None);
+            var repositorio = new RepositorioConceptosPresupuesto(contexto);
+            var almacen = new AlmacenBorradorEnMemoria();
+            var cambiar = new CambiarProveedorDeConcepto(repositorio, almacen);
+            Assert.Null(await cambiar.EjecutarAsync(_presupuestoId, filaId, _cableProveedorBId, responsable, CancellationToken.None));
+
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
+            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
         }
 
-        var resultados = await Task.WhenAll(CambiarAsync(), CambiarAsync());
+        var resultados = await Task.WhenAll(CambiarYGuardarAsync(), CambiarYGuardarAsync());
 
-        Assert.Single(resultados, resultado => resultado is null);
-        Assert.Contains(resultados, resultado => resultado?.Contains("ya es la seleccionada") == true);
+        Assert.Single(resultados, resultado => resultado.GuardadoCorrectamente);
+        Assert.Single(resultados, resultado => resultado.Estado == ResultadoGuardarBorrador.ConflictoConcurrencia);
         Assert.Equal(_cableProveedorBId, (await LeerFilaAsync(filaId)).MaterialProveedorId);
     }
 
@@ -1231,6 +1281,11 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var respuesta = await ActualizarReferenciaAsync(navegador, filaId);
 
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        // RF-005: antes de guardar el borrador la base conserva el valor anterior.
+        Assert.Equal(100m, (await LeerFilaAsync(filaId)).PrecioUnitario);
+
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
+
         var fila = await LeerFilaAsync(filaId);
         Assert.Equal("Cable renombrado", fila.Concepto);
         Assert.Equal(UnidadMedida.Unidad, fila.Unidad);
@@ -1301,6 +1356,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
             ["referenciaId"] = _cableProveedorBId.ToString(),
             ["PrecioUnitario"] = "999"
         });
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
 
         var fila = await LeerFilaAsync(filaId);
         Assert.Equal(_cableProveedorAId, fila.MaterialProveedorId);
@@ -1351,6 +1407,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         var respuesta = await ActualizarReferenciaAsync(navegador, filaId);
 
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
         Assert.Equal(150m, (await LeerFilaAsync(filaId)).PrecioUnitario);
     }
 
@@ -1412,24 +1469,29 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
     }
 
     [FactConSqlServer]
-    public async Task DosActualizacionesConfirmadasALaVez_SoloUnaCopiaYLaOtraInformaQueYaCoinciden()
+    public async Task DosActualizacionesConfirmadasALaVez_SoloUnaCopiaYLaOtraDetectaConcurrencia()
     {
         int filaId = await CrearFilaConCableElegidoAsync();
         await CambiarElCatalogoDeLaReferenciaAAsync();
         using EopDbContext contextoInicial = CrearContexto();
         var responsable = await contextoInicial.Usuarios.SingleAsync();
 
-        async Task<string?> ActualizarAsync()
+        async Task<ResultadoAccionGuardarBorrador> ActualizarYGuardarAsync()
         {
             using EopDbContext contexto = CrearContexto();
-            var casoDeUso = new ActualizarReferenciaDeConcepto(new RepositorioConceptosPresupuesto(contexto));
-            return await casoDeUso.EjecutarAsync(_presupuestoId, filaId, true, responsable, CancellationToken.None);
+            var repositorio = new RepositorioConceptosPresupuesto(contexto);
+            var almacen = new AlmacenBorradorEnMemoria();
+            var actualizar = new ActualizarReferenciaDeConcepto(repositorio, almacen);
+            Assert.Null(await actualizar.EjecutarAsync(_presupuestoId, filaId, true, responsable, CancellationToken.None));
+
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
+            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
         }
 
-        var resultados = await Task.WhenAll(ActualizarAsync(), ActualizarAsync());
+        var resultados = await Task.WhenAll(ActualizarYGuardarAsync(), ActualizarYGuardarAsync());
 
-        Assert.Single(resultados, resultado => resultado is null);
-        Assert.Contains(resultados, resultado => resultado?.Contains("ya coinciden") == true);
+        Assert.Single(resultados, resultado => resultado.GuardadoCorrectamente);
+        Assert.Single(resultados, resultado => resultado.Estado == ResultadoGuardarBorrador.ConflictoConcurrencia);
         Assert.Equal(150m, (await LeerFilaAsync(filaId)).PrecioUnitario);
     }
 

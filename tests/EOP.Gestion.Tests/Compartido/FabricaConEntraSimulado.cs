@@ -26,15 +26,19 @@ internal sealed class FabricaConEntraSimulado : WebApplicationFactory<Program>
 
     private readonly string? _cadenaSqlServer;
     private readonly SqliteConnection? _conexionSqlite;
+    private readonly Action<IServiceCollection>? _configurarServiciosAdicionales;
 
     public ProveedorEntraSimulado Entra { get; } = new();
 
     public RegistroDeLogsDePrueba Logs { get; } = new();
 
     // Sin cadena se usa SQLite en memoria. La cadena de SQL Server debe venir de ServidorSqlDePrueba.
-    public FabricaConEntraSimulado(string? cadenaSqlServer = null)
+    public FabricaConEntraSimulado(
+        string? cadenaSqlServer = null,
+        Action<IServiceCollection>? configurarServiciosAdicionales = null)
     {
         _cadenaSqlServer = cadenaSqlServer;
+        _configurarServiciosAdicionales = configurarServiciosAdicionales;
 
         if (cadenaSqlServer == null)
         {
@@ -74,6 +78,7 @@ internal sealed class FabricaConEntraSimulado : WebApplicationFactory<Program>
 
             servicios.AddSingleton<ILoggerProvider>(Logs);
             servicios.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, Entra.AplicarA);
+            _configurarServiciosAdicionales?.Invoke(servicios);
         });
     }
 

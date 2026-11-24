@@ -1,11 +1,11 @@
-﻿
-using EOP.Gestion.Core.CasosDeUso.Presupuestos;
+﻿using EOP.Gestion.Core.CasosDeUso.Presupuestos;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
 using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
+using EOP.Gestion.Tests.Compartido;
 
 namespace EOP.Gestion.Tests.Unitarias;
 
@@ -118,10 +118,23 @@ public class S3T07MargenTests
     }
 
     [Fact]
-    public async Task RegistrarMargenValido_LlamaAlRepositorio()
+    public async Task RegistrarMargenValido_LoAgregaAlBorradorSinPersistirEnBase()
     {
-        var repositorio = new RepositorioMargenFalso();
-        var casoDeUso = new RegistrarMargen(repositorio);
+        var repositorio = new RepositorioConceptosFalso
+        {
+            BorradorBase = new BorradorPresupuestoDto
+            {
+                PresupuestoId = 10,
+                HuellaEstadoBase = "BASE",
+                Conceptos =
+                [
+                    new ConceptoBorradorDto { Id = 1, TipoConceptoId = TipoConcepto.MaterialId, TipoNombre = "Material" },
+                    new ConceptoBorradorDto { Id = 2, TipoConceptoId = TipoConcepto.ManoDeObraId, TipoNombre = "Mano de obra" }
+                ]
+            }
+        };
+        var almacen = new AlmacenBorradorEnMemoria();
+        var casoDeUso = new RegistrarMargen(repositorio, almacen);
         var usuario = new Usuario { Id = 1 };
 
         string? error = await casoDeUso.EjecutarAsync(
@@ -132,19 +145,21 @@ public class S3T07MargenTests
             CancellationToken.None);
 
         Assert.Null(error);
-        Assert.Equal(1, repositorio.Llamadas);
-        Assert.Equal(10, repositorio.PresupuestoId);
-        Assert.Equal(20m, repositorio.Porcentaje);
-        Assert.Equal(
-            [TipoConcepto.MaterialId, TipoConcepto.ManoDeObraId],
-            repositorio.TiposBase);
+        Assert.Equal(0, repositorio.GuardadosEnBase);
+        BorradorPresupuestoDto? borrador = almacen.Obtener(10, usuario.Id);
+        Assert.NotNull(borrador);
+        ConceptoBorradorDto margen = Assert.Single(borrador.Conceptos, c => c.TipoConceptoId == TipoConcepto.MargenId);
+        Assert.True(margen.EsNuevo);
+        Assert.Equal(20m, margen.PorcentajeMargen);
+        Assert.Equal([TipoConcepto.MaterialId, TipoConcepto.ManoDeObraId], margen.TiposBaseMargen);
     }
 
     [Fact]
-    public async Task RegistroInvalido_NoLlamaAlRepositorio()
+    public async Task RegistroInvalido_NoConsultaElRepositorioNiModificaElBorrador()
     {
-        var repositorio = new RepositorioMargenFalso();
-        var casoDeUso = new RegistrarMargen(repositorio);
+        var repositorio = new RepositorioConceptosFalso();
+        var almacen = new AlmacenBorradorEnMemoria();
+        var casoDeUso = new RegistrarMargen(repositorio, almacen);
 
         string? error = await casoDeUso.EjecutarAsync(
             10,
@@ -154,65 +169,104 @@ public class S3T07MargenTests
             CancellationToken.None);
 
         Assert.NotNull(error);
-        Assert.Equal(0, repositorio.Llamadas);
+        Assert.Equal(0, repositorio.ConsultasPermiso);
+        Assert.False(almacen.TieneCambiosPendientes(10, 1));
     }
 
-    [Theory]
-    [InlineData(ResultadoRegistrarMargen.EdicionNoPermitida,
-        "no está disponible para edición")]
-    [InlineData(ResultadoRegistrarMargen.MargenExistente,
-        "ya tiene un margen")]
-    [InlineData(ResultadoRegistrarMargen.TiposNoDisponibles,
-        "estén presentes")]
-    public async Task ErroresDelRepositorio_SeInforman(
-        ResultadoRegistrarMargen resultado,
-        string mensajeEsperado)
+    [Fact]
+    public async Task SinPermiso_SeRechaza()
     {
-        var repositorio = new RepositorioMargenFalso
-        {
-            Resultado = resultado
-        };
-
-        var casoDeUso = new RegistrarMargen(repositorio);
+        var repositorio = new RepositorioConceptosFalso { PuedeEditar = false };
+        var almacen = new AlmacenBorradorEnMemoria();
+        var casoDeUso = new RegistrarMargen(repositorio, almacen);
 
         string? error = await casoDeUso.EjecutarAsync(
-            10,
-            20m,
-            [TipoConcepto.MaterialId],
-            new Usuario { Id = 1 },
-            CancellationToken.None);
+            10, 20m, [TipoConcepto.MaterialId], new Usuario { Id = 1 }, CancellationToken.None);
 
-        Assert.Contains(mensajeEsperado, error);
+        Assert.Contains("no está disponible para edición", error);
+    }
+
+    [Fact]
+    public async Task SegundoMargenEnElBorrador_SeRechaza()
+    {
+        var repositorio = new RepositorioConceptosFalso
+        {
+            BorradorBase = new BorradorPresupuestoDto
+            {
+                PresupuestoId = 10,
+                HuellaEstadoBase = "BASE",
+                Conceptos =
+                [
+                    new ConceptoBorradorDto { Id = 1, TipoConceptoId = TipoConcepto.MaterialId, TipoNombre = "Material" },
+                    new ConceptoBorradorDto { Id = 2, TipoConceptoId = TipoConcepto.MargenId, TipoNombre = "Margen", PorcentajeMargen = 10m }
+                ]
+            }
+        };
+        var almacen = new AlmacenBorradorEnMemoria();
+        var casoDeUso = new RegistrarMargen(repositorio, almacen);
+
+        string? error = await casoDeUso.EjecutarAsync(
+            10, 20m, [TipoConcepto.MaterialId], new Usuario { Id = 1 }, CancellationToken.None);
+
+        Assert.Contains("ya tiene un margen", error);
+    }
+
+    [Fact]
+    public async Task TiposAusentesEnElBorrador_SeRechazan()
+    {
+        var repositorio = new RepositorioConceptosFalso
+        {
+            BorradorBase = new BorradorPresupuestoDto
+            {
+                PresupuestoId = 10,
+                HuellaEstadoBase = "BASE",
+                Conceptos =
+                [
+                    new ConceptoBorradorDto { Id = 1, TipoConceptoId = TipoConcepto.ManoDeObraId, TipoNombre = "Mano de obra" }
+                ]
+            }
+        };
+        var almacen = new AlmacenBorradorEnMemoria();
+        var casoDeUso = new RegistrarMargen(repositorio, almacen);
+
+        string? error = await casoDeUso.EjecutarAsync(
+            10, 20m, [TipoConcepto.MaterialId], new Usuario { Id = 1 }, CancellationToken.None);
+
+        Assert.Contains("estén presentes", error);
     }
 
     // Repositorio falso: permite probar el caso de uso
     // sin modificar la base de datos.
-    private class RepositorioMargenFalso : IRepositorioMargenPresupuesto
+    private class RepositorioConceptosFalso : IRepositorioConceptosPresupuesto
     {
-        public int Llamadas { get; private set; }
+        public bool PuedeEditar { get; set; } = true;
+        public int ConsultasPermiso { get; private set; }
+        public int GuardadosEnBase { get; private set; }
+        public BorradorPresupuestoDto BorradorBase { get; set; } = new() { PresupuestoId = 10, HuellaEstadoBase = "BASE" };
 
-        public int PresupuestoId { get; private set; }
+        public Task<Presupuesto?> ObtenerPresupuestoAsync(int presupuestoId, CancellationToken cancellationToken) =>
+            Task.FromResult<Presupuesto?>(new Presupuesto { Id = presupuestoId });
 
-        public decimal Porcentaje { get; private set; }
-
-        public List<int> TiposBase { get; private set; } = [];
-
-        public ResultadoRegistrarMargen Resultado { get; set; } =
-            ResultadoRegistrarMargen.Guardado;
-
-        public Task<ResultadoRegistrarMargen> RegistrarSiPuedeEditarAsync(
-            int presupuestoId,
-            decimal porcentaje,
-            IReadOnlyCollection<int> tiposBase,
-            Usuario usuario,
-            CancellationToken cancellationToken)
+        public Task<bool> PuedeEditarEnBaseAsync(int presupuestoId, Usuario usuario, CancellationToken cancellationToken)
         {
-            Llamadas++;
-            PresupuestoId = presupuestoId;
-            Porcentaje = porcentaje;
-            TiposBase = tiposBase.ToList();
+            ConsultasPermiso++;
+            return Task.FromResult(PuedeEditar);
+        }
 
-            return Task.FromResult(Resultado);
+        public Task<BorradorPresupuestoDto?> ObtenerBorradorBaseAsync(int presupuestoId, CancellationToken cancellationToken) =>
+            Task.FromResult<BorradorPresupuestoDto?>(BorradorBase.Clonar());
+
+        public Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(int referenciaId, CancellationToken cancellationToken) =>
+            Task.FromResult<ReferenciaCatalogoPresupuestoDto?>(null);
+
+        public Task<string?> ObtenerNombreTipoConceptoAsync(int tipoId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Margen");
+
+        public Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+            BorradorPresupuestoDto borrador, Usuario usuario, CancellationToken cancellationToken)
+        {
+            GuardadosEnBase++;
+            return Task.FromResult(ResultadoGuardarBorrador.Guardado);
         }
     }
 }

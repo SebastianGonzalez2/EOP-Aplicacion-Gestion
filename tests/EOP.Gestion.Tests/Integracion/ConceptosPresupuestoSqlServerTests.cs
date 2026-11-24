@@ -718,7 +718,18 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         Assert.Contains("FK_ConceptosPresupuesto_MaterialProveedores_ReferenciaMaterial", excepcion.GetBaseException().Message);
     }
 
-    // S3-T06: además de verificar el esquema, recorremos el guardado desde el formulario real.
+    private async Task<HttpResponseMessage> GuardarBorradorAsync(
+        FabricaConEntraSimulado.Navegador navegador, bool esperabaCambiosPendientes = true)
+    {
+        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}";
+        return await navegador.PostAsync($"/ConceptosPresupuesto/GuardarBorrador/{_presupuestoId}", new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync(ruta),
+            ["esperabaCambiosPendientes"] = esperabaCambiosPendientes ? "true" : "false"
+        });
+    }
+
+    // S3-T06 + S3-T14: además de verificar el esquema, recorremos el alta al borrador y su guardado explícito.
     [TheoryConSqlServer]
     [InlineData(TipoConcepto.ManoDeObraId, Moneda.USD, EstadoPresupuesto.Borrador, RolUsuario.Operador)]
     [InlineData(TipoConcepto.AlquilerId, Moneda.UYU, EstadoPresupuesto.ParaRevisionInterna, RolUsuario.Supervisor)]
@@ -747,6 +758,12 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         };
         var respuesta = await navegador.PostAsync($"/ConceptosPresupuesto/Agregar/{_presupuestoId}", formulario);
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
+
+        // RF-005: antes de presionar «Guardar borrador» no se persiste definitivamente en SQL Server.
+        Assert.Equal(0, await ContarConceptosAsync());
+
+        var guardado = await GuardarBorradorAsync(navegador);
+        Assert.Equal(HttpStatusCode.Redirect, guardado.StatusCode);
 
         var concepto = await contexto.ConceptosPresupuesto.SingleAsync();
         Assert.Equal(tipo, concepto.TipoConceptoId);
@@ -783,6 +800,9 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         };
         string destino = $"/ConceptosPresupuesto/Agregar/{_presupuestoId}?busqueda=cable";
         Assert.Equal(HttpStatusCode.Redirect, (await navegador.PostAsync(destino, formulario)).StatusCode);
+        Assert.Equal(0, await ContarConceptosAsync());
+
+        Assert.Equal(HttpStatusCode.Redirect, (await GuardarBorradorAsync(navegador)).StatusCode);
 
         using EopDbContext contexto = CrearContexto();
         var material = await contexto.Materiales.SingleAsync(m => m.Id == _materialId);
@@ -812,7 +832,7 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
     }
 
 
-    // S3-T16: comprobamos que el servidor rechace los cambios
+    // S3-T16 + S3-T14: comprobamos que el servidor rechace los cambios y el guardado
     // cuando el usuario no es responsable o el estado no permite editar.
     [TheoryConSqlServer]
     [InlineData(EstadoPresupuesto.Borrador, false, RolUsuario.Operador)]
@@ -823,7 +843,6 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
     [InlineData(EstadoPresupuesto.Rechazado, true, RolUsuario.Supervisor)]
     [InlineData(EstadoPresupuesto.Vencido, true, RolUsuario.Administrador)]
     [InlineData(EstadoPresupuesto.Cancelado, true, RolUsuario.Supervisor)]
-
     public async Task AltaManual_SinPermisoOcultaElFormularioYRechazaElPost(
         EstadoPresupuesto estado, bool responsable, RolUsuario rol)
     {
@@ -835,6 +854,7 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}?tipoId=2";
         string pagina = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
         Assert.DoesNotContain("Agregar concepto", pagina);
+        Assert.DoesNotContain("Guardar borrador", pagina);
         var respuesta = await navegador.PostAsync($"/ConceptosPresupuesto/Agregar/{_presupuestoId}", new Dictionary<string, string>
         {
             ["__RequestVerificationToken"] = await navegador.ObtenerTokenAntifalsificacionAsync(ruta),
@@ -843,8 +863,12 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             ["Entrada.Moneda"] = "UYU"
         });
 
+        var respuestaGuardar = await GuardarBorradorAsync(navegador, esperabaCambiosPendientes: false);
+
         Assert.Equal(HttpStatusCode.Redirect, respuesta.StatusCode);
         Assert.Contains("/Cuenta/AccesoDenegado", respuesta.Headers.Location?.ToString());
+        Assert.Equal(HttpStatusCode.Redirect, respuestaGuardar.StatusCode);
+        Assert.Contains("/Cuenta/AccesoDenegado", respuestaGuardar.Headers.Location?.ToString());
         Assert.Empty(await contexto.ConceptosPresupuesto.ToListAsync());
     }
 
@@ -904,23 +928,31 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         using EopDbContext contexto = CrearContexto();
         var responsable = await contexto.Usuarios.SingleAsync();
 
-        async Task<string?> AgregarMaterialAsync()
+        // Dos sesiones preparan en paralelo un borrador que agrega la misma referencia y guardan a la vez.
+        async Task<ResultadoAccionGuardarBorrador> AgregarYGuardarAsync()
         {
             using EopDbContext otroContexto = CrearContexto();
-            var casoDeUso = new AgregarConceptoManual(new RepositorioConceptosPresupuesto(otroContexto));
-            return await casoDeUso.EjecutarAsync(_presupuestoId, TipoConcepto.MaterialId, null, null, null,
+            var repositorio = new RepositorioConceptosPresupuesto(otroContexto);
+            var almacen = new AlmacenBorradorEnMemoria();
+            var agregar = new AgregarConceptoManual(repositorio, almacen);
+            string? errorAgregar = await agregar.EjecutarAsync(
+                _presupuestoId, TipoConcepto.MaterialId, null, null, null,
                 _materialProveedorId, 2m, responsable, CancellationToken.None);
+            Assert.Null(errorAgregar);
+
+            var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
+            return await guardar.EjecutarAsync(_presupuestoId, true, responsable, CancellationToken.None);
         }
 
-        var resultados = await Task.WhenAll(AgregarMaterialAsync(), AgregarMaterialAsync());
+        var resultados = await Task.WhenAll(AgregarYGuardarAsync(), AgregarYGuardarAsync());
 
-        Assert.Single(resultados, resultado => resultado is null);
-        Assert.Contains(resultados, resultado => resultado?.Contains("ya están en el presupuesto") == true);
+        Assert.Single(resultados, resultado => resultado.GuardadoCorrectamente);
+        Assert.Single(resultados, resultado => resultado.Estado == ResultadoGuardarBorrador.ConflictoConcurrencia);
         Assert.Equal(1, await contexto.ConceptosPresupuesto.CountAsync());
     }
 
-    // S3-T07: comprobamos el nuevo caso de uso contra SQL Server real.
-    // El concepto Margen y sus tipos de base se guardan en la misma operación.
+    // S3-T07 + S3-T14: el concepto Margen y sus tipos de base se agregan al borrador y se guardan
+    // juntos en SQL Server recién al ejecutar GuardarBorradorPresupuesto.
     [FactConSqlServer]
     public async Task RegistrarMargen_GuardaPorcentajeYTiposSeleccionados()
     {
@@ -933,17 +965,24 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             .AsNoTracking()
             .SingleAsync();
 
-        var repositorio = new RepositorioMargenPresupuesto(contexto);
+        var repositorio = new RepositorioConceptosPresupuesto(contexto);
+        var almacen = new AlmacenBorradorEnMemoria();
+        var registrarMargen = new RegistrarMargen(repositorio, almacen);
 
-        ResultadoRegistrarMargen resultado =
-            await repositorio.RegistrarSiPuedeEditarAsync(
-                _presupuestoId,
-                20m,
-                [TipoConcepto.MaterialId, TipoConcepto.ManoDeObraId],
-                usuario,
-                CancellationToken.None);
+        string? errorAgregar = await registrarMargen.EjecutarAsync(
+            _presupuestoId,
+            20m,
+            [TipoConcepto.MaterialId, TipoConcepto.ManoDeObraId],
+            usuario,
+            CancellationToken.None);
 
-        Assert.Equal(ResultadoRegistrarMargen.Guardado, resultado);
+        Assert.Null(errorAgregar);
+        Assert.False(await contexto.ConceptosPresupuesto.AnyAsync(c => c.TipoConceptoId == TipoConcepto.MargenId));
+
+        var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
+        var resultado = await guardar.EjecutarAsync(_presupuestoId, true, usuario, CancellationToken.None);
+
+        Assert.True(resultado.GuardadoCorrectamente);
 
         ConceptoPresupuesto margen =
             await contexto.ConceptosPresupuesto
@@ -977,26 +1016,20 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             .AsNoTracking()
             .SingleAsync();
 
-        var repositorio = new RepositorioMargenPresupuesto(contexto);
+        var repositorio = new RepositorioConceptosPresupuesto(contexto);
+        var almacen = new AlmacenBorradorEnMemoria();
+        var registrarMargen = new RegistrarMargen(repositorio, almacen);
+        var guardar = new GuardarBorradorPresupuesto(repositorio, almacen);
 
-        ResultadoRegistrarMargen primero =
-            await repositorio.RegistrarSiPuedeEditarAsync(
-                _presupuestoId,
-                20m,
-                [TipoConcepto.ManoDeObraId],
-                usuario,
-                CancellationToken.None);
+        string? primero = await registrarMargen.EjecutarAsync(
+            _presupuestoId, 20m, [TipoConcepto.ManoDeObraId], usuario, CancellationToken.None);
+        Assert.Null(primero);
+        Assert.True((await guardar.EjecutarAsync(_presupuestoId, true, usuario, CancellationToken.None)).GuardadoCorrectamente);
 
-        ResultadoRegistrarMargen segundo =
-            await repositorio.RegistrarSiPuedeEditarAsync(
-                _presupuestoId,
-                30m,
-                [TipoConcepto.ManoDeObraId],
-                usuario,
-                CancellationToken.None);
+        string? segundo = await registrarMargen.EjecutarAsync(
+            _presupuestoId, 30m, [TipoConcepto.ManoDeObraId], usuario, CancellationToken.None);
 
-        Assert.Equal(ResultadoRegistrarMargen.Guardado, primero);
-        Assert.Equal(ResultadoRegistrarMargen.MargenExistente, segundo);
+        Assert.Contains("ya tiene un margen", segundo);
 
         int cantidadMargenes = await contexto.ConceptosPresupuesto
             .CountAsync(concepto =>
@@ -1017,21 +1050,20 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             .AsNoTracking()
             .SingleAsync();
 
-        var repositorio = new RepositorioMargenPresupuesto(contexto);
+        var repositorio = new RepositorioConceptosPresupuesto(contexto);
+        var almacen = new AlmacenBorradorEnMemoria();
+        var registrarMargen = new RegistrarMargen(repositorio, almacen);
 
         // En este presupuesto solo hay Mano de obra.
         // Intentamos seleccionar también Alquiler.
-        ResultadoRegistrarMargen resultado =
-            await repositorio.RegistrarSiPuedeEditarAsync(
-                _presupuestoId,
-                20m,
-                [TipoConcepto.ManoDeObraId, TipoConcepto.AlquilerId],
-                usuario,
-                CancellationToken.None);
+        string? error = await registrarMargen.EjecutarAsync(
+            _presupuestoId,
+            20m,
+            [TipoConcepto.ManoDeObraId, TipoConcepto.AlquilerId],
+            usuario,
+            CancellationToken.None);
 
-        Assert.Equal(
-            ResultadoRegistrarMargen.TiposNoDisponibles,
-            resultado);
+        Assert.Contains("estén presentes", error);
 
         Assert.False(await contexto.ConceptosPresupuesto
             .AnyAsync(concepto =>

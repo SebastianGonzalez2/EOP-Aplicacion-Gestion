@@ -1,16 +1,20 @@
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
+using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Presupuestos;
+using EOP.Gestion.Core.Entidades.Catalogo;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Tests.Compartido;
 
 namespace EOP.Gestion.Tests.Unitarias;
 
-// S3-T12 (RF-020): el caso de uso exige la confirmación explícita y traduce el resultado del
-// repositorio a un mensaje. Las reglas contra la base están en SeleccionarMaterialSqlServerTests.
+// S3-T12 (RF-020) + S3-T14 (RF-05): exige la confirmación explícita y aplica los valores vigentes
+// del catálogo sobre el borrador pendiente sin persistir en SQL Server hasta «Guardar borrador».
 public class ActualizarReferenciaDeConceptoTests
 {
     private readonly RepositorioFalso _repositorio = new();
+    private readonly AlmacenBorradorEnMemoria _almacen = new();
     private readonly Usuario _usuario = new() { Id = 1 };
 
     [Fact]
@@ -19,80 +23,149 @@ public class ActualizarReferenciaDeConceptoTests
         string? error = await EjecutarAsync(confirmado: false);
 
         Assert.Contains("Confirmá la actualización", error);
-        Assert.Equal(0, _repositorio.Llamadas);
+        Assert.Equal(0, _repositorio.ConsultasPermiso);
     }
 
     [Fact]
-    public async Task Confirmada_SeEnviaAlRepositorioConLosIdsDeLaSolicitud()
+    public async Task Confirmada_ActualizaLosCuatroValoresEnElBorradorSinPersistirEnBase()
     {
-        _repositorio.Resultado = ResultadoSeleccionarMaterial.Seleccionado;
-
         string? error = await EjecutarAsync(confirmado: true);
 
         Assert.Null(error);
-        Assert.Equal((3, 5, _usuario), _repositorio.UltimaSolicitud);
+        Assert.Equal(0, _repositorio.GuardadosEnBase);
+        var borrador = _almacen.Obtener(3, _usuario.Id);
+        Assert.NotNull(borrador);
+        var fila = Assert.Single(borrador.Conceptos);
+        Assert.True(fila.FueModificado);
+        Assert.Equal("Cable actualizado", fila.Concepto);
+        Assert.Equal(UnidadMedida.Unidad, fila.Unidad);
+        Assert.Equal(150m, fila.PrecioUnitario);
+        Assert.Equal(Moneda.USD, fila.Moneda);
+        Assert.Equal(20, fila.MaterialId);
+        Assert.Equal(7, fila.MaterialProveedorId);
     }
 
-    [Theory]
-    [InlineData(ResultadoSeleccionarMaterial.EdicionNoPermitida, "ya no está disponible para edición")]
-    [InlineData(ResultadoSeleccionarMaterial.ConceptoInexistente, "ya no existe")]
-    [InlineData(ResultadoSeleccionarMaterial.ConceptoNoEsMaterial, "filas de tipo Material")]
-    [InlineData(ResultadoSeleccionarMaterial.ConceptoSinMaterial, "todavía no tiene un material")]
-    [InlineData(ResultadoSeleccionarMaterial.ReferenciaInexistente, "ya no existe en el catálogo")]
-    [InlineData(ResultadoSeleccionarMaterial.SinCambios, "ya coinciden con los del catálogo")]
-    public async Task ResultadoRechazado_SeTraduceAUnMensaje(ResultadoSeleccionarMaterial resultado, string fragmento)
+    [Fact]
+    public async Task SinPermiso_SeRechaza()
     {
-        _repositorio.Resultado = resultado;
+        _repositorio.PuedeEditar = false;
 
         string? error = await EjecutarAsync(confirmado: true);
 
-        Assert.Contains(fragmento, error);
+        Assert.Contains("ya no está disponible para edición", error);
     }
 
-    [Theory]
-    [InlineData(ResultadoSeleccionarMaterial.ReferenciaDuplicada)]
-    [InlineData(ResultadoSeleccionarMaterial.ReferenciaDeOtroMaterial)]
-    [InlineData((ResultadoSeleccionarMaterial)999)]
-    public async Task ResultadoQueEstaAccionNoDeberiaProducir_NoSeIgnora(ResultadoSeleccionarMaterial resultado)
+    [Fact]
+    public async Task ConceptoInexistente_SeRechaza()
     {
-        _repositorio.Resultado = resultado;
+        _repositorio.BorradorBase.Conceptos.Clear();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => EjecutarAsync(confirmado: true));
+        string? error = await EjecutarAsync(confirmado: true);
+
+        Assert.Contains("ya no existe", error);
+    }
+
+    [Fact]
+    public async Task ConceptoNoEsMaterial_SeRechaza()
+    {
+        _repositorio.BorradorBase.Conceptos[0].TipoConceptoId = TipoConcepto.ManoDeObraId;
+
+        string? error = await EjecutarAsync(confirmado: true);
+
+        Assert.Contains("filas de tipo Material", error);
+    }
+
+    [Fact]
+    public async Task ConceptoSinMaterial_SeRechaza()
+    {
+        _repositorio.BorradorBase.Conceptos[0].MaterialId = null;
+        _repositorio.BorradorBase.Conceptos[0].MaterialProveedorId = null;
+
+        string? error = await EjecutarAsync(confirmado: true);
+
+        Assert.Contains("todavía no tiene un material", error);
+    }
+
+    [Fact]
+    public async Task ReferenciaInexistente_SeRechaza()
+    {
+        _repositorio.ReferenciaActual = null;
+
+        string? error = await EjecutarAsync(confirmado: true);
+
+        Assert.Contains("ya no existe en el catálogo", error);
+    }
+
+    [Fact]
+    public async Task ValoresYaCoincidenConCatalogo_SeRechazaSinCambios()
+    {
+        _repositorio.ReferenciaActual = new(20, 7, "Cable de cobre", UnidadMedida.Metro, "Proveedor A", 100m, Moneda.UYU);
+
+        string? error = await EjecutarAsync(confirmado: true);
+
+        Assert.Contains("ya coinciden con los del catálogo", error);
+        Assert.False(_almacen.TieneCambiosPendientes(3, _usuario.Id));
     }
 
     private Task<string?> EjecutarAsync(bool confirmado) =>
-        new ActualizarReferenciaDeConcepto(_repositorio)
+        new ActualizarReferenciaDeConcepto(_repositorio, _almacen)
             .EjecutarAsync(3, 5, confirmado, _usuario, CancellationToken.None);
 
     private class RepositorioFalso : IRepositorioConceptosPresupuesto
     {
-        public ResultadoSeleccionarMaterial Resultado { get; set; }
-        public int Llamadas { get; private set; }
-        public (int, int, Usuario)? UltimaSolicitud { get; private set; }
+        public bool PuedeEditar { get; set; } = true;
+        public int ConsultasPermiso { get; private set; }
+        public int GuardadosEnBase { get; private set; }
 
-        public Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
-            int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken)
+        public BorradorPresupuestoDto BorradorBase { get; } = new()
         {
-            Llamadas++;
-            UltimaSolicitud = (presupuestoId, conceptoId, usuario);
-            return Task.FromResult(Resultado);
-        }
+            PresupuestoId = 3,
+            HuellaEstadoBase = "BASE",
+            Conceptos =
+            [
+                new ConceptoBorradorDto
+                {
+                    Id = 5,
+                    TipoConceptoId = TipoConcepto.MaterialId,
+                    TipoNombre = "Material",
+                    Concepto = "Cable de cobre",
+                    MaterialId = 20,
+                    MaterialProveedorId = 7,
+                    ProveedorNombre = "Proveedor A",
+                    Unidad = UnidadMedida.Metro,
+                    PrecioUnitario = 100m,
+                    Moneda = Moneda.UYU,
+                    Cantidad = 10m
+                }
+            ]
+        };
 
-        public Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
-            int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-            CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
-
-        public Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
-            int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-            CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+        public ReferenciaCatalogoPresupuestoDto? ReferenciaActual { get; set; } =
+            new(20, 7, "Cable actualizado", UnidadMedida.Unidad, "Proveedor A", 150m, Moneda.USD);
 
         public Task<Presupuesto?> ObtenerPresupuestoAsync(int presupuestoId, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+            Task.FromResult<Presupuesto?>(new Presupuesto { Id = presupuestoId });
 
-        public Task<ResultadoGuardarConcepto> AgregarSiPuedeEditarAsync(
-            ConceptoPresupuesto concepto, Usuario usuario, CancellationToken cancellationToken) =>
-            throw new NotSupportedException();
+        public Task<bool> PuedeEditarEnBaseAsync(int presupuestoId, Usuario usuario, CancellationToken cancellationToken)
+        {
+            ConsultasPermiso++;
+            return Task.FromResult(PuedeEditar);
+        }
+
+        public Task<BorradorPresupuestoDto?> ObtenerBorradorBaseAsync(int presupuestoId, CancellationToken cancellationToken) =>
+            Task.FromResult<BorradorPresupuestoDto?>(BorradorBase.Clonar());
+
+        public Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(int referenciaId, CancellationToken cancellationToken) =>
+            Task.FromResult(ReferenciaActual);
+
+        public Task<string?> ObtenerNombreTipoConceptoAsync(int tipoId, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>("Material");
+
+        public Task<ResultadoGuardarBorrador> GuardarBorradorSiPuedeEditarAsync(
+            BorradorPresupuestoDto borrador, Usuario usuario, CancellationToken cancellationToken)
+        {
+            GuardadosEnBase++;
+            return Task.FromResult(ResultadoGuardarBorrador.Guardado);
+        }
     }
 }
