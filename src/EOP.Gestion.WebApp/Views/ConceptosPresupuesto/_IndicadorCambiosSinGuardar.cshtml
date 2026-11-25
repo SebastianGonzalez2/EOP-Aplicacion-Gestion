@@ -1,0 +1,18 @@
+@*
+    S3-T15 (US-003, RF-05): aviso permanente de cambios sin guardar.
+
+    Se muestra mientras el presupuesto tenga cambios en el borrador temporal de la sesión. Como
+    la vista lo arma el servidor a partir del estado real del borrador, el aviso aparece de nuevo
+    al volver al presupuesto, sigue visible si falla el guardado (los cambios se conservan) y
+    desaparece solo después de guardar o descartar.
+
+    Usa el componente "Información" de la guía (docs/diseno-visual.md, sección 16): es discreto,
+    no se puede cerrar y role="status" lo anuncia sin interrumpir al lector de pantalla.
+*@
+<div class="alert mensaje mensaje-info" role="status" data-indicador-cambios-sin-guardar>
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    <div class="mensaje-cuerpo">
+        <strong>Tenés cambios sin guardar.</strong>
+        Tus cambios se conservan temporalmente. Guardá el borrador para conservarlos definitivamente.
+    </div>
+</div>

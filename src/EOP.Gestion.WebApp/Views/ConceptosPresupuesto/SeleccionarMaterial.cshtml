@@ -38,13 +38,7 @@
 
 @if (Model.TieneCambiosPendientes)
 {
-    <div class="alert mensaje mensaje-info" role="status">
-        <i class="bi bi-info-circle" aria-hidden="true"></i>
-        <div class="mensaje-cuerpo">
-            <strong>Tenés cambios pendientes en este presupuesto.</strong>
-            Al volver a los conceptos, presioná Guardar borrador para conservarlos definitivamente.
-        </div>
-    </div>
+    <partial name="_IndicadorCambiosSinGuardar" />
 }
 
 <section class="panel mb-3" aria-label="Fila del presupuesto">

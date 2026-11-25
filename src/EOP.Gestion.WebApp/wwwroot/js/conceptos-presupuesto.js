@@ -33,6 +33,33 @@ if (formularioGuardarBorrador) {
     });
 }
 
+// S3-T15 (RNF-20): al confirmar el descarte, bloqueamos los botones del diálogo y mostramos el
+// indicador de progreso para que no se pueda confirmar dos veces.
+const formularioDescartarCambios = document.getElementById("formulario-descartar-cambios");
+if (formularioDescartarCambios) {
+    formularioDescartarCambios.addEventListener("submit", (evento) => {
+        const botonDescartar = formularioDescartarCambios.querySelector("button[type=submit]");
+        if (!botonDescartar || botonDescartar.disabled) {
+            evento.preventDefault();
+            return;
+        }
+
+        formularioDescartarCambios.querySelectorAll("button").forEach((boton) => {
+            boton.disabled = true;
+        });
+
+        const indicador = botonDescartar.querySelector(".spinner-border");
+        if (indicador) {
+            indicador.classList.remove("d-none");
+        }
+
+        const texto = botonDescartar.querySelector("[data-texto-guardar]");
+        if (texto) {
+            texto.textContent = "Descartando…";
+        }
+    });
+}
+
 const formularioConcepto = document.getElementById("formulario-concepto");
 if (formularioConcepto) {
     formularioConcepto.addEventListener("submit", (evento) => {
