@@ -756,11 +756,17 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
             .ExecuteUpdateAsync(cambios => cambios.SetProperty(p => p.Estado, estado));
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionParaConceptosAsync(fabrica, rol);
-        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}?tipoId={tipo}";
+        // UI-presupuestos: el modal trae una sección por clase de tipo. La opción del tipo con
+        // importe manual muestra la sección «importe», que no pide cantidad, unidad ni referencia.
+        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}";
         string pagina = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
-        Assert.Contains("Entrada.Importe", pagina);
-        Assert.DoesNotContain("Entrada.Cantidad", pagina);
-        Assert.DoesNotContain("Entrada.ReferenciaId", pagina);
+        Assert.Contains($"<option value=\"{tipo}\" data-seccion=\"importe\">", pagina);
+        string seccionImporte = Regex.Match(pagina,
+            "data-seccion-tipo=\"importe\">(.*?)data-seccion-tipo=\"margen\"", RegexOptions.Singleline).Groups[1].Value;
+        Assert.Contains("Entrada.Importe", seccionImporte);
+        Assert.Contains("Entrada.Moneda", seccionImporte);
+        Assert.DoesNotContain("Entrada.Cantidad", seccionImporte);
+        Assert.DoesNotContain("Entrada.ReferenciaId", seccionImporte);
 
         var formulario = new Dictionary<string, string>
         {
@@ -796,11 +802,16 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
     {
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionParaConceptosAsync(fabrica, RolUsuario.Operador);
-        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}?tipoId=1&busqueda=cable";
-        string pagina = await (await navegador.GetAsync(ruta)).Content.ReadAsStringAsync();
+        // UI-presupuestos: el selector del modal pide el listado y las referencias por separado.
+        string ruta = $"/ConceptosPresupuesto/Index/{_presupuestoId}";
+        string pagina = await (await navegador.GetAsync($"/ConceptosPresupuesto/CatalogoMateriales/{_presupuestoId}?busqueda=cable")).Content.ReadAsStringAsync();
         Assert.Contains("Cable de cobre", pagina);
         Assert.DoesNotContain("Pintura blanca", pagina);
-        Assert.Contains("Seleccioná una referencia", WebUtility.HtmlDecode(pagina));
+        Assert.Contains($"data-elegir-material=\"{_materialId}\"", pagina);
+        string referencias = WebUtility.HtmlDecode(await (await navegador.GetAsync(
+            $"/ConceptosPresupuesto/ReferenciasMaterial/{_presupuestoId}?materialId={_materialId}")).Content.ReadAsStringAsync());
+        Assert.Matches($@"name=""Entrada.ReferenciaId""\s+value=""{_materialProveedorId}""", referencias);
+        Assert.DoesNotContain("checked", referencias);
 
         var formulario = new Dictionary<string, string>
         {
@@ -884,6 +895,56 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.Redirect, respuestaGuardar.StatusCode);
         Assert.Contains("/Cuenta/AccesoDenegado", respuestaGuardar.Headers.Location?.ToString());
         Assert.Empty(await contexto.ConceptosPresupuesto.ToListAsync());
+
+        // UI-presupuestos: el selector de materiales también es parte de la edición (RNF-4).
+        foreach (string rutaSelector in new[]
+        {
+            $"/ConceptosPresupuesto/CatalogoMateriales/{_presupuestoId}?busqueda=cable",
+            $"/ConceptosPresupuesto/ReferenciasMaterial/{_presupuestoId}?materialId={_materialId}"
+        })
+        {
+            var denegado = await navegador.GetAsync(rutaSelector);
+            Assert.Equal(HttpStatusCode.Redirect, denegado.StatusCode);
+            Assert.Contains("/Cuenta/AccesoDenegado", denegado.Headers.Location?.ToString());
+        }
+    }
+
+    // UI-presupuestos (US-001): el listado entra directo a la pantalla única del presupuesto, que
+    // muestra la información general y la tabla. Un presupuesto no editable se puede consultar,
+    // pero sin acciones de edición ni modal.
+    [TheoryConSqlServer]
+    [InlineData(EstadoPresupuesto.Borrador, RolUsuario.Operador, true, true)]
+    [InlineData(EstadoPresupuesto.Borrador, RolUsuario.Operador, false, false)]
+    [InlineData(EstadoPresupuesto.Aprobado, RolUsuario.Administrador, true, false)]
+    public async Task PantallaUnificada_MuestraInformacionGeneralYRespetaLosPermisos(
+        EstadoPresupuesto estado, RolUsuario rol, bool responsable, bool puedeEditar)
+    {
+        using EopDbContext contexto = CrearContexto();
+        await contexto.Presupuestos.Where(p => p.Id == _presupuestoId)
+            .ExecuteUpdateAsync(cambios => cambios.SetProperty(p => p.Estado, estado));
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionParaConceptosAsync(fabrica, rol, responsable);
+
+        string listado = await (await navegador.GetAsync("/Presupuestos")).Content.ReadAsStringAsync();
+        Assert.Contains($"href=\"/ConceptosPresupuesto/Index/{_presupuestoId}\"", listado);
+        Assert.DoesNotContain("/Presupuestos/Detalle/", listado);
+
+        var respuesta = await navegador.GetAsync($"/ConceptosPresupuesto/Index/{_presupuestoId}");
+        Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        string pagina = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
+
+        Assert.Contains("<h1>Obra</h1>", pagina);
+        Assert.Contains("Código: PRES-20261118-OBRA-0001", pagina);
+        Assert.Contains("Cliente de prueba", pagina);
+        Assert.Contains("Tipo de prueba de conceptos", pagina);
+        Assert.Contains("18/11/2026", pagina);
+        Assert.Contains("30 días", pagina);
+        Assert.Contains("Elaboración", pagina);
+        Assert.DoesNotContain("Ver conceptos", pagina);
+        Assert.Equal(puedeEditar, pagina.Contains("id=\"modalAgregarConcepto\""));
+        Assert.Equal(puedeEditar, pagina.Contains("data-bs-target=\"#modalAgregarConcepto\""));
+        Assert.Equal(puedeEditar, pagina.Contains(">Guardar borrador<"));
+        Assert.Equal(!puedeEditar, pagina.Contains("Estás consultando este presupuesto."));
     }
 
     private async Task<FabricaConEntraSimulado.Navegador> IniciarSesionParaConceptosAsync(
