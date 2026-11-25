@@ -36,8 +36,8 @@ public sealed class BuscadorCotizacionesDatosUruguay
 
     // Tope de páginas por búsqueda, sumando los dos pasos. El proveedor permite 20 consultas cada
     // 10 segundos por IP; con este tope una búsqueda nunca se acerca a ese límite ni se queda
-    // pidiendo páginas para siempre si el proveedor respondiera algo raro. 10 páginas de 100
-    // publicaciones hábiles son unos cuatro años hacia atrás.
+    // pidiendo páginas para siempre si el proveedor respondiera algo raro. Descontando la página del
+    // rango inicial, quedan 9 páginas de 100 publicaciones: unos tres años y medio de días hábiles.
     public const int MaximoDePaginasPorBusqueda = 10;
 
     private readonly ClienteDatosUruguay _cliente;
