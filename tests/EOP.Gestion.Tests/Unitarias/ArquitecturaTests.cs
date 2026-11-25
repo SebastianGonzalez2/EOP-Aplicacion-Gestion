@@ -30,4 +30,18 @@ public class ArquitecturaTests
 
         Assert.DoesNotContain(referencias, nombre => nombre != null && nombre.StartsWith("Azure"));
     }
+
+    // S3-T18: la caché y el HttpClient del servicio de cotizaciones son detalles de Infrastructure.
+    [Theory]
+    [InlineData("Microsoft.Extensions.Caching")]
+    [InlineData("Microsoft.Extensions.Http")]
+    [InlineData("System.Net.Http")]
+    public void Core_NoDebeDependerDeLaCacheNiDeHttp(string prefijoProhibido)
+    {
+        var referencias = Assembly.Load("EOP.Gestion.Core")
+            .GetReferencedAssemblies()
+            .Select(a => a.Name);
+
+        Assert.DoesNotContain(referencias, nombre => nombre != null && nombre.StartsWith(prefijoProhibido));
+    }
 }
