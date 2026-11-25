@@ -189,6 +189,21 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         return busqueda == null ? ruta : $"{ruta}&busqueda={Uri.EscapeDataString(busqueda)}";
     }
 
+    // UI-presupuestos: el listado y las referencias del selector de materiales se piden aparte.
+    private string RutaCatalogo(string? busqueda = null, int pagina = 1, int? presupuestoId = null) =>
+        $"/ConceptosPresupuesto/CatalogoMateriales/{presupuestoId ?? _presupuestoId}?pagina={pagina}" +
+        (busqueda == null ? "" : $"&busqueda={Uri.EscapeDataString(busqueda)}");
+
+    private string RutaReferencias(int materialId, int? referenciaActualId = null, int? presupuestoId = null) =>
+        $"/ConceptosPresupuesto/ReferenciasMaterial/{presupuestoId ?? _presupuestoId}?materialId={materialId}&paraFila=true" +
+        (referenciaActualId == null ? "" : $"&referenciaActualId={referenciaActualId}");
+
+    private async Task<int> MaterialDeLaReferenciaAsync(int referenciaId)
+    {
+        using EopDbContext contexto = CrearContexto();
+        return await contexto.MaterialProveedores.Where(r => r.Id == referenciaId).Select(r => r.MaterialId).SingleAsync();
+    }
+
     private async Task<HttpResponseMessage> AsignarAsync(
         FabricaConEntraSimulado.Navegador navegador, int conceptoId, string referenciaId,
         string? busqueda = "cable", int? presupuestoId = null)
@@ -254,30 +269,67 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
-        string pagina = WebUtility.HtmlDecode(await (await navegador.GetAsync(RutaSeleccion(_filaSinMaterialId, "cable"))).Content.ReadAsStringAsync());
-
-        Assert.Contains("Cable de cobre", pagina);
-        Assert.Contains("Proveedor A", pagina);
-        Assert.Contains("Proveedor B", pagina);
-        Assert.DoesNotContain("Pintura blanca", pagina);
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId));
         Assert.Contains(TextoDetectadoPorIa, pagina);
         Assert.Contains("Sin material seleccionado", pagina);
-        // La búsqueda no elige nada: la fila sigue igual.
+
+        string listado = await LeerPaginaAsync(navegador, RutaCatalogo("cable"));
+        Assert.Contains("Cable de cobre", listado);
+        Assert.DoesNotContain("Pintura blanca", listado);
+
+        string referencias = await LeerPaginaAsync(navegador, RutaReferencias(await MaterialDeLaReferenciaAsync(_cableProveedorAId)));
+        Assert.Contains("Proveedor A", referencias);
+        Assert.Contains("Proveedor B", referencias);
+        Assert.Matches($@"name=""referenciaId""\s+value=""{_cableProveedorAId}""", referencias);
+        Assert.DoesNotContain("checked", referencias);
+        // Ni el listado ni las referencias eligen nada: la fila sigue igual.
         Assert.Null((await LeerFilaAsync(_filaSinMaterialId)).MaterialProveedorId);
     }
 
     [FactConSqlServer]
-    public async Task SinTextoDeBusqueda_NoSeListaNingunMaterialNiSePreseleccionaPorElTextoDetectado()
+    public async Task SinTextoDeBusqueda_ListaElCatalogoPeroNoPreseleccionaNadaPorElTextoDetectado()
     {
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
-        string pagina = WebUtility.HtmlDecode(await (await navegador.GetAsync(RutaSeleccion(_filaSinMaterialId))).Content.ReadAsStringAsync());
-
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId));
         Assert.Contains(TextoDetectadoPorIa, pagina);
-        Assert.DoesNotContain("Cable de cobre", pagina);
         Assert.DoesNotContain("name=\"referenciaId\"", pagina);
+        // El campo del material elegido arranca vacío: nada se elige a partir del texto detectado.
+        Assert.Matches(@"name=""materialId""\s+data-campo-material", pagina);
+
+        // UI-presupuestos: sin búsqueda, el selector muestra el catálogo completo, pero no elige nada.
+        string listado = await LeerPaginaAsync(navegador, RutaCatalogo());
+        Assert.Contains("Cable de cobre", listado);
+        Assert.Contains("Pintura blanca", listado);
+        Assert.DoesNotContain("name=\"referenciaId\"", listado);
         Assert.Null((await LeerFilaAsync(_filaSinMaterialId)).MaterialId);
+    }
+
+    [FactConSqlServer]
+    public async Task ListadoDelSelector_PaginaDeADiezMaterialesOrdenadosPorNombre()
+    {
+        using (EopDbContext contexto = CrearContexto())
+        {
+            for (int numero = 1; numero <= 12; numero++)
+            {
+                contexto.Materiales.Add(new Material { Nombre = $"Zocalo {numero:00}", Unidad = UnidadMedida.Unidad });
+            }
+            await contexto.SaveChangesAsync();
+        }
+        await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
+        var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
+
+        string primera = await LeerPaginaAsync(navegador, RutaCatalogo("zocalo"));
+        string segunda = await LeerPaginaAsync(navegador, RutaCatalogo("zocalo", pagina: 2));
+
+        Assert.Contains("Mostrando 1 a 10 de 12 materiales", Regex.Replace(primera, @"\s+", " "));
+        Assert.Contains("Zocalo 10", primera);
+        Assert.DoesNotContain("Zocalo 11", primera);
+        Assert.Contains("Mostrando 11 a 12 de 12 materiales", Regex.Replace(segunda, @"\s+", " "));
+        Assert.Contains("Zocalo 12", segunda);
+        Assert.DoesNotContain("Zocalo 01", segunda);
+        Assert.Contains("data-pagina=\"1\"", segunda);
     }
 
     [FactConSqlServer]
@@ -287,10 +339,11 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
-        var respuesta = await navegador.GetAsync(RutaSeleccion(_filaSinMaterialId, "material que no existe"));
+        var respuesta = await navegador.GetAsync(RutaCatalogo("material que no existe"));
 
         string pagina = WebUtility.HtmlDecode(await respuesta.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.OK, respuesta.StatusCode);
+        Assert.Contains("registrarse primero en el catálogo", await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId)));
         Assert.Contains("No se encontraron materiales.", pagina);
         Assert.Contains("registrarse primero en el catálogo", pagina);
         Assert.DoesNotContain("name=\"referenciaId\"", pagina);
@@ -307,9 +360,13 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, rol, responsable: rol == RolUsuario.Operador);
 
-        string pagina = WebUtility.HtmlDecode(await (await navegador.GetAsync(RutaSeleccion(_filaSinMaterialId, "inexistente"))).Content.ReadAsStringAsync());
+        // UI-presupuestos: la ayuda para un material que no está en el catálogo queda fija en la
+        // pantalla, debajo del selector, y el enlace al alta solo aparece para quien puede usarlo.
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId));
+        string listado = await LeerPaginaAsync(navegador, RutaCatalogo("inexistente"));
 
         Assert.Equal(veElBoton, pagina.Contains("Registrar material"));
+        Assert.DoesNotContain("Registrar material", listado);
     }
 
     [FactConSqlServer]
@@ -375,11 +432,17 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
-        string pagina = WebUtility.HtmlDecode(await (await navegador.GetAsync(RutaSeleccion(_filaConPinturaId, "pintura"))).Content.ReadAsStringAsync());
-
+        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaConPinturaId));
         Assert.Contains("Cambiar material de la fila", pagina);
-        Assert.Contains("Seleccionado", pagina);
-        Assert.DoesNotContain($"value=\"{_pinturaProveedorAId}\"", pagina);
+        Assert.Contains($"data-referencia-actual-id=\"{_pinturaProveedorAId}\"", pagina);
+
+        // El selector recibe la referencia actual de la fila: la muestra marcada como tal, pero
+        // deshabilitada, así no se puede volver a elegir.
+        string referencias = await LeerPaginaAsync(navegador,
+            RutaReferencias(await MaterialDeLaReferenciaAsync(_pinturaProveedorAId), _pinturaProveedorAId));
+        Assert.Contains("Referencia actual de la fila", referencias);
+        Assert.Matches($@"value=""{_pinturaProveedorAId}""\s+disabled=""disabled""", referencias);
+        Assert.DoesNotContain("checked", referencias);
     }
 
     [FactConSqlServer]
@@ -749,10 +812,10 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
-        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId, "cable"));
+        string pagina = await LeerPaginaAsync(navegador, RutaReferencias(await MaterialDeLaReferenciaAsync(_cableProveedorAId)));
 
-        Assert.Matches(@"Proveedor A</td>\s*<td class=""text-end"">UYU 100</td>\s*<td>05/11/2026 12:00</td>", pagina);
-        Assert.Matches(@"Proveedor B</td>\s*<td class=""text-end"">USD 2[.,]5</td>\s*<td>01/11/2026 22:30</td>", pagina);
+        Assert.Matches(@"Proveedor A</label>\s*</td>\s*<td class=""text-end num"">100</td>\s*<td>UYU</td>\s*<td class=""num"">05/11/2026 12:00</td>", pagina);
+        Assert.Matches(@"Proveedor B</label>\s*</td>\s*<td class=""text-end num"">2[.,]5</td>\s*<td>USD</td>\s*<td class=""num"">01/11/2026 22:30</td>", pagina);
         Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
     }
 
@@ -768,11 +831,17 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = await IniciarSesionAsync(fabrica, RolUsuario.Operador);
 
-        string pagina = await LeerPaginaAsync(navegador, RutaSeleccion(_filaSinMaterialId, "cinta"));
+        string pagina = await LeerPaginaAsync(navegador, RutaCatalogo("cinta"));
 
         Assert.Contains("Cinta aisladora", pagina);
         Assert.Contains("Sin proveedores con precio registrado", pagina);
         Assert.DoesNotContain("name=\"referenciaId\"", pagina);
+
+        // Si igual se elige, el segundo paso avisa que no tiene proveedores y no ofrece nada para marcar.
+        int cintaId = int.Parse(Regex.Match(pagina, "data-elegir-material=\"(\\d+)\"").Groups[1].Value);
+        string referencias = await LeerPaginaAsync(navegador, RutaReferencias(cintaId));
+        Assert.Contains("no tiene proveedores con precio registrado", referencias);
+        Assert.DoesNotContain("name=\"referenciaId\"", referencias);
         Assert.Equal(catalogoAntes, await FotoDelCatalogoAsync());
     }
 

@@ -1,0 +1,109 @@
+@using EOP.Gestion.WebApp.ViewModels.Presupuestos
+@model ListadoMaterialesSelectorViewModel
+
+@* UI-presupuestos: paso 1 del selector de materiales. Lo devuelve la acción CatalogoMateriales
+   y selector-materiales.js lo inserta en la pantalla. Los botones son type="button" (no
+   enlaces ni envíos): elegir o cambiar de página no sale de la pantalla ni envía el formulario. *@
+
+@if (Model.CantidadTotal == 0)
+{
+    <div class="sin-resultados py-4" role="status">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        @if (Model.SeBusco)
+        {
+            <h3>No se encontraron materiales.</h3>
+            <p>
+                No hay materiales en el catálogo con ese nombre. Si el material que necesitás no está
+                registrado, tiene que registrarse primero en el catálogo y después lo seleccionás acá.
+            </p>
+        }
+        else
+        {
+            <h3>Todavía no hay materiales en el catálogo.</h3>
+            <p>Los materiales se registran desde el Catálogo de Materiales.</p>
+        }
+    </div>
+}
+else
+{
+    <div class="panel">
+        <div class="table-responsive">
+            <table class="table table-hover tabla tabla-compacta mb-0">
+                <caption class="visually-hidden">Materiales del catálogo</caption>
+                <thead>
+                    <tr>
+                        <th scope="col" class="col-principal">Material</th>
+                        <th scope="col">Unidad</th>
+                        <th scope="col">Proveedores</th>
+                        <th scope="col" class="col-acciones"><span class="visually-hidden">Acción</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var material in Model.Materiales)
+                    {
+                        <tr>
+                            <td class="col-principal">@material.Nombre</td>
+                            <td>@material.Unidad</td>
+                            <td>
+                                @if (material.Referencias.Count == 0)
+                                {
+                                    <span class="sin-dato">Sin proveedores con precio registrado</span>
+                                }
+                                else if (material.Referencias.Count == 1)
+                                {
+                                    @:1 proveedor
+                                }
+                                else
+                                {
+                                    @:@material.Referencias.Count proveedores
+                                }
+                            </td>
+                            <td class="col-acciones">
+                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                        data-elegir-material="@material.Id"
+                                        aria-label="@("Elegir " + material.Nombre)">
+                                    Elegir
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="panel-pie d-flex flex-wrap gap-2 justify-content-between align-items-center">
+            <span class="text-body-secondary small">
+                Mostrando @Model.PrimeroMostrado a @Model.UltimoMostrado de @Model.CantidadTotal
+                @(Model.CantidadTotal == 1 ? "material" : "materiales")
+            </span>
+
+            @if (Model.CantidadPaginas > 1)
+            {
+                <nav aria-label="Paginación de materiales">
+                    <ul class="pagination pagination-sm">
+                        <li class="page-item @(Model.PaginaActual == 1 ? "disabled" : "")">
+                            <button type="button" class="page-link" data-pagina="@(Model.PaginaActual - 1)"
+                                    aria-label="Página anterior" disabled="@(Model.PaginaActual == 1)">
+                                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+                            </button>
+                        </li>
+                        @for (int numero = 1; numero <= Model.CantidadPaginas; numero++)
+                        {
+                            bool esLaActual = numero == Model.PaginaActual;
+                            <li class="page-item @(esLaActual ? "active" : "")">
+                                <button type="button" class="page-link" data-pagina="@numero"
+                                        aria-current="@(esLaActual ? "page" : null)">@numero</button>
+                            </li>
+                        }
+                        <li class="page-item @(Model.PaginaActual == Model.CantidadPaginas ? "disabled" : "")">
+                            <button type="button" class="page-link" data-pagina="@(Model.PaginaActual + 1)"
+                                    aria-label="Página siguiente" disabled="@(Model.PaginaActual == Model.CantidadPaginas)">
+                                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+            }
+        </div>
+    </div>
+}

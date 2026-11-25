@@ -188,6 +188,11 @@ namespace EOP.Gestion.WebApp.Controllers
 
         // GET: /Presupuestos/Detalle/5
         // Muestra la información de un presupuesto seleccionado (US-001).
+        //
+        // UI-presupuestos: ya no hay una pantalla de detalle aparte. La información general y los
+        // conceptos se ven juntos en la pantalla del presupuesto (ConceptosPresupuesto/Index), y el
+        // listado entra directo ahí. Dejamos esta dirección solo para que los enlaces viejos
+        // (por ejemplo, un marcador del navegador) sigan llevando al presupuesto.
         [HttpGet]
         public async Task<IActionResult> Detalle(int id)
         {
@@ -200,8 +205,9 @@ namespace EOP.Gestion.WebApp.Controllers
                 return NotFound();
             }
 
-            // Enviamos los datos a la vista Detalle.cshtml.
-            return View(presupuesto);
+            // Lo mandamos a la pantalla unificada del presupuesto. Los permisos de consulta y de
+            // edición los vuelve a controlar esa acción en el servidor.
+            return RedirectToAction("Index", "ConceptosPresupuesto", new { id = presupuesto.Id });
         }
 
 

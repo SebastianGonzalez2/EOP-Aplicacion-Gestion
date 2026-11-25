@@ -353,14 +353,16 @@
                             <td>@presupuesto.NombreResponsable</td>
 
                             @* Permite abrir el detalle del presupuesto seleccionado.
-                            Enviamos su ID para que el Controller pueda buscarlo. *@
+                            Enviamos su ID para que el Controller pueda buscarlo.
+                            UI-presupuestos: el enlace lleva directo a la pantalla del presupuesto
+                            (información general + conceptos), sin el paso intermedio de detalle. *@
                             <td>
-                                <a asp-controller="Presupuestos"
-                                   asp-action="Detalle"
+                                <a asp-controller="ConceptosPresupuesto"
+                                   asp-action="Index"
                                    asp-route-id="@presupuesto.Id"
                                    class="btn btn-outline-secondary btn-sm px-2"
-                                   aria-label="Ver detalle del presupuesto @presupuesto.Codigo"
-                                   title="Ver detalle del presupuesto @presupuesto.Codigo">
+                                   aria-label="Abrir el presupuesto @presupuesto.Codigo"
+                                   title="Abrir el presupuesto @presupuesto.Codigo">
 
                                     <i class="bi bi-chevron-right" aria-hidden="true"></i>
                                 </a>

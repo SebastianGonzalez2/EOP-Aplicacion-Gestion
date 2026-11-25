@@ -1,0 +1,67 @@
+@using EOP.Gestion.Core.Entidades.Presupuestos
+@model EstadoPresupuesto
+
+@*
+    UI-presupuestos: etiqueta del estado de un presupuesto (docs/diseno-visual.md, sección 15).
+    Antes esta traducción estado → tono estaba en la vista de detalle, que se eliminó al unificar
+    la pantalla del presupuesto; la movimos acá para poder reutilizarla.
+
+    Uso: <partial name="_EtiquetaEstadoPresupuesto" model="estado" />
+*@
+
+@{
+    // Preparamos el nombre y el estilo del estado
+    // para mostrarlo correctamente en la pantalla.
+    string nombreEstado;
+    string claseEstado;
+
+    switch (Model)
+    {
+        case EstadoPresupuesto.Borrador:
+            nombreEstado = "Borrador";
+            claseEstado = "estado-neutro";
+            break;
+
+        case EstadoPresupuesto.ParaRevisionInterna:
+            nombreEstado = "Para revisión interna";
+            claseEstado = "estado-atencion";
+            break;
+
+        case EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente:
+            nombreEstado = "Enviado / pendiente de respuesta del cliente";
+            claseEstado = "estado-atencion";
+            break;
+
+        case EstadoPresupuesto.Aprobado:
+            nombreEstado = "Aprobado";
+            claseEstado = "estado-exito";
+            break;
+
+        case EstadoPresupuesto.Rechazado:
+            nombreEstado = "Rechazado";
+            claseEstado = "estado-negativo";
+            break;
+
+        case EstadoPresupuesto.SolicitudDeModificacionDelCliente:
+            nombreEstado = "Solicitud de modificación del cliente";
+            claseEstado = "estado-neutro";
+            break;
+
+        case EstadoPresupuesto.Vencido:
+            nombreEstado = "Vencido";
+            claseEstado = "estado-cerrado";
+            break;
+
+        case EstadoPresupuesto.Cancelado:
+            nombreEstado = "Cancelado";
+            claseEstado = "estado-negativo";
+            break;
+
+        default:
+            nombreEstado = "Estado desconocido";
+            claseEstado = "estado-neutro";
+            break;
+    }
+}
+
+<span class="estado @claseEstado">@nombreEstado</span>

@@ -70,6 +70,10 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["POST ConceptosPresupuesto/AsignarMaterial"] = "Administrador,Operador,Supervisor",
         ["POST ConceptosPresupuesto/CambiarProveedor"] = "Administrador,Operador,Supervisor",
         ["POST ConceptosPresupuesto/ActualizarReferencia"] = "Administrador,Operador,Supervisor",
+        // UI-presupuestos: el selector de materiales (listado del catálogo y referencias de un
+        // material). Solo leen el catálogo; el servidor además exige poder editar el presupuesto.
+        ["GET ConceptosPresupuesto/CatalogoMateriales"] = "Administrador,Operador,Supervisor",
+        ["GET ConceptosPresupuesto/ReferenciasMaterial"] = "Administrador,Operador,Supervisor",
 
         // RF-67 y RF-73: los tres roles pueden consultar materiales.
         // Solamente Supervisor y Administrador pueden registrarlos.

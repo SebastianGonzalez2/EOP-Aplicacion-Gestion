@@ -244,13 +244,19 @@ public class GestionCambiosPendientesSqlServerTests : IAsyncLifetime
 
         // Recorremos otros módulos: ninguno obliga a guardar o descartar (responden 200 sin
         // redirigir) y en todos está el diálogo de cierre de sesión listo por si se lo necesita.
-        foreach (string ruta in new[] { "/", "/Materiales", "/Materiales/Registrar", "/Proveedores", "/Proveedores/Registrar", "/Clientes", "/Presupuestos", $"/Presupuestos/Detalle/{_primerPresupuestoId}" })
+        foreach (string ruta in new[] { "/", "/Materiales", "/Materiales/Registrar", "/Proveedores", "/Proveedores/Registrar", "/Clientes", "/Presupuestos", RutaConceptos(_segundoPresupuestoId) })
         {
             string pagina = await LeerPaginaAsync(navegador, ruta);
             Assert.Contains(MarcaDialogoCierre, pagina);
             Assert.Contains(CodigoPrimero, pagina);
             Assert.Contains("cambios-pendientes.js", pagina);
         }
+
+        // UI-presupuestos: la dirección vieja del detalle tampoco frena nada; solo lleva a la
+        // pantalla unificada del presupuesto.
+        HttpResponseMessage detalle = await navegador.GetAsync($"/Presupuestos/Detalle/{_primerPresupuestoId}");
+        Assert.Equal(HttpStatusCode.Redirect, detalle.StatusCode);
+        Assert.Equal(RutaConceptos(_primerPresupuestoId), detalle.Headers.Location?.OriginalString);
 
         // Registramos un material nuevo en el catálogo en medio de la elaboración.
         string formularioMaterial = await LeerPaginaAsync(navegador, "/Materiales/Registrar");
@@ -280,10 +286,12 @@ public class GestionCambiosPendientesSqlServerTests : IAsyncLifetime
         }
 
         // Y el material recién registrado ya se puede buscar y agregar al mismo borrador.
+        // UI-presupuestos: la búsqueda la hace el selector del modal, sin recargar la pantalla.
         string busqueda = await LeerPaginaAsync(navegador,
-            $"{RutaConceptos(_primerPresupuestoId)}?tipoId={TipoConcepto.MaterialId}&busqueda=Luminaria&esperabaCambiosPendientes=true");
+            $"/ConceptosPresupuesto/CatalogoMateriales/{_primerPresupuestoId}?busqueda=Luminaria");
         Assert.Contains("Luminaria LED nueva", busqueda);
-        Assert.Contains("Instalación pendiente", busqueda);
+        Assert.Contains("Instalación pendiente", await LeerPaginaAsync(navegador,
+            $"{RutaConceptos(_primerPresupuestoId)}?esperabaCambiosPendientes=true"));
     }
 
     [FactConSqlServer]
@@ -401,9 +409,13 @@ public class GestionCambiosPendientesSqlServerTests : IAsyncLifetime
         await using var fabrica = new FabricaConEntraSimulado(_cadenaConexion);
         var navegador = (await IniciarSesionAsync(fabrica, RolUsuario.Supervisor)).Navegador;
 
-        string limpio = await LeerPaginaAsync(navegador, $"{RutaConceptos(_primerPresupuestoId)}?tipoId={TipoConcepto.ManoDeObraId}");
+        // UI-presupuestos: «Agregar concepto» es un modal. Arranca cerrado y sin datos, y trae su
+        // propio paso de confirmación para no perder lo escrito (sin abrir otro modal encima).
+        string limpio = await LeerPaginaAsync(navegador, RutaConceptos(_primerPresupuestoId));
         Assert.Contains("data-datos-no-enviados=\"false\"", limpio);
-        Assert.Contains("id=\"modalDatosNoEnviados\"", limpio);
+        Assert.Contains("data-abrir-al-cargar=\"false\"", limpio);
+        Assert.Contains("data-paso-modal=\"confirmar-salida\"", limpio);
+        Assert.Contains("Tenés datos escritos que todavía no agregaste", limpio);
 
         HttpResponseMessage rechazado = await navegador.PostAsync($"/ConceptosPresupuesto/Agregar/{_primerPresupuestoId}", new Dictionary<string, string>
         {
@@ -420,6 +432,13 @@ public class GestionCambiosPendientesSqlServerTests : IAsyncLifetime
         string html = WebUtility.HtmlDecode(await rechazado.Content.ReadAsStringAsync());
         Assert.Contains("data-datos-no-enviados=\"true\"", html);
         Assert.DoesNotContain(TextoIndicador, html);
+
+        // El modal vuelve abierto, con el tipo elegido y lo escrito, y con el error a la vista.
+        Assert.Contains("data-abrir-al-cargar=\"true\"", html);
+        Assert.Matches($@"<option value=""{TipoConcepto.ManoDeObraId}"" data-seccion=""importe"" selected=""selected""", html);
+        Assert.Contains("value=\"Importe mal escrito\"", html);
+        Assert.Contains("value=\"no-es-un-numero\"", html);
+        Assert.Contains("Ingresá un importe válido", html);
     }
 
     // ---------- Descarte voluntario ----------

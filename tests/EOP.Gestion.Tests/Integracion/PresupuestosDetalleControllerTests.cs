@@ -1,6 +1,5 @@
 ﻿
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
-using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Clientes;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
@@ -45,7 +44,7 @@ namespace EOP.Gestion.Tests.Integracion
         }
 
         [Fact]
-        public async Task Detalle_PresupuestoExistente_DevuelveVistaConDatos()
+        public async Task Detalle_PresupuestoExistente_RedirigeALaPantallaDelPresupuesto()
         {
             using var conexion = new SqliteConnection("Data Source=:memory:");
             await conexion.OpenAsync();
@@ -102,16 +101,12 @@ namespace EOP.Gestion.Tests.Integracion
             // Ejecutamos la acción Detalle con el ID del presupuesto.
             IActionResult resultado = await controller.Detalle(presupuesto.Id);
 
-            // Comprobamos que devuelve una vista.
-            var vista = Assert.IsType<ViewResult>(resultado);
-
-            // Comprobamos que contiene el presupuesto correcto.
-            var modelo = Assert.IsType<PresupuestoDetalleDto>(vista.Model);
-
-            Assert.Equal(presupuesto.Id, modelo.Id);
-            Assert.Equal("Obra Solar", modelo.NombreProyecto);
-            Assert.Equal("Empresa Solar", modelo.NombreCliente);
-            Assert.Equal("Ana Pereira", modelo.NombreResponsable);
+            // UI-presupuestos: ya no hay vista de detalle aparte. La acción redirige a la pantalla
+            // unificada del presupuesto (información general + conceptos), con el mismo ID.
+            var redireccion = Assert.IsType<RedirectToActionResult>(resultado);
+            Assert.Equal("ConceptosPresupuesto", redireccion.ControllerName);
+            Assert.Equal("Index", redireccion.ActionName);
+            Assert.Equal(presupuesto.Id, redireccion.RouteValues?["id"]);
         }
 
         [Fact]

@@ -61,13 +61,9 @@ public class SeleccionarMaterialViewModel
         }
     }
 
-    public string? Busqueda { get; init; }
-
-    // Solo se llena cuando el usuario buscó algo. Son materiales del catálogo, solo para leer.
-    public IReadOnlyList<MaterialListadoDto> Materiales { get; init; } = [];
-
-    public bool SeBusco
-    {
-        get { return !string.IsNullOrWhiteSpace(Busqueda); }
-    }
+    // UI-presupuestos: la búsqueda y el listado de materiales los resuelve el selector de
+    // materiales sin recargar la pantalla. Estos dos datos solo se llenan cuando el servidor
+    // rechazó una selección, para que el selector vuelva a mostrar lo que el usuario había elegido.
+    public int? MaterialElegidoId { get; init; }
+    public int? ReferenciaElegidaId { get; init; }
 }

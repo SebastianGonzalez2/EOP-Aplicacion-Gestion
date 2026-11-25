@@ -17,11 +17,10 @@
 <nav aria-label="Ruta de navegación">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a asp-controller="Presupuestos" asp-action="Index">Presupuestos</a></li>
+        @* UI-presupuestos: el código lleva a la pantalla única del presupuesto (ya no hay un paso
+           «Detalle» ni otro «Conceptos» en el medio). *@
         <li class="breadcrumb-item">
-            <a asp-controller="Presupuestos" asp-action="Detalle" asp-route-id="@Model.PresupuestoId">@Model.Codigo</a>
-        </li>
-        <li class="breadcrumb-item">
-            <a asp-action="Index" asp-route-id="@Model.PresupuestoId">Conceptos</a>
+            <a asp-action="Index" asp-route-id="@Model.PresupuestoId">@Model.Codigo</a>
         </li>
         <li class="breadcrumb-item active" aria-current="page">Seleccionar material</li>
     </ol>
@@ -30,7 +29,7 @@
 <div class="encabezado">
     <div>
         <h1>@(tieneMaterial ? "Cambiar material de la fila" : "Seleccionar material de la fila")</h1>
-        <p>Buscá un material del catálogo y elegí la referencia de proveedor que corresponde.</p>
+        <p>Elegí un material del catálogo y la referencia de proveedor que corresponde.</p>
     </div>
 </div>
 
@@ -245,151 +244,84 @@
     }
 }
 
-<form asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId" asp-route-conceptoId="@fila.Id"
-      method="get" class="panel mb-3" role="search" aria-label="Buscar material en el catálogo">
-    @if (Model.TieneCambiosPendientes)
+@{
+    // UI-presupuestos: el mismo selector de materiales del modal «Agregar concepto», para que elegir
+    // un material se vea igual en los dos lugares. Acá el campo enviado es referenciaId y va a
+    // AsignarMaterial, que sirve tanto para vincular una fila sin material como para sustituirlo.
+    var selector = new EOP.Gestion.WebApp.ViewModels.Presupuestos.SelectorMaterialViewModel
     {
-        <input type="hidden" name="esperabaCambiosPendientes" value="true" />
-    }
-    <div class="panel-cuerpo">
-        <div class="row g-3 align-items-end">
-            <div class="col-12 col-md-8 col-xl-5">
-                <label for="busqueda" class="form-label">Nombre del material</label>
-                <div class="input-group">
-                    <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-                    <input id="busqueda" name="busqueda" value="@Model.Busqueda" type="search"
-                           class="form-control border-start-0" maxlength="200" required
-                           placeholder="Buscar material" />
-                </div>
-            </div>
-            <div class="col-12 col-md-auto">
-                <button type="submit" class="btn btn-outline-secondary w-100">
-                    <i class="bi bi-search me-1" aria-hidden="true"></i>Buscar
-                </button>
-            </div>
-        </div>
+        PresupuestoId = Model.PresupuestoId,
+        NombreCampoMaterial = "materialId",
+        ParaFila = true,
+        CargaDiferida = false,
+        MaterialElegidoId = Model.MaterialElegidoId,
+        ReferenciaElegidaId = Model.ReferenciaElegidaId,
+        ReferenciaActualId = fila.MaterialProveedorId
+    };
+}
+
+<form id="formulario-asignar-material" asp-action="AsignarMaterial" asp-route-id="@Model.PresupuestoId"
+      asp-route-conceptoId="@fila.Id" method="post" class="panel mb-3 form-seleccion-material">
+    <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+    <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
+
+    <div class="seccion-form">
+        <div asp-validation-summary="All" class="resumen-errores" role="alert" tabindex="-1"></div>
+
+        <h2>@(tieneMaterial ? "Elegir otro material del catálogo" : "Elegir material del catálogo")</h2>
+        <p class="descripcion">
+            Elegí el material y después marcá la referencia de proveedor que querés usar. El concepto
+            detectado y la cantidad de la fila no cambian.
+        </p>
+
+        <partial name="_SelectorMaterial" model="selector" />
     </div>
-</form>
 
-<div asp-validation-summary="All" class="resumen-errores mb-3" role="alert" tabindex="-1"></div>
-
-@if (Model.SeBusco)
-{
-    <section class="panel mb-3" aria-label="Resultados de la búsqueda">
-        @if (Model.Materiales.Count == 0)
+    <div class="panel-pie d-flex flex-wrap justify-content-end gap-2">
+        @if (Model.TieneCambiosPendientes)
         {
-            <div class="sin-resultados" role="status">
-                <i class="bi bi-search" aria-hidden="true"></i>
-                <h2>No se encontraron materiales.</h2>
-                <p>
-                    No hay materiales en el catálogo con ese nombre. Si el material que necesitás no está
-                    registrado, tiene que registrarse primero en el catálogo
-                    @if (!puedeRegistrarMaterial)
-                    {
-                        <text>por un Supervisor o un Administrador</text>
-                    }
-                    y después lo seleccionás acá. La fila puede quedar sin material mientras tanto.
-                </p>
-                @if (puedeRegistrarMaterial)
-                {
-                    <a asp-controller="Materiales" asp-action="Registrar" class="btn btn-outline-secondary">
-                        <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar material
-                    </a>
-                }
-            </div>
+            <a asp-action="Index" asp-route-id="@Model.PresupuestoId" asp-route-esperabaCambiosPendientes="true"
+               class="btn btn-outline-secondary">Volver al presupuesto</a>
         }
         else
         {
-            <div class="table-responsive" tabindex="0" role="region" aria-label="Materiales encontrados">
-                <table class="table table-hover tabla mb-0">
-                    <thead>
-                        <tr>
-                            <th scope="col" class="col-principal">Material</th>
-                            <th scope="col">Unidad</th>
-                            <th scope="col">Proveedor</th>
-                            <th scope="col" class="text-end">Precio unitario</th>
-                            <th scope="col">Actualizado</th>
-                            <th scope="col"><span class="visually-hidden">Acción</span></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var material in Model.Materiales)
-                        {
-                            @if (material.Referencias.Count == 0)
-                            {
-                                <tr>
-                                    <td class="col-principal">@material.Nombre</td>
-                                    <td>@material.Unidad</td>
-                                    <td colspan="4" class="text-body-secondary">Sin proveedores con precio registrado</td>
-                                </tr>
-                            }
+            <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Volver al presupuesto</a>
+        }
+        <button type="submit" class="btn btn-primary">
+            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+            <span data-texto-guardar>@(tieneMaterial ? "Sustituir material" : "Asignar material")</span>
+        </button>
+    </div>
+</form>
 
-                            @foreach (var referencia in material.Referencias)
-                            {
-                                string precio = $"{referencia.Moneda} {referencia.PrecioUnitario.ToString("0.##########", cultura)}";
-                                DateTime actualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(referencia.FechaUltimaActualizacion);
-                                bool esLaActual = fila.MaterialProveedorId == referencia.RelacionId;
-                                <tr>
-                                    <td class="col-principal">@material.Nombre</td>
-                                    <td>@material.Unidad</td>
-                                    <td>@referencia.ProveedorNombre</td>
-                                    <td class="text-end">@precio</td>
-                                    <td>@actualizacion.ToString("dd/MM/yyyy HH:mm", cultura)</td>
-                                    <td class="text-end">
-                                        @if (esLaActual)
-                                        {
-                                            <span class="text-body-secondary">Seleccionado</span>
-                                        }
-                                        else
-                                        {
-                                            <form asp-action="AsignarMaterial" asp-route-id="@Model.PresupuestoId"
-                                                  asp-route-conceptoId="@fila.Id" method="post" class="form-seleccion-material">
-                                                <input type="hidden" name="referenciaId" value="@referencia.RelacionId" />
-                                                <input type="hidden" name="busqueda" value="@Model.Busqueda" />
-                                                <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
-                                                <input type="hidden" name="borradorId" value="@Model.BorradorId" />
-                                                <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
-                                                <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
-                                                <button type="submit" class="btn btn-outline-primary btn-sm"
-                                                        aria-label="@((tieneMaterial ? "Sustituir por " : "Seleccionar ") + material.Nombre + " de " + referencia.ProveedorNombre)">
-                                                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
-                                                    <span data-texto-guardar>@(tieneMaterial ? "Sustituir" : "Seleccionar")</span>
-                                                </button>
-                                            </form>
-                                        }
-                                    </td>
-                                </tr>
-                            }
-                        }
-                    </tbody>
-                </table>
+@* US-007: si el material no está en el catálogo, no se crea desde acá. Tiene que registrarse
+   primero en el Catálogo de Materiales, y eso solo lo hacen Supervisor y Administrador (US-041).
+   La fila puede quedar sin material mientras tanto. *@
+<div class="alert mensaje mensaje-info" role="status">
+    <i class="bi bi-info-circle" aria-hidden="true"></i>
+    <div class="mensaje-cuerpo">
+        <strong>¿No encontrás el material?</strong>
+        Si el material que necesitás no está registrado, tiene que registrarse primero en el catálogo
+        @if (!puedeRegistrarMaterial)
+        {
+            <text>por un Supervisor o un Administrador</text>
+        }
+        y después lo seleccionás acá. La fila puede quedar sin material mientras tanto.
+        @if (puedeRegistrarMaterial)
+        {
+            <div class="mt-2">
+                <a asp-controller="Materiales" asp-action="Registrar" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Registrar material
+                </a>
             </div>
         }
-    </section>
-}
-else
-{
-    <section class="panel mb-3" aria-label="Instrucciones">
-        <div class="panel-cuerpo text-body-secondary" role="status">
-            Escribí el nombre del material para buscarlo en el catálogo. El sistema no elige ningún
-            material por vos: tenés que seleccionarlo expresamente.
-        </div>
-    </section>
-}
-
-<div class="d-flex justify-content-end gap-2">
-    @if (Model.TieneCambiosPendientes)
-    {
-        <a asp-action="Index" asp-route-id="@Model.PresupuestoId" asp-route-esperabaCambiosPendientes="true"
-           class="btn btn-outline-secondary">Volver a los conceptos</a>
-    }
-    else
-    {
-        <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Volver a los conceptos</a>
-    }
+    </div>
 </div>
 </div>
 
 @section Scripts {
+    <script src="~/js/selector-materiales.js" asp-append-version="true"></script>
     <script src="~/js/conceptos-presupuesto.js" asp-append-version="true"></script>
 }

@@ -1,0 +1,262 @@
+@using System.Globalization
+@using EOP.Gestion.Core.Comun
+@using EOP.Gestion.Core.Entidades.Presupuestos
+@using EOP.Gestion.WebApp.ViewModels.Presupuestos
+@model ConceptosPresupuestoViewModel
+
+@{
+    var cultura = CultureInfo.GetCultureInfo("es-UY");
+    string indicadorPendientes = Model.TieneCambiosPendientes ? "true" : "false";
+
+    // Si el servidor rechazó el envío, la pantalla vuelve con el modal abierto y con lo que el
+    // usuario escribió, para que corrija sin perder nada.
+    bool volvioConErrores = !ViewData.ModelState.IsValid;
+
+    var selector = new SelectorMaterialViewModel
+    {
+        PresupuestoId = Model.PresupuestoId,
+        NombreCampoMaterial = "Entrada.MaterialId",
+        ParaFila = false,
+        CargaDiferida = true,
+        MaterialElegidoId = Model.Entrada.MaterialId,
+        ReferenciaElegidaId = Model.Entrada.ReferenciaId
+    };
+}
+
+@* UI-presupuestos (US-011): modal «Agregar concepto». Reemplaza al formulario fijo que había
+   debajo de la tabla. El usuario elige el tipo y enseguida aparecen los campos de ese tipo, sin
+   botón «Continuar» ni recargas (conceptos-presupuesto.js muestra la sección que corresponde y
+   deshabilita las demás, así no se envían datos de otro tipo).
+
+   Al confirmar, el POST va a la misma acción de siempre (Agregar), que incorpora la fila al
+   borrador temporal. Todas las reglas las vuelve a comprobar el servidor (RNF-10).
+
+   S3-T15: lo que se escribe acá NO forma parte del borrador hasta presionar «Agregar concepto».
+   data-advertir-datos-no-enviados le pide a cambios-pendientes.js que lo tenga en cuenta (por
+   ejemplo, para la advertencia nativa del navegador). Si la página volvió del servidor con
+   errores de validación, los datos ya vienen escritos pero no se agregaron: arrancamos marcados.
+
+   data-bs-backdrop="static": un clic fuera del modal no lo cierra, así no se pierde lo escrito
+   por accidente. Cerrar con «Cancelar», la X o Escape pide confirmación si hay datos escritos. *@
+<div class="modal fade" id="modalAgregarConcepto" tabindex="-1"
+     aria-labelledby="modalAgregarConceptoTitulo" aria-hidden="true"
+     data-bs-backdrop="static"
+     data-abrir-al-cargar="@(volvioConErrores ? "true" : "false")">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-fullscreen-sm-down">
+        <form id="formulario-concepto" class="modal-content"
+              asp-action="Agregar" asp-route-id="@Model.PresupuestoId" method="post"
+              data-advertir-datos-no-enviados
+              data-datos-no-enviados="@(volvioConErrores ? "true" : "false")">
+            <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+            <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+            <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+            <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
+
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalAgregarConceptoTitulo">Agregar concepto</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancelar"></button>
+            </div>
+
+            @* Paso 1: el formulario. *@
+            <div class="modal-body" data-paso-modal="formulario">
+                <div asp-validation-summary="All" class="resumen-errores" role="alert" tabindex="-1"></div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Entrada.TipoId" class="form-label">
+                            Tipo de concepto <span class="obligatorio" aria-hidden="true">*</span>
+                        </label>
+                        @* El tipo elegido no cuenta como «dato escrito»: solo decide qué campos se ven. *@
+                        <select asp-for="Entrada.TipoId" class="form-select" required
+                                data-selector-tipo data-excluir-de-datos-no-enviados>
+                            <option value="">Seleccioná un tipo</option>
+                            @foreach (var tipo in Model.Tipos)
+                            {
+                                string seccion = "importe";
+                                if (tipo.Id == TipoConcepto.MaterialId)
+                                {
+                                    seccion = "material";
+                                }
+                                else if (tipo.Id == TipoConcepto.MargenId)
+                                {
+                                    seccion = "margen";
+                                }
+
+                                <option value="@tipo.Id" data-seccion="@seccion" selected="@(tipo.Id == Model.Entrada.TipoId)">@tipo.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <p class="form-text mt-3 mb-0" data-seccion-tipo="ninguna">
+                    Elegí un tipo de concepto para ver los datos que tenés que completar.
+                </p>
+
+                @* Material (US-007, US-010A): selector del catálogo en dos pasos dentro del mismo
+                   modal (sin abrir otro modal encima) y la cantidad. La unidad, el precio y la
+                   moneda salen de la referencia elegida: no se escriben a mano. *@
+                <div class="seccion-modal d-none" data-seccion-tipo="material">
+                    <partial name="_SelectorMaterial" model="selector" />
+
+                    <div class="row g-3 mt-1">
+                        <div class="col-sm-6 col-lg-4">
+                            <label asp-for="Entrada.Cantidad" class="form-label">
+                                Cantidad <span class="obligatorio" aria-hidden="true">*</span>
+                            </label>
+                            <div class="input-group">
+                                <input asp-for="Entrada.Cantidad" inputmode="decimal" class="form-control" required
+                                       aria-describedby="ayuda-cantidad" />
+                                <span class="input-group-text" data-unidad-cantidad>Unidad</span>
+                            </div>
+                            <div id="ayuda-cantidad" class="form-text">Se expresa en la unidad del material elegido.</div>
+                            <span asp-validation-for="Entrada.Cantidad" class="text-danger small"></span>
+                        </div>
+                    </div>
+                </div>
+
+                @* Conceptos con importe manual (US-011): Mano de obra, Alquiler, Traslado, Costos
+                   indirectos, etc. Se conserva el importe original y su moneda; no llevan cantidad
+                   ni unidad porque no corresponden. *@
+                <div class="seccion-modal d-none" data-seccion-tipo="importe">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label asp-for="Entrada.Descripcion" class="form-label">Descripción</label>
+                            <input asp-for="Entrada.Descripcion" class="form-control" maxlength="200" />
+                        </div>
+                        <div class="col-sm-7">
+                            <label asp-for="Entrada.Importe" class="form-label">
+                                Importe total <span class="obligatorio" aria-hidden="true">*</span>
+                            </label>
+                            <input asp-for="Entrada.Importe" inputmode="decimal" class="form-control" required />
+                            <span asp-validation-for="Entrada.Importe" class="text-danger small"></span>
+                        </div>
+                        <div class="col-sm-5">
+                            <label asp-for="Entrada.Moneda" class="form-label">
+                                Moneda <span class="obligatorio" aria-hidden="true">*</span>
+                            </label>
+                            <select asp-for="Entrada.Moneda" class="form-select" required>
+                                <option value="">Seleccioná una moneda</option>
+                                <option value="@Moneda.USD">USD</option>
+                                <option value="@Moneda.UYU">UYU</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <p class="form-text mb-0">
+                                El importe es el subtotal de la fila, en la moneda que elijas. No se convierte a otra moneda.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="seccion-modal d-none" data-seccion-tipo="margen">
+                    @* S3-T07 (RF-27): el margen se calcula sobre los tipos de
+                       conceptos que el usuario selecciona expresamente.
+                       No se ingresa un importe ni se elige una moneda. *@
+                    <div class="row g-3">
+                        <div class="col-sm-6 col-lg-4">
+                            <label asp-for="Entrada.PorcentajeMargen" class="form-label">
+                                Porcentaje de margen
+                                <span class="obligatorio" aria-hidden="true">*</span>
+                            </label>
+
+                            <div class="input-group">
+                                <input asp-for="Entrada.PorcentajeMargen"
+                                       class="form-control"
+                                       inputmode="decimal"
+                                       required />
+                                <span class="input-group-text">%</span>
+                            </div>
+
+                            <span asp-validation-for="Entrada.PorcentajeMargen"
+                                  class="text-danger small"></span>
+                        </div>
+
+                        <div class="col-12">
+                            <fieldset>
+                                <legend class="form-label">
+                                    Tipos de conceptos para la base del margen
+                                </legend>
+
+                                <p class="form-text">
+                                    Seleccioná uno o más tipos de conceptos.
+                                    Los subtotales se muestran separados por moneda.
+                                </p>
+
+                                <div class="table-responsive">
+                                    <table class="table tabla tabla-compacta mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th scope="col"><span class="visually-hidden">Incluir</span></th>
+                                                <th scope="col">Tipo de concepto</th>
+                                                <th scope="col" class="text-end">Subtotal USD</th>
+                                                <th scope="col" class="text-end">Subtotal UYU</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var tipo in Model.TiposBaseMargen)
+                                            {
+                                                string identificador = $"base-margen-{tipo.TipoId}";
+
+                                                <tr>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               id="@identificador"
+                                                               name="Entrada.TiposBaseSeleccionados"
+                                                               value="@tipo.TipoId"
+                                                               checked="@(Model.Entrada.TiposBaseSeleccionados.Contains(tipo.TipoId))" />
+                                                    </td>
+                                                    <td>
+                                                        <label class="form-check-label" for="@identificador">@tipo.Nombre</label>
+                                                    </td>
+                                                    <td class="text-end num">USD @tipo.SubtotalUSD.ToString("0.##########", cultura)</td>
+                                                    <td class="text-end num">UYU @tipo.SubtotalUYU.ToString("0.##########", cultura)</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <span asp-validation-for="Entrada.TiposBaseSeleccionados"
+                                      class="text-danger small"></span>
+                            </fieldset>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* Paso 2 (solo si hace falta): confirmar que se quieren dejar los datos escritos. Va
+               dentro del mismo modal para no abrir un diálogo encima de otro. Los datos escritos
+               todavía no están en el borrador, así que si sigue se pierden; lo que ya está en el
+               borrador no se toca. *@
+            <div class="modal-body d-none" data-paso-modal="confirmar-salida">
+                <div class="alert mensaje mensaje-advertencia mb-0" role="alert">
+                    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+                    <div class="mensaje-cuerpo">
+                        <strong id="tituloConfirmarSalidaConcepto" tabindex="-1">Tenés datos escritos que todavía no agregaste</strong>
+                        Lo que escribiste en «Agregar concepto» todavía no se agregó al borrador.
+                        Si salís, esos datos se pierden. Los cambios que ya están en el borrador se conservan.
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer" data-pie-modal="formulario">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                    <i class="bi bi-plus-lg me-1" data-icono-agregar aria-hidden="true"></i>
+                    <span data-texto-guardar>Agregar concepto</span>
+                </button>
+            </div>
+
+            <div class="modal-footer d-none" data-pie-modal="confirmar-salida">
+                <button type="button" class="btn btn-outline-secondary" data-volver-al-formulario>
+                    Volver al formulario
+                </button>
+                <button type="button" class="btn btn-danger" data-salir-sin-agregar>
+                    Salir sin agregarlos
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

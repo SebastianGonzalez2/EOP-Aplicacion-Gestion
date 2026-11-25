@@ -1,0 +1,94 @@
+@using System.Globalization
+@using EOP.Gestion.Core.Comun
+@using EOP.Gestion.WebApp.ViewModels.Presupuestos
+@model ReferenciasMaterialSelectorViewModel
+
+@{
+    var cultura = CultureInfo.GetCultureInfo("es-UY");
+    var material = Model.Material;
+}
+
+@* UI-presupuestos (US-010A, RF-19): paso 2 del selector de materiales. Lo devuelve la acción
+   ReferenciasMaterial. Cada referencia es un botón de opción (radio) y ninguno viene marcado:
+   el usuario tiene que elegir uno a propósito, aunque haya una sola referencia.
+
+   Son los valores de HOY del catálogo, solo para leer. Al agregar o asignar, el servidor copia
+   al presupuesto el nombre, la unidad, el precio y la moneda de la referencia elegida, y esos
+   valores quedan como históricos del presupuesto (no cambian si después cambia el catálogo). *@
+
+<div class="mb-2">
+    <span class="d-block small text-body-secondary">Material elegido</span>
+    <strong class="d-block" data-nombre-material-elegido tabindex="-1">@material.Nombre</strong>
+    <span class="small text-body-secondary">Unidad: @material.Unidad</span>
+</div>
+
+@if (material.Referencias.Count == 0)
+{
+    <div class="alert mensaje mensaje-advertencia mb-0" role="status">
+        <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+        <div class="mensaje-cuerpo">
+            Este material no tiene proveedores con precio registrado en el catálogo, así que todavía no se
+            puede usar. Las relaciones con proveedores se registran desde el Catálogo de Materiales.
+        </div>
+    </div>
+}
+else
+{
+    <fieldset>
+        <legend class="form-label">
+            Referencia de proveedor <span class="obligatorio" aria-hidden="true">*</span>
+        </legend>
+        <div class="panel">
+            <div class="table-responsive">
+                <table class="table table-hover tabla tabla-compacta mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col"><span class="visually-hidden">Elegir</span></th>
+                            <th scope="col" class="col-principal">Proveedor</th>
+                            <th scope="col" class="text-end">Precio unitario</th>
+                            <th scope="col">Moneda</th>
+                            <th scope="col">Última actualización</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var referencia in material.Referencias)
+                        {
+                            string identificador = "referencia-" + referencia.RelacionId.ToString(CultureInfo.InvariantCulture);
+                            string precio = referencia.PrecioUnitario.ToString("0.##########", cultura);
+                            DateTime actualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(referencia.FechaUltimaActualizacion);
+                            bool esLaActual = Model.ReferenciaActualId == referencia.RelacionId;
+                            bool estaElegida = !esLaActual && Model.ReferenciaSeleccionadaId == referencia.RelacionId;
+
+                            <tr>
+                                <td class="text-center">
+                                    @* La referencia que la fila ya tiene se muestra, pero no se ofrece de nuevo. *@
+                                    <input class="form-check-input" type="radio" required
+                                           id="@identificador"
+                                           name="@Model.NombreCampoReferencia"
+                                           value="@referencia.RelacionId"
+                                           checked="@estaElegida"
+                                           disabled="@esLaActual"
+                                           data-siempre-deshabilitado="@(esLaActual ? "true" : null)"
+                                           data-proveedor="@referencia.ProveedorNombre"
+                                           data-unidad="@material.Unidad"
+                                           data-precio="@precio"
+                                           data-moneda="@referencia.Moneda" />
+                                </td>
+                                <td class="col-principal">
+                                    <label class="form-check-label" for="@identificador">@referencia.ProveedorNombre</label>
+                                    @if (esLaActual)
+                                    {
+                                        <span class="codigo">Referencia actual de la fila</span>
+                                    }
+                                </td>
+                                <td class="text-end num">@precio</td>
+                                <td>@referencia.Moneda</td>
+                                <td class="num">@actualizacion.ToString("dd/MM/yyyy HH:mm", cultura)</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </fieldset>
+}

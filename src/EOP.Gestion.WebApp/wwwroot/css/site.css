@@ -281,6 +281,27 @@ fieldset.seccion-form > legend.titulo-seccion { padding: 0; line-height: 1.5; }
   .etapa:not(.etapa-actual) .etapa-nombre { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
 
+/* ---------- Pantalla del presupuesto (UI-presupuestos) ----------
+   Solo combinaciones de tokens ya aprobados: paneles (11), ficha (datos generales), tablas (13)
+   y sin resultados (17). */
+.encabezado-presupuesto { min-width: 0; }
+.encabezado-presupuesto h1 { overflow-wrap: anywhere; }
+/* Información general compacta: en pantallas anchas los datos van en una fila; en un celular
+   se acomodan de a dos (o de a uno si no entran). Sin bordes verticales para que no queden
+   cortados cuando la grilla pasa a otra fila. */
+.datos-compactos { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); padding: .35rem 0; }
+.datos-compactos .dato { border-right: 0; padding: .6rem 1.25rem; min-width: 0; }
+.datos-compactos .dato dd { overflow-wrap: anywhere; }
+/* Encabezado de un panel con título y acción (por ejemplo, «Conceptos» + «Agregar concepto»). */
+.panel-encabezado { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: 1rem 1.25rem; border-bottom: 1px solid var(--eop-borde); }
+.panel-encabezado h2 { font-family: "Red Hat Display", system-ui, sans-serif; font-size: 1.1rem; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+.sin-resultados h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: .35rem; }
+/* Tablas dentro del modal y del selector de materiales: menos relleno para que entren más filas. */
+.tabla-compacta thead th { padding: .55rem .7rem; }
+.tabla-compacta tbody td { padding: .55rem .7rem; }
+.seccion-modal { margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px solid var(--eop-borde); }
+.selector-material-zona:empty { display: none; }
+
 /* ---------- Pantalla de inicio (Parte C) ---------- */
 .contenido-centrado { display: flex; align-items: center; justify-content: center; min-height: calc(100vh - 64px); max-width: none; }
 .bienvenida { max-width: 520px; width: 100%; text-align: center; padding: 3rem 2rem; }

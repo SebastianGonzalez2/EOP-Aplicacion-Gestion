@@ -8,6 +8,11 @@
 // 2. Datos escritos y no enviados: en un formulario marcado con data-advertir-datos-no-enviados
 //    (por ejemplo «Agregar concepto»), si el usuario escribió algo y quiere irse sin enviarlo, le
 //    avisamos antes. Esos datos NO están en el borrador, así que se perderían.
+//    UI-presupuestos: «Agregar concepto» ahora es un modal. Mientras está abierto no se puede
+//    salir por un enlace ni enviar otro formulario, y al cerrarlo con datos escritos el propio
+//    modal pide confirmación (conceptos-presupuesto.js). Lo de esta sección sigue sirviendo para
+//    cualquier formulario vigilado que esté en la página, y tieneDatosNoEnviados también la usa
+//    el modal y la advertencia nativa (punto 3).
 //
 // 3. Advertencia nativa del navegador (beforeunload): al cerrar la pestaña o el navegador,
 //    recargar o salir a otro sitio con cambios pendientes, le pedimos al navegador que avise.
@@ -91,6 +96,13 @@ function tieneDatosNoEnviados(formulario) {
 
     for (const campo of formulario.elements) {
         if (campo.disabled || campo.type === "hidden" || campo.type === "submit" || campo.type === "button") {
+            continue;
+        }
+
+        // UI-presupuestos: algunos campos ayudan a completar el formulario pero no son datos que
+        // se pierdan (por ejemplo, el buscador de materiales o el tipo de concepto elegido en el
+        // modal «Agregar concepto»). Los marcamos para no avisar por ellos.
+        if (campo.hasAttribute("data-excluir-de-datos-no-enviados")) {
             continue;
         }
 

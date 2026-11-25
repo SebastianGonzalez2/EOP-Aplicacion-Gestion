@@ -1,6 +1,4 @@
-using System.Globalization;
 using EOP.Gestion.Core.CasosDeUso.Presupuestos;
-using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Materiales;
 using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
@@ -13,19 +11,22 @@ using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 using EOP.Gestion.WebApp.ViewModels.Presupuestos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Identity.Web;
 
 namespace EOP.Gestion.WebApp.Controllers;
 
 public class ConceptosPresupuestoController : Controller
 {
+    // Cuántos materiales muestra cada página del selector de materiales.
+    private const int MaterialesPorPagina = 10;
+
     private readonly IRepositorioUsuarios _usuarios;
     private readonly IRepositorioConceptosPresupuesto _repositorio;
     private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
     private readonly ISincronizadorBorradorPresupuesto _sincronizador;
     private readonly ConsultarConceptosPresupuesto _consultarConceptos;
     private readonly ConsultarMateriales _consultarMateriales;
+    private readonly ConsultarPresupuestoDetalle _consultarDetalle;
     private readonly AgregarConceptoManual _agregarConcepto;
     private readonly SeleccionarMaterialDeConcepto _seleccionarMaterial;
     private readonly CambiarProveedorDeConcepto _cambiarProveedor;
@@ -42,6 +43,7 @@ public class ConceptosPresupuestoController : Controller
         ISincronizadorBorradorPresupuesto sincronizador,
         ConsultarConceptosPresupuesto consultarConceptos,
         ConsultarMateriales consultarMateriales,
+        ConsultarPresupuestoDetalle consultarDetalle,
         AgregarConceptoManual agregarConcepto,
         SeleccionarMaterialDeConcepto seleccionarMaterial,
         CambiarProveedorDeConcepto cambiarProveedor,
@@ -57,6 +59,7 @@ public class ConceptosPresupuestoController : Controller
         _sincronizador = sincronizador;
         _consultarConceptos = consultarConceptos;
         _consultarMateriales = consultarMateriales;
+        _consultarDetalle = consultarDetalle;
         _agregarConcepto = agregarConcepto;
         _seleccionarMaterial = seleccionarMaterial;
         _cambiarProveedor = cambiarProveedor;
@@ -67,12 +70,14 @@ public class ConceptosPresupuestoController : Controller
         _logger = logger;
     }
 
+    // UI-presupuestos: esta es la pantalla única del presupuesto. Desde el listado se entra
+    // directo acá (ya no hay un paso intermedio de «Ver conceptos»): arriba se ve la información
+    // general y abajo la tabla de conceptos. Los tres roles pueden consultarla; solo quien puede
+    // editar ve las acciones de edición (US-001, US-003).
     [HttpGet]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
     public async Task<IActionResult> Index(
         int id,
-        int tipoId,
-        string? busqueda,
         bool esperabaCambiosPendientes,
         CancellationToken cancellationToken)
     {
@@ -109,7 +114,7 @@ public class ConceptosPresupuestoController : Controller
         }
 
         return View(await PrepararPantallaAsync(
-            presupuesto, usuario, new ConceptoManualViewModel { TipoId = tipoId }, busqueda, cancellationToken));
+            presupuesto, usuario, new ConceptoManualViewModel(), cancellationToken));
     }
 
     [HttpPost]
@@ -118,7 +123,6 @@ public class ConceptosPresupuestoController : Controller
     public async Task<IActionResult> Agregar(
         int id,
         ConceptoManualViewModel entrada,
-        string? busqueda,
         bool esperabaCambiosPendientes,
         int versionBorrador,
         string? huellaEstadoBase,
@@ -245,13 +249,14 @@ public class ConceptosPresupuestoController : Controller
             ModelState.AddModelError(string.Empty, error);
         }
 
+        // Volvemos a mostrar la pantalla con el modal «Agregar concepto» abierto y con lo que el
+        // usuario escribió, así corrige el error sin tener que cargar todo de nuevo.
         return View(
             nameof(Index),
             await PrepararPantallaAsync(
                 presupuesto,
                 usuario,
                 entrada,
-                busqueda,
                 cancellationToken));
     }
 
@@ -387,12 +392,14 @@ public class ConceptosPresupuestoController : Controller
 
     // US-007: pantalla para buscar y elegir a mano el material de una fila de tipo Material.
     // Buscar solo lee el catálogo; no crea ni modifica nada (RF-12).
+    // UI-presupuestos: la búsqueda ya no recarga esta pantalla. El selector de materiales trae el
+    // listado y las referencias con CatalogoMateriales y ReferenciasMaterial (más abajo), igual
+    // que el modal «Agregar concepto».
     [HttpGet]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
     public async Task<IActionResult> SeleccionarMaterial(
         int id,
         int conceptoId,
-        string? busqueda,
         bool esperabaCambiosPendientes,
         CancellationToken cancellationToken)
     {
@@ -450,7 +457,7 @@ public class ConceptosPresupuestoController : Controller
             return RedirectToAction(nameof(Index), new { id });
         }
 
-        return View(await PrepararSeleccionAsync(presupuesto, borrador, fila, busqueda, cancellationToken));
+        return View(await PrepararSeleccionAsync(presupuesto, borrador, fila, null, null, cancellationToken));
     }
 
     // US-007 + RF-05: aplica al borrador pendiente la referencia que el usuario eligió para la fila.
@@ -462,7 +469,7 @@ public class ConceptosPresupuestoController : Controller
         int id,
         int conceptoId,
         int? referenciaId,
-        string? busqueda,
+        int? materialId,
         bool esperabaCambiosPendientes,
         int versionBorrador,
         string? huellaEstadoBase,
@@ -512,9 +519,11 @@ public class ConceptosPresupuestoController : Controller
             return RedirectToAction(nameof(Index), new { id });
         }
 
+        // materialId y referenciaId solo sirven para que el selector vuelva a mostrar lo que el
+        // usuario había elegido. No deciden nada: el caso de uso ya rechazó esa selección.
         ModelState.AddModelError(string.Empty, error);
         return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
-            presupuesto, borrador, fila, busqueda, cancellationToken));
+            presupuesto, borrador, fila, materialId, referenciaId, cancellationToken));
     }
 
     // S3-T12 (US-010A, RF-20) + RF-05: el usuario eligió otra referencia de proveedor del material
@@ -580,7 +589,7 @@ public class ConceptosPresupuestoController : Controller
 
         ModelState.AddModelError(string.Empty, error);
         return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
-            presupuesto, borrador, fila, null, cancellationToken));
+            presupuesto, borrador, fila, null, null, cancellationToken));
     }
 
     // S3-T12 (RF-020) + RF-05: el usuario pidió, y confirmó en el diálogo, que la fila vuelva a copiar
@@ -645,7 +654,139 @@ public class ConceptosPresupuestoController : Controller
 
         ModelState.AddModelError(string.Empty, error);
         return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
-            presupuesto, borrador, fila, null, cancellationToken));
+            presupuesto, borrador, fila, null, null, cancellationToken));
+    }
+
+    // UI-presupuestos (US-007, US-011): primer paso del selector de materiales. Devuelve un pedazo
+    // de HTML (vista parcial) con una página del catálogo, que el selector inserta sin recargar la
+    // pantalla. Sin texto de búsqueda muestra todos los materiales, ordenados por nombre.
+    //
+    // Reutiliza la misma consulta del Catálogo de Materiales (ConsultarMateriales). Solo lee: no
+    // crea materiales ni toca precios ni proveedores (RF-12). Lo usan tanto el modal «Agregar
+    // concepto» como la pantalla «Seleccionar material» de una fila.
+    [HttpGet]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> CatalogoMateriales(
+        int id,
+        string? busqueda,
+        int pagina,
+        CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        // El selector es parte de la edición: solo lo usa quien puede modificar el presupuesto (RNF-4).
+        if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
+        {
+            return Forbid();
+        }
+
+        List<MaterialListadoDto> materiales = await _consultarMateriales.EjecutarAsync(
+            busqueda, null, null, cancellationToken);
+
+        // Paginamos en memoria sobre el resultado de la consulta del catálogo. El catálogo de EOP
+        // es chico, así que alcanza y nos evita escribir otra consulta distinta a la del catálogo.
+        int cantidadTotal = materiales.Count;
+        int cantidadPaginas = (cantidadTotal + MaterialesPorPagina - 1) / MaterialesPorPagina;
+
+        int paginaActual = pagina;
+        if (paginaActual < 1)
+        {
+            paginaActual = 1;
+        }
+        else if (cantidadPaginas > 0 && paginaActual > cantidadPaginas)
+        {
+            paginaActual = cantidadPaginas;
+        }
+
+        List<MaterialListadoDto> materialesDeLaPagina = materiales
+            .Skip((paginaActual - 1) * MaterialesPorPagina)
+            .Take(MaterialesPorPagina)
+            .ToList();
+
+        var listado = new ListadoMaterialesSelectorViewModel
+        {
+            Busqueda = busqueda,
+            Materiales = materialesDeLaPagina,
+            PaginaActual = paginaActual,
+            CantidadPaginas = cantidadPaginas,
+            CantidadTotal = cantidadTotal,
+            MaterialesPorPagina = MaterialesPorPagina
+        };
+
+        return PartialView("_ListadoMaterialesSelector", listado);
+    }
+
+    // UI-presupuestos (US-010A): segundo paso del selector. Muestra las referencias (proveedor,
+    // precio, moneda y fecha de actualización) del material que el usuario eligió, para que elija
+    // una expresamente. Ninguna viene marcada de antemano, aunque haya una sola (RF-19).
+    //
+    // - paraFila: true cuando el selector está en la pantalla «Seleccionar material» de una fila;
+    //   cambia solo el nombre del campo que se envía (referenciaId en vez de Entrada.ReferenciaId).
+    // - referenciaSeleccionadaId: lo que el usuario ya había elegido antes de que el servidor
+    //   rechazara el envío, para no hacerlo elegir de nuevo.
+    // - referenciaActualId: la referencia que la fila ya tiene; se muestra pero no se puede elegir.
+    // Los tres son solo de presentación: las reglas las vuelve a comprobar el caso de uso al enviar.
+    [HttpGet]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> ReferenciasMaterial(
+        int id,
+        int materialId,
+        bool paraFila,
+        int? referenciaSeleccionadaId,
+        int? referenciaActualId,
+        CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
+        {
+            return Forbid();
+        }
+
+        // Es la misma consulta que usa el panel de referencias de S3-T11. Solo lee el catálogo.
+        MaterialListadoDto? material = await _consultarMateriales.ObtenerConReferenciasAsync(
+            materialId, cancellationToken);
+
+        if (material == null)
+        {
+            return NotFound();
+        }
+
+        string nombreCampo = "Entrada.ReferenciaId";
+        if (paraFila)
+        {
+            nombreCampo = "referenciaId";
+        }
+
+        var referencias = new ReferenciasMaterialSelectorViewModel
+        {
+            Material = material,
+            NombreCampoReferencia = nombreCampo,
+            ReferenciaSeleccionadaId = referenciaSeleccionadaId,
+            ReferenciaActualId = referenciaActualId
+        };
+
+        return PartialView("_ReferenciasMaterialSelector", referencias);
     }
 
     private static bool EsErrorDeEstadoBorrador(string error)
@@ -704,16 +845,14 @@ public class ConceptosPresupuestoController : Controller
         Presupuesto presupuesto,
         BorradorPresupuestoDto? borrador,
         FilaConceptoDto fila,
-        string? busqueda,
+        int? materialElegidoId,
+        int? referenciaElegidaId,
         CancellationToken cancellationToken)
     {
-        // Sin texto de búsqueda no se lista nada: el usuario tiene que buscar a propósito y elegir
-        // expresamente. Nada se preselecciona a partir del Concepto detectado (RF-12).
-        var materiales = new List<MaterialListadoDto>();
-        if (!string.IsNullOrWhiteSpace(busqueda))
-        {
-            materiales = await _consultarMateriales.EjecutarAsync(busqueda, null, null, cancellationToken);
-        }
+        // UI-presupuestos: la búsqueda de materiales ya no se hace acá. La pantalla trae el
+        // selector de materiales, que pide el listado y las referencias por su cuenta (ver
+        // CatalogoMateriales y ReferenciasMaterial). Nada se preselecciona a partir del Concepto
+        // detectado (RF-12): el usuario siempre elige expresamente.
 
         // S3-T11 (US-010A): si la fila ya tiene material, se traen sus referencias de precio para
         // mostrarlas sin que el usuario tenga que buscarlo de nuevo. Solo se lee el catálogo.
@@ -741,16 +880,30 @@ public class ConceptosPresupuestoController : Controller
             HuellaEstadoBase = huellaEstadoBase,
             Fila = fila,
             MaterialActual = materialActual,
-            Busqueda = busqueda,
-            Materiales = materiales
+            MaterialElegidoId = materialElegidoId,
+            ReferenciaElegidaId = referenciaElegidaId
         };
     }
 
     private async Task<ConceptosPresupuestoViewModel> PrepararPantallaAsync(
-        Presupuesto presupuesto, Usuario usuario, ConceptoManualViewModel entrada, string? busqueda,
+        Presupuesto presupuesto, Usuario usuario, ConceptoManualViewModel entrada,
         CancellationToken cancellationToken)
     {
         bool puedeAgregar = PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario);
+
+        // UI-presupuestos: la información general (cliente, tipo de proyecto, responsable, fechas
+        // y estado) se muestra arriba de la tabla. Es la misma consulta que usaba la pantalla de
+        // detalle que se eliminó, así no duplicamos lógica.
+        PresupuestoDetalleDto? informacion = await _consultarDetalle.EjecutarAsync(
+            presupuesto.Id, cancellationToken);
+
+        if (informacion == null)
+        {
+            // No debería pasar: el presupuesto existe porque lo acabamos de leer. Si igual pasa
+            // (por ejemplo, se borró en el medio), preferimos cortar acá con un error claro.
+            throw new InvalidOperationException(
+                $"No se encontró la información general del presupuesto {presupuesto.Id}.");
+        }
 
         List<FilaConceptoDto> filas;
         bool tieneCambiosPendientes = false;
@@ -828,6 +981,7 @@ public class ConceptosPresupuestoController : Controller
         {
             PresupuestoId = presupuesto.Id,
             Codigo = presupuesto.Codigo,
+            Informacion = informacion,
             PuedeAgregar = puedeAgregar,
             TieneCambiosPendientes = tieneCambiosPendientes,
             BorradorId = borradorId,
@@ -836,37 +990,12 @@ public class ConceptosPresupuestoController : Controller
             Filas = filas,
             TiposBaseMargen = tiposBaseMargen,
             Tipos = tipos,
-            Entrada = entrada,
-            Busqueda = busqueda
+            Entrada = entrada
         };
 
-        // Si el usuario está buscando un material, cargamos sus referencias
-        // de proveedores para que pueda elegir una de forma explícita.
-        if (puedeAgregar && entrada.TipoId == TipoConcepto.MaterialId && !string.IsNullOrWhiteSpace(busqueda))
-        {
-            var materiales = await _consultarMateriales.EjecutarAsync(busqueda, null, null, cancellationToken);
-            var cultura = CultureInfo.GetCultureInfo("es-UY");
-
-            foreach (var material in materiales)
-            {
-                var grupo = new SelectListGroup { Name = material.Nombre };
-
-                foreach (var referencia in material.Referencias)
-                {
-                    string precio = referencia.PrecioUnitario.ToString("0.##########", cultura);
-
-                    DateTime actualizacion = ZonaHorariaUruguay.ConvertirUtcALocal(
-                        referencia.FechaUltimaActualizacion);
-
-                    pantalla.Referencias.Add(new SelectListItem
-                    {
-                        Group = grupo,
-                        Value = referencia.RelacionId.ToString(CultureInfo.InvariantCulture),
-                        Text = $"{referencia.ProveedorNombre} · {referencia.Moneda} {precio} · {actualizacion:dd/MM/yyyy HH:mm}"
-                    });
-                }
-            }
-        }
+        // UI-presupuestos: los materiales del catálogo ya no se cargan acá. El modal «Agregar
+        // concepto» los pide recién cuando el usuario elige el tipo Material (CatalogoMateriales),
+        // así no consultamos todo el catálogo cada vez que se abre el presupuesto.
 
         return pantalla;
     }
