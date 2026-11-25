@@ -1,0 +1,137 @@
+@model EOP.Gestion.WebApp.ViewModels.Cuenta.CambiosPendientesCierreSesionViewModel
+@using EOP.Gestion.WebApp.Controllers
+@*
+    S3-T15 (US-003, US-042): decisión sobre los cambios sin guardar al cerrar sesión.
+
+    Se usa en dos lugares con el mismo contenido:
+    - Dentro del diálogo de Bootstrap (EnModal = true). Los pasos "decisión" y "confirmar
+      descarte" se alternan con JavaScript, sin salir de la pantalla.
+    - En la pantalla /Cuenta/CambiosPendientes (EnModal = false). Ahí los pasos se alternan con
+      enlaces comunes, así funciona aunque el navegador no ejecute JavaScript.
+
+    El formulario manda, por cada presupuesto, el identificador y la versión del borrador que
+    está viendo el usuario. El servidor no guarda ni descarta nada si la lista cambió.
+
+    Opciones (RF-05): Guardar, Descartar cambios (con una segunda confirmación, RNF-1) y
+    Continuar editando (no cambia nada y la sesión sigue abierta).
+*@
+@{
+    int cantidad = Model.Pendientes.Count;
+    string textoCantidad = cantidad == 1 ? "1 presupuesto" : $"{cantidad} presupuestos";
+
+    // En la pantalla usamos otros id para no repetir los del diálogo, que también está en la página.
+    string sufijo = Model.EnModal ? "" : "Pagina";
+    string idTituloDecision = "tituloDecisionCierre" + sufijo;
+    string idTituloDescarte = "tituloDescarteCierre" + sufijo;
+
+    string claseFormulario = Model.EnModal ? "modal-content" : "panel";
+    string claseEncabezado = Model.EnModal ? "modal-header" : "seccion-form pb-0";
+    string claseCuerpo = Model.EnModal ? "modal-body" : "seccion-form";
+    string clasePie = Model.EnModal ? "modal-footer" : "panel-pie d-flex flex-wrap justify-content-end gap-2";
+    string claseTitulo = Model.EnModal ? "modal-title" : "";
+
+    string claseDecision = Model.ConfirmandoDescarte ? "d-none" : "";
+    string claseDescarte = Model.ConfirmandoDescarte ? "" : "d-none";
+}
+
+<form class="@claseFormulario" asp-controller="Cuenta" asp-action="CerrarSesion" method="post"
+      data-formulario-decision-cierre>
+    @for (int indice = 0; indice < Model.Pendientes.Count; indice++)
+    {
+        var pendiente = Model.Pendientes[indice];
+        <input type="hidden" name="borradores[@indice].PresupuestoId" value="@pendiente.PresupuestoId" />
+        <input type="hidden" name="borradores[@indice].BorradorId" value="@pendiente.BorradorId" />
+        <input type="hidden" name="borradores[@indice].Version" value="@pendiente.Version" />
+    }
+
+    @* ---------- Paso 1: decidir ---------- *@
+    <div class="@claseDecision" data-paso="decision">
+        <div class="@claseEncabezado">
+            <h2 class="@claseTitulo" id="@idTituloDecision" tabindex="-1">¿Cerrar sesión con cambios sin guardar?</h2>
+            @if (Model.EnModal)
+            {
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Continuar editando"></button>
+            }
+        </div>
+
+        <div class="@claseCuerpo">
+            <p>
+                Tenés cambios sin guardar en @textoCantidad. Se conservan temporalmente mientras tu sesión
+                esté abierta; si cerrás sesión sin guardarlos, se pierden.
+            </p>
+            <ul class="mb-3">
+                @foreach (var pendiente in Model.Pendientes)
+                {
+                    <li>
+                        <a asp-controller="ConceptosPresupuesto" asp-action="Index" asp-route-id="@pendiente.PresupuestoId"
+                           asp-route-esperabaCambiosPendientes="true">@pendiente.Codigo</a>
+                        @if (!string.IsNullOrWhiteSpace(pendiente.NombreProyecto))
+                        {
+                            <span class="text-body-secondary">— @pendiente.NombreProyecto</span>
+                        }
+                    </li>
+                }
+            </ul>
+            <p class="form-text mb-0">
+                Si elegís Guardar, la sesión se cierra solo cuando todos los presupuestos se guardaron correctamente.
+            </p>
+        </div>
+
+        <div class="@clasePie">
+            @if (Model.EnModal)
+            {
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Continuar editando</button>
+                <button type="button" class="btn btn-outline-danger" data-ir-a-confirmar-descarte>Descartar cambios</button>
+            }
+            else
+            {
+                <a class="btn btn-outline-secondary" asp-controller="Presupuestos" asp-action="Index">Continuar editando</a>
+                <a class="btn btn-outline-danger" asp-controller="Cuenta" asp-action="CambiosPendientes"
+                   asp-route-confirmarDescarte="true">Descartar cambios</a>
+            }
+            <button type="submit" class="btn btn-primary" name="decision" value="@CuentaController.DecisionGuardar">
+                <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                <span data-texto-guardar>Guardar y cerrar sesión</span>
+            </button>
+        </div>
+    </div>
+
+    @* ---------- Paso 2: confirmar el descarte (RNF-1) ---------- *@
+    <div class="@claseDescarte" data-paso="confirmar-descarte">
+        <div class="@claseEncabezado">
+            <h2 class="@claseTitulo" id="@idTituloDescarte" tabindex="-1">¿Descartar los cambios sin guardar de @textoCantidad?</h2>
+            @if (Model.EnModal)
+            {
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Continuar editando"></button>
+            }
+        </div>
+
+        <div class="@claseCuerpo">
+            <p>Se eliminan los cambios que todavía no guardaste en:</p>
+            <ul class="mb-3">
+                @foreach (var pendiente in Model.Pendientes)
+                {
+                    <li>@pendiente.Codigo</li>
+                }
+            </ul>
+            <p class="mb-0">
+                Lo que ya estaba guardado no se modifica. Esta acción no se puede deshacer. Después se cierra la sesión.
+            </p>
+        </div>
+
+        <div class="@clasePie">
+            @if (Model.EnModal)
+            {
+                <button type="button" class="btn btn-outline-secondary" data-volver-a-decision>Volver</button>
+            }
+            else
+            {
+                <a class="btn btn-outline-secondary" asp-controller="Cuenta" asp-action="CambiosPendientes">Volver</a>
+            }
+            <button type="submit" class="btn btn-danger" name="decision" value="@CuentaController.DecisionDescartar">
+                <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                <span data-texto-guardar>Descartar y cerrar sesión</span>
+            </button>
+        </div>
+    </div>
+</form>

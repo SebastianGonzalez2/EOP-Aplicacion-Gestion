@@ -32,6 +32,8 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["* Home/Error"] = Publica,
         ["POST Cuenta/CerrarSesion"] = CualquierRolConSesion,
         ["GET Cuenta/AccesoDenegado"] = CualquierRolConSesion,
+        // S3-T15: decisión sobre los cambios sin guardar al cerrar sesión (US-003, US-042).
+        ["GET Cuenta/CambiosPendientes"] = CualquierRolConSesion,
         ["* Home/Index"] = CualquierRolConSesion,
         ["* Home/Privacy"] = CualquierRolConSesion,
 
@@ -59,6 +61,8 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         ["GET ConceptosPresupuesto/Index"] = "Administrador,Operador,Supervisor",
         ["POST ConceptosPresupuesto/Agregar"] = "Administrador,Operador,Supervisor",
         ["POST ConceptosPresupuesto/GuardarBorrador"] = "Administrador,Operador,Supervisor",
+        // S3-T15: el descarte voluntario solo borra el borrador temporal del propio usuario.
+        ["POST ConceptosPresupuesto/DescartarCambios"] = "Administrador,Operador,Supervisor",
 
         // US-007 y RF-73: los tres roles pueden entrar; el servidor además exige estado editable
         // y, para el Operador, ser el responsable del presupuesto.

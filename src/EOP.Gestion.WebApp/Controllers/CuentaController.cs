@@ -1,8 +1,15 @@
+using System.Text.Json;
+using EOP.Gestion.Core.CasosDeUso.Presupuestos;
+using EOP.Gestion.Core.DTOs.Presupuestos;
+using EOP.Gestion.Core.Entidades.Usuarios;
+using EOP.Gestion.Core.Interfaces.Usuarios;
+using EOP.Gestion.WebApp.ViewModels.Cuenta;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Identity.Web;
 
 namespace EOP.Gestion.WebApp.Controllers
 {
@@ -14,6 +21,12 @@ namespace EOP.Gestion.WebApp.Controllers
     // Entra ID, validar el token, crear la cookie) lo hace Microsoft.Identity.Web.
     public class CuentaController : Controller
     {
+        // S3-T15: valores posibles del botón elegido en la advertencia de cierre de sesión.
+        public const string DecisionGuardar = "guardar";
+        public const string DecisionDescartar = "descartar";
+
+        private const string ClaveResultadosCierreSesion = "ResultadosCierreSesion";
+
         // GET /Cuenta/IniciarSesion?urlRetorno=/Home/Index
         //
         // Ojo: no hace falta pasar por acá para loguearse. Si alguien entra a
@@ -69,9 +82,180 @@ namespace EOP.Gestion.WebApp.Controllers
         // menú manda un código secreto (el "token antifalsificación") que solo
         // conoce nuestra propia página. Si el pedido llega sin ese código,
         // ASP.NET Core lo rechaza antes de entrar al método.
+        //
+        // S3-T15 (US-003, US-042, RF-05, RF-69): antes de cerrar la sesión revisamos si el
+        // usuario dejó cambios sin guardar en algún presupuesto, esté en la pantalla que esté.
+        // - Sin cambios pendientes: se cierra la sesión como siempre.
+        // - Con cambios y sin una decisión: no cerramos. Lo mandamos a la pantalla
+        //   CambiosPendientes para que elija. Normalmente el usuario ya eligió en el diálogo
+        //   del menú; este camino cubre el caso de que el navegador no ejecute JavaScript.
+        // - decision = "guardar": guardamos todo y cerramos solo si todo salió bien.
+        // - decision = "descartar": descartamos todo (ya lo confirmó dos veces) y cerramos.
+        //
+        // Las dependencias llegan con [FromServices] (directo a esta acción) porque solo las
+        // usan estas dos acciones; el resto del Controller no las necesita.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult CerrarSesion()
+        public async Task<IActionResult> CerrarSesion(
+            string? decision,
+            List<BorradorEsperadoViewModel>? borradores,
+            [FromServices] IRepositorioUsuarios usuarios,
+            [FromServices] ResolverCambiosPendientesAlCerrarSesion resolverCambiosPendientes,
+            [FromServices] ILogger<CuentaController> logger,
+            CancellationToken cancellationToken)
+        {
+            Usuario? usuario = await ObtenerUsuarioAsync(usuarios, cancellationToken);
+
+            // Los borradores se guardan con el id del usuario de EOP. Si no lo encontramos, no
+            // puede tener cambios pendientes propios: cerramos la sesión normalmente.
+            if (usuario == null)
+            {
+                return CerrarSesionEnEopYEntraId();
+            }
+
+            // Armamos la lista de lo que el usuario vio en la advertencia.
+            var borradoresEsperados = new List<BorradorEsperadoDto>();
+            if (borradores != null)
+            {
+                foreach (BorradorEsperadoViewModel borrador in borradores)
+                {
+                    borradoresEsperados.Add(new BorradorEsperadoDto(
+                        borrador.PresupuestoId, borrador.BorradorId, borrador.Version));
+                }
+            }
+
+            try
+            {
+                if (string.Equals(decision, DecisionGuardar, StringComparison.Ordinal))
+                {
+                    ResultadoCierreSesionConPendientes resultadoGuardado = await resolverCambiosPendientes.GuardarTodoAsync(
+                        usuario, borradoresEsperados, cancellationToken);
+
+                    return ContinuarCierreSesion(
+                        resultadoGuardado,
+                        "No se cerró la sesión porque algunos cambios no se pudieron guardar. Revisá el detalle de cada presupuesto.");
+                }
+
+                if (string.Equals(decision, DecisionDescartar, StringComparison.Ordinal))
+                {
+                    ResultadoCierreSesionConPendientes resultadoDescarte = await resolverCambiosPendientes.DescartarTodoAsync(
+                        usuario, borradoresEsperados, cancellationToken);
+
+                    return ContinuarCierreSesion(
+                        resultadoDescarte,
+                        "No se cerró la sesión porque algunos cambios no se pudieron descartar. Revisá el detalle de cada presupuesto.");
+                }
+
+                // Sin decisión: solo cerramos si no hay nada pendiente.
+                bool puedeCerrar = await resolverCambiosPendientes.PrepararCierreSinPendientesAsync(
+                    usuario.Id, cancellationToken);
+
+                if (puedeCerrar)
+                {
+                    return CerrarSesionEnEopYEntraId();
+                }
+
+                return RedirectToAction(nameof(CambiosPendientes));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception excepcion)
+            {
+                // RNF-12: registramos el tipo de error, sin datos personales. La sesión sigue
+                // abierta y los presupuestos que no se llegaron a guardar conservan sus cambios.
+                logger.LogError(
+                    "No se pudieron resolver los cambios pendientes al cerrar sesión. Tipo de error: {TipoError}. Id de solicitud: {IdSolicitud}",
+                    excepcion.GetType().Name,
+                    HttpContext.TraceIdentifier);
+
+                TempData["MensajeError"] =
+                    "No se cerró la sesión por un error inesperado. Los presupuestos de la lista conservan sus cambios sin guardar.";
+
+                return RedirectToAction(nameof(CambiosPendientes));
+            }
+        }
+
+        // GET /Cuenta/CambiosPendientes
+        //
+        // S3-T15: pantalla con la misma advertencia del diálogo de cierre de sesión. Muestra los
+        // presupuestos que siguen con cambios sin guardar y, si hubo un intento anterior que no
+        // terminó bien, el resultado de cada presupuesto. Queda cubierta por la política de
+        // respaldo: solo la ve alguien con sesión iniciada.
+        [HttpGet]
+        public async Task<IActionResult> CambiosPendientes(
+            bool confirmarDescarte,
+            [FromServices] IRepositorioUsuarios usuarios,
+            [FromServices] ConsultarCambiosPendientesDelUsuario consultarPendientes,
+            CancellationToken cancellationToken)
+        {
+            Usuario? usuario = await ObtenerUsuarioAsync(usuarios, cancellationToken);
+            if (usuario == null)
+            {
+                return Forbid();
+            }
+
+            List<CambioPendienteDto> pendientes = await consultarPendientes.EjecutarAsync(usuario.Id, cancellationToken);
+
+            var resultados = new List<ResultadoPresupuestoAlCerrarSesion>();
+            if (TempData[ClaveResultadosCierreSesion] is string resultadosJson)
+            {
+                List<ResultadoPresupuestoAlCerrarSesion>? resultadosLeidos =
+                    JsonSerializer.Deserialize<List<ResultadoPresupuestoAlCerrarSesion>>(resultadosJson);
+
+                if (resultadosLeidos != null)
+                {
+                    resultados = resultadosLeidos;
+                }
+            }
+
+            var pantalla = new CambiosPendientesCierreSesionViewModel
+            {
+                Pendientes = pendientes,
+                EnModal = false,
+                ConfirmandoDescarte = confirmarDescarte && pendientes.Count > 0,
+                Resultados = resultados
+            };
+
+            return View(pantalla);
+        }
+
+        // Decide qué hacer después de intentar guardar o descartar todo.
+        private IActionResult ContinuarCierreSesion(ResultadoCierreSesionConPendientes resultado, string mensajeSiFallo)
+        {
+            if (resultado.PuedeCerrarSesion)
+            {
+                return CerrarSesionEnEopYEntraId();
+            }
+
+            // No cerramos: le mostramos al usuario qué pasó con cada presupuesto. Los resultados
+            // viajan en TempData (como texto JSON) porque usamos Post/Redirect/Get.
+            if (!string.IsNullOrWhiteSpace(resultado.MensajeGeneral))
+            {
+                TempData["MensajeError"] = resultado.MensajeGeneral;
+            }
+            else
+            {
+                TempData["MensajeError"] = mensajeSiFallo;
+            }
+
+            TempData[ClaveResultadosCierreSesion] = JsonSerializer.Serialize(resultado.Resultados);
+            return RedirectToAction(nameof(CambiosPendientes));
+        }
+
+        private async Task<Usuario?> ObtenerUsuarioAsync(IRepositorioUsuarios usuarios, CancellationToken cancellationToken)
+        {
+            string? identidad = User.GetObjectId();
+            if (string.IsNullOrWhiteSpace(identidad))
+            {
+                return null;
+            }
+
+            return await usuarios.ObtenerPorIdentidadExternaAsync(identidad, cancellationToken);
+        }
+
+        private IActionResult CerrarSesionEnEopYEntraId()
         {
             // Cuando termina todo, el usuario cae en la pantalla "Sesión cerrada".
             var propiedades = new AuthenticationProperties

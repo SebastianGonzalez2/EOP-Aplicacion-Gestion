@@ -49,6 +49,10 @@
                 </main>
             </div>
         </div>
+
+        @* S3-T15: si el usuario tiene cambios sin guardar en algún presupuesto, acá se dibuja
+           el diálogo que aparece al cerrar sesión (desde cualquier pantalla). *@
+        @await Component.InvokeAsync("AdvertenciaCierreSesion")
     }
     else
     {
@@ -63,6 +67,12 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        @* S3-T15: advertencias de cambios sin guardar (cierre de sesión, datos no enviados y
+           advertencia nativa del navegador). Va antes de los scripts propios de cada pantalla. *@
+        <script src="~/js/cambios-pendientes.js" asp-append-version="true"></script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
