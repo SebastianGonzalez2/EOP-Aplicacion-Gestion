@@ -8,290 +8,373 @@
     var tipoElegido = Model.Tipos.FirstOrDefault(tipo => tipo.Id == Model.Entrada.TipoId);
     bool esMaterial = tipoElegido?.Id == TipoConcepto.MaterialId;
     bool esMargen = tipoElegido?.Id == TipoConcepto.MargenId;
+    string indicadorPendientes = Model.TieneCambiosPendientes ? "true" : "false";
 }
 
-<nav aria-label="Ruta de navegación">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a asp-controller="Presupuestos" asp-action="Index">Presupuestos</a></li>
-        <li class="breadcrumb-item">
-            <a asp-controller="Presupuestos" asp-action="Detalle" asp-route-id="@Model.PresupuestoId">@Model.Codigo</a>
-        </li>
-        <li class="breadcrumb-item active" aria-current="page">Conceptos</li>
-    </ol>
-</nav>
+<div data-borrador-presupuesto data-presupuesto-id="@Model.PresupuestoId" data-cambios-pendientes="@indicadorPendientes">
+    <nav aria-label="Ruta de navegación">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a asp-controller="Presupuestos" asp-action="Index">Presupuestos</a></li>
+            <li class="breadcrumb-item">
+                <a asp-controller="Presupuestos" asp-action="Detalle" asp-route-id="@Model.PresupuestoId">@Model.Codigo</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">Conceptos</li>
+        </ol>
+    </nav>
 
-<div class="encabezado">
-    <h1>Conceptos del presupuesto</h1>
-</div>
+    <div class="encabezado">
+        <div>
+            <h1>Conceptos del presupuesto</h1>
+            <p>Código: @Model.Codigo</p>
+        </div>
 
-<partial name="_Mensajes" />
+        @if (Model.PuedeAgregar)
+        {
+            @* US-003 (RF-05): único botón primario de la pantalla. Solo al presionarlo se guardan
+               definitivamente en la base de datos los conceptos y selecciones del borrador. *@
+            <form id="formulario-guardar-borrador"
+                  asp-action="GuardarBorrador"
+                  asp-route-id="@Model.PresupuestoId"
+                  method="post">
+                <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+                <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+                <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
+                <button type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                    <i class="bi bi-check2 me-1" data-icono-guardar aria-hidden="true"></i>
+                    <span data-texto-guardar>Guardar borrador</span>
+                </button>
+            </form>
+        }
+    </div>
 
-<section class="panel mb-4" aria-label="Conceptos registrados">
-    @if (Model.Filas.Count == 0)
+    <partial name="_Mensajes" />
+
+    @* RNF-19 (docs/diseno-visual.md sección 19): indicador informativo de etapas del proceso. *@
+    <section class="panel mb-4" aria-label="Etapas del presupuesto">
+        <ol class="etapas">
+            <li class="etapa etapa-actual" aria-current="step">
+                <span class="etapa-marca">1</span>
+                <span class="etapa-nombre">Elaboración<span class="etapa-estado">Etapa actual</span></span>
+            </li>
+            <li class="etapa">
+                <span class="etapa-marca">2</span>
+                <span class="etapa-nombre">Resumen<span class="etapa-estado">Pendiente</span></span>
+            </li>
+            <li class="etapa">
+                <span class="etapa-marca">3</span>
+                <span class="etapa-nombre">Documentos<span class="etapa-estado">Pendiente</span></span>
+            </li>
+            <li class="etapa">
+                <span class="etapa-marca">4</span>
+                <span class="etapa-nombre">Revisión interna<span class="etapa-estado">Pendiente</span></span>
+            </li>
+        </ol>
+    </section>
+
+    @if (Model.PuedeAgregar && Model.TieneCambiosPendientes)
     {
-        <div class="panel-cuerpo">Todavía no hay conceptos registrados.</div>
+        <div class="alert mensaje mensaje-info" role="status">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <div class="mensaje-cuerpo">
+                <strong>Tenés cambios pendientes sin guardar.</strong>
+                Los conceptos y selecciones realizados solo se conservan definitivamente al presionar Guardar borrador.
+            </div>
+        </div>
     }
-    else
-    {
-        <div class="table-responsive" tabindex="0" role="region" aria-label="Tabla de conceptos">
-            <table class="table table-hover tabla mb-0">
-                <thead>
-                    <tr>
-                        <th scope="col">Tipo</th>
-                        <th scope="col">Concepto detectado</th>
-                        <th scope="col" class="col-principal">Concepto</th>
-                        <th scope="col">Proveedor</th>
-                        <th scope="col" class="text-end">Cantidad</th>
-                        <th scope="col">Unidad</th>
-                        <th scope="col" class="text-end">Precio unitario</th>
-                        <th scope="col" class="text-end">Subtotal</th>
-                        @if (Model.PuedeAgregar)
-                        {
-                            <th scope="col"><span class="visually-hidden">Acciones</span></th>
-                        }
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var fila in Model.Filas)
-                    {
-                        string valor = "—";
-                        if (fila.PrecioUnitario is decimal importe)
-                        {
-                            valor = $"{fila.Moneda} {importe.ToString("0.##########", cultura)}";
-                        }
 
-                        bool filaMaterial = fila.TipoId == TipoConcepto.MaterialId;
-
-                        // S3-T17: calculamos el subtotal usando los valores
-                        // históricos que ya tiene guardados el presupuesto.
-                        // Conservamos su moneda original, sin hacer conversiones.
-                        string subtotalTexto = "—";
-
-                        if (fila.Subtotal is decimal subtotal && fila.Moneda.HasValue)
-                        {
-                            subtotalTexto = $"{fila.Moneda} {subtotal.ToString("0.##########", cultura)}";
-                        }
-
+    <section class="panel mb-4" aria-label="Conceptos registrados">
+        @if (Model.Filas.Count == 0)
+        {
+            <div class="panel-cuerpo">Todavía no hay conceptos registrados.</div>
+        }
+        else
+        {
+            <div class="table-responsive" tabindex="0" role="region" aria-label="Tabla de conceptos">
+                <table class="table table-hover tabla mb-0">
+                    <thead>
                         <tr>
-                            <td>@fila.Tipo</td>
-                            <td class="col-texto">@(fila.ConceptoDetectado ?? "—")</td>
-                            @* US-007: una fila Material sin Concepto todavía no tiene material elegido. *@
-                            @if (filaMaterial && fila.Concepto == null)
-                            {
-                                <td class="col-principal text-body-secondary">Sin material seleccionado</td>
-                            }
-                            else
-                            {
-                                <td class="col-principal">@(fila.Concepto ?? "—")</td>
-                            }
-                            <td>@(fila.Proveedor ?? "—")</td>
-                            <td class="text-end">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
-                            <td>@(fila.Unidad?.ToString() ?? "—")</td>
-                            <td class="text-end">@(filaMaterial ? valor : "—")</td>
-                            <td class="text-end">@subtotalTexto</td>
+                            <th scope="col">Tipo</th>
+                            <th scope="col">Concepto detectado</th>
+                            <th scope="col" class="col-principal">Concepto</th>
+                            <th scope="col">Proveedor</th>
+                            <th scope="col" class="text-end">Cantidad</th>
+                            <th scope="col">Unidad</th>
+                            <th scope="col" class="text-end">Precio unitario</th>
+                            <th scope="col" class="text-end">Subtotal</th>
                             @if (Model.PuedeAgregar)
                             {
-                                <td class="text-end">
-                                    @if (filaMaterial)
-                                    {
-                                        string textoAccion = fila.MaterialProveedorId == null ? "Seleccionar material" : "Cambiar material";
-                                        <a asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId"
-                                           asp-route-conceptoId="@fila.Id"
-                                           class="btn btn-outline-secondary btn-sm">
-                                            <i class="bi bi-search me-1" aria-hidden="true"></i>@textoAccion
-                                        </a>
-                                    }
-                                </td>
+                                <th scope="col"><span class="visually-hidden">Acciones</span></th>
                             }
                         </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-</section>
-
-@if (Model.PuedeAgregar)
-{
-    <section class="panel" aria-labelledby="titulo-agregar-concepto">
-        <div class="seccion-form">
-            <h2 id="titulo-agregar-concepto">Agregar concepto</h2>
-            <form asp-action="Index" asp-route-id="@Model.PresupuestoId" method="get" class="row g-3 align-items-end">
-                <div class="col-sm-7 col-lg-5">
-                    <label for="tipoId" class="form-label">
-                        Tipo de concepto <span class="obligatorio" aria-hidden="true">*</span>
-                    </label>
-                    <select id="tipoId" name="tipoId" class="form-select" required>
-                        <option value="">Seleccioná un tipo</option>
-                        @foreach (var tipo in Model.Tipos)
+                    </thead>
+                    <tbody>
+                        @foreach (var fila in Model.Filas)
                         {
-                            <option value="@tipo.Id" selected="@(tipo.Id == tipoElegido?.Id)">@tipo.Nombre</option>
+                            string valor = "—";
+                            if (fila.PrecioUnitario is decimal importe)
+                            {
+                                valor = $"{fila.Moneda} {importe.ToString("0.##########", cultura)}";
+                            }
+
+                            bool filaMaterial = fila.TipoId == TipoConcepto.MaterialId;
+
+                            // S3-T17: calculamos el subtotal usando los valores
+                            // históricos que ya tiene guardados el presupuesto.
+                            // Conservamos su moneda original, sin hacer conversiones.
+                            string subtotalTexto = "—";
+
+                            if (fila.Subtotal is decimal subtotal && fila.Moneda.HasValue)
+                            {
+                                subtotalTexto = $"{fila.Moneda} {subtotal.ToString("0.##########", cultura)}";
+                            }
+
+                            <tr>
+                                <td>@fila.Tipo</td>
+                                <td class="col-texto">@(fila.ConceptoDetectado ?? "—")</td>
+                                @* US-007: una fila Material sin Concepto todavía no tiene material elegido. *@
+                                @if (filaMaterial && fila.Concepto == null)
+                                {
+                                    <td class="col-principal text-body-secondary">Sin material seleccionado</td>
+                                }
+                                else
+                                {
+                                    <td class="col-principal">@(fila.Concepto ?? "—")</td>
+                                }
+                                <td>@(fila.Proveedor ?? "—")</td>
+                                <td class="text-end">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
+                                <td>@(fila.Unidad?.ToString() ?? "—")</td>
+                                <td class="text-end">@(filaMaterial ? valor : "—")</td>
+                                <td class="text-end">@subtotalTexto</td>
+                                @if (Model.PuedeAgregar)
+                                {
+                                    <td class="text-end">
+                                        @if (filaMaterial)
+                                        {
+                                            string textoAccion = fila.MaterialProveedorId == null ? "Seleccionar material" : "Cambiar material";
+                                            if (Model.TieneCambiosPendientes)
+                                            {
+                                                <a asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId"
+                                                   asp-route-conceptoId="@fila.Id"
+                                                   asp-route-esperabaCambiosPendientes="true"
+                                                   class="btn btn-outline-secondary btn-sm">
+                                                    <i class="bi bi-search me-1" aria-hidden="true"></i>@textoAccion
+                                                </a>
+                                            }
+                                            else
+                                            {
+                                                <a asp-action="SeleccionarMaterial" asp-route-id="@Model.PresupuestoId"
+                                                   asp-route-conceptoId="@fila.Id"
+                                                   class="btn btn-outline-secondary btn-sm">
+                                                    <i class="bi bi-search me-1" aria-hidden="true"></i>@textoAccion
+                                                </a>
+                                            }
+                                        }
+                                    </td>
+                                }
+                            </tr>
                         }
-                    </select>
-                </div>
-                <div class="col-sm-auto">
-                    <button type="submit" class="btn btn-outline-primary">Continuar</button>
-                </div>
-            </form>
-        </div>
-
-        @if (esMaterial)
-        {
-            <form asp-action="Index" asp-route-id="@Model.PresupuestoId" method="get" class="seccion-form">
-                <input type="hidden" name="tipoId" value="@TipoConcepto.MaterialId" />
-                <div class="row g-3 align-items-end">
-                    <div class="col-sm-7 col-lg-5">
-                        <label for="busqueda" class="form-label">Buscar material por nombre</label>
-                        <input id="busqueda" name="busqueda" value="@Model.Busqueda" type="search"
-                               class="form-control" maxlength="200" required />
-                    </div>
-                    <div class="col-sm-auto">
-                        <button class="btn btn-outline-primary" type="submit">Buscar</button>
-                    </div>
-                </div>
-                @if (!string.IsNullOrWhiteSpace(Model.Busqueda) && Model.Referencias.Count == 0)
-                {
-                    <p class="form-text mt-2 mb-0" role="status">No se encontraron referencias para ese nombre.</p>
-                }
-            </form>
-        }
-
-        @if (tipoElegido != null)
-        {
-            <form id="formulario-concepto" asp-action="Agregar" asp-route-id="@Model.PresupuestoId"
-                  asp-route-busqueda="@Model.Busqueda" method="post">
-                <div class="seccion-form">
-                    <div asp-validation-summary="All" class="resumen-errores" role="alert" tabindex="-1"></div>
-                    <input asp-for="Entrada.TipoId" type="hidden" />
-                    <h2>@tipoElegido.Nombre</h2>
-
-                    @if (esMaterial && Model.Referencias.Count > 0)
-                    {
-                        <div class="row g-3">
-                            <div class="col-lg-8">
-                                <label asp-for="Entrada.ReferenciaId" class="form-label">
-                                    Concepto y referencia de proveedor <span class="obligatorio" aria-hidden="true">*</span>
-                                </label>
-                                <select asp-for="Entrada.ReferenciaId" asp-items="Model.Referencias" class="form-select" required>
-                                    <option value="">Seleccioná una referencia</option>
-                                </select>
-                            </div>
-                            <div class="col-sm-5 col-lg-4">
-                                <label asp-for="Entrada.Cantidad" class="form-label">
-                                    Cantidad <span class="obligatorio" aria-hidden="true">*</span>
-                                </label>
-                                <input asp-for="Entrada.Cantidad" inputmode="decimal" class="form-control" required />
-                            </div>
-                        </div>
-                    }
-                    else if (esMaterial)
-                    {
-                        <p class="descripcion mb-0">Buscá un material del catálogo para elegir su referencia.</p>
-                    }
-                    else if (esMargen)
-                    {
-                        @* S3-T07 (RF-27): el margen se calcula sobre los tipos de
-                           conceptos que el usuario selecciona expresamente.
-                           No se ingresa un importe ni se elige una moneda. *@
-
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label asp-for="Entrada.PorcentajeMargen" class="form-label">
-                                    Porcentaje de margen
-                                    <span class="obligatorio" aria-hidden="true">*</span>
-                                </label>
-
-                                <input asp-for="Entrada.PorcentajeMargen"
-                                       class="form-control"
-                                       inputmode="decimal"
-                                       required />
-
-                                <span asp-validation-for="Entrada.PorcentajeMargen"
-                                      class="text-danger"></span>
-                            </div>
-
-                            <div class="col-12">
-                                <fieldset>
-                                    <legend class="form-label">
-                                        Tipos de conceptos para la base del margen
-                                    </legend>
-
-                                    <p class="form-text">
-                                        Seleccioná uno o más tipos de conceptos.
-                                        Los subtotales se muestran separados por moneda.
-                                    </p>
-
-                                    @foreach (var tipo in Model.TiposBaseMargen)
-                                    {
-                                        string identificador = $"base-margen-{tipo.TipoId}";
-
-                                        <div class="form-check mb-2">
-                                            <input class="form-check-input"
-                                                   type="checkbox"
-                                                   id="@identificador"
-                                                   name="Entrada.TiposBaseSeleccionados"
-                                                   value="@tipo.TipoId"
-                                                   checked="@(Model.Entrada.TiposBaseSeleccionados.Contains(tipo.TipoId))" />
-
-                                            <label class="form-check-label" for="@identificador">
-                                                @tipo.Nombre —
-                                                UYU @tipo.SubtotalUYU.ToString("0.##########", cultura)
-                                                · USD @tipo.SubtotalUSD.ToString("0.##########", cultura)
-                                            </label>
-                                        </div>
-                                    }
-
-                                    <span asp-validation-for="Entrada.TiposBaseSeleccionados"
-                                          class="text-danger"></span>
-                                </fieldset>
-                            </div>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="row g-3">
-                            <div class="col-lg-6">
-                                <label asp-for="Entrada.Descripcion" class="form-label">Concepto</label>
-                                <input asp-for="Entrada.Descripcion" class="form-control" maxlength="200" />
-                            </div>
-                            <div class="col-sm-6 col-lg-3">
-                                <label asp-for="Entrada.Importe" class="form-label">
-                                    Importe <span class="obligatorio" aria-hidden="true">*</span>
-                                </label>
-                                <input asp-for="Entrada.Importe" inputmode="decimal" class="form-control" required />
-                            </div>
-                            <div class="col-sm-6 col-lg-3">
-                                <label asp-for="Entrada.Moneda" class="form-label">
-                                    Moneda <span class="obligatorio" aria-hidden="true">*</span>
-                                </label>
-                                <select asp-for="Entrada.Moneda" class="form-select" required>
-                                    <option value="">Seleccioná una moneda</option>
-                                    <option value="@Moneda.UYU">UYU</option>
-                                    <option value="@Moneda.USD">USD</option>
-                                </select>
-                            </div>
-                        </div>
-                    }
-                </div>
-
-                <div class="panel-pie d-flex justify-content-end gap-2">
-                    <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Cancelar</a>
-                    @if (!esMaterial || Model.Referencias.Count > 0)
-                    {
-                        <button type="submit" class="btn btn-primary">
-                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
-                            <span data-texto-guardar>Guardar</span>
-                        </button>
-                    }
-                </div>
-            </form>
-        }
-        else if (!ViewData.ModelState.IsValid)
-        {
-            <div asp-validation-summary="All" class="resumen-errores seccion-form" role="alert" tabindex="-1"></div>
+                    </tbody>
+                </table>
+            </div>
         }
     </section>
-}
+
+    @if (Model.PuedeAgregar)
+    {
+        <section class="panel" aria-labelledby="titulo-agregar-concepto">
+            <div class="seccion-form">
+                <h2 id="titulo-agregar-concepto">Agregar concepto</h2>
+                <form asp-action="Index" asp-route-id="@Model.PresupuestoId" method="get" class="row g-3 align-items-end">
+                    @if (Model.TieneCambiosPendientes)
+                    {
+                        <input type="hidden" name="esperabaCambiosPendientes" value="true" />
+                    }
+                    <div class="col-sm-7 col-lg-5">
+                        <label for="tipoId" class="form-label">
+                            Tipo de concepto <span class="obligatorio" aria-hidden="true">*</span>
+                        </label>
+                        <select id="tipoId" name="tipoId" class="form-select" required>
+                            <option value="">Seleccioná un tipo</option>
+                            @foreach (var tipo in Model.Tipos)
+                            {
+                                <option value="@tipo.Id" selected="@(tipo.Id == tipoElegido?.Id)">@tipo.Nombre</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-sm-auto">
+                        <button type="submit" class="btn btn-outline-primary">Continuar</button>
+                    </div>
+                </form>
+            </div>
+
+            @if (esMaterial)
+            {
+                <form asp-action="Index" asp-route-id="@Model.PresupuestoId" method="get" class="seccion-form">
+                    <input type="hidden" name="tipoId" value="@TipoConcepto.MaterialId" />
+                    @if (Model.TieneCambiosPendientes)
+                    {
+                        <input type="hidden" name="esperabaCambiosPendientes" value="true" />
+                    }
+                    <div class="row g-3 align-items-end">
+                        <div class="col-sm-7 col-lg-5">
+                            <label for="busqueda" class="form-label">Buscar material por nombre</label>
+                            <input id="busqueda" name="busqueda" value="@Model.Busqueda" type="search"
+                                   class="form-control" maxlength="200" required />
+                        </div>
+                        <div class="col-sm-auto">
+                            <button class="btn btn-outline-primary" type="submit">Buscar</button>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(Model.Busqueda) && Model.Referencias.Count == 0)
+                    {
+                        <p class="form-text mt-2 mb-0" role="status">No se encontraron referencias para ese nombre.</p>
+                    }
+                </form>
+            }
+
+            @if (tipoElegido != null)
+            {
+                <form id="formulario-concepto" asp-action="Agregar" asp-route-id="@Model.PresupuestoId"
+                      asp-route-busqueda="@Model.Busqueda" method="post">
+                    <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+                    <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
+                    <div class="seccion-form">
+                        <div asp-validation-summary="All" class="resumen-errores" role="alert" tabindex="-1"></div>
+                        <input asp-for="Entrada.TipoId" type="hidden" />
+                        <h2>@tipoElegido.Nombre</h2>
+
+                        @if (esMaterial && Model.Referencias.Count > 0)
+                        {
+                            <div class="row g-3">
+                                <div class="col-lg-8">
+                                    <label asp-for="Entrada.ReferenciaId" class="form-label">
+                                        Concepto y referencia de proveedor <span class="obligatorio" aria-hidden="true">*</span>
+                                    </label>
+                                    <select asp-for="Entrada.ReferenciaId" asp-items="Model.Referencias" class="form-select" required>
+                                        <option value="">Seleccioná una referencia</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-5 col-lg-4">
+                                    <label asp-for="Entrada.Cantidad" class="form-label">
+                                        Cantidad <span class="obligatorio" aria-hidden="true">*</span>
+                                    </label>
+                                    <input asp-for="Entrada.Cantidad" inputmode="decimal" class="form-control" required />
+                                </div>
+                            </div>
+                        }
+                        else if (esMaterial)
+                        {
+                            <p class="descripcion mb-0">Buscá un material del catálogo para elegir su referencia.</p>
+                        }
+                        else if (esMargen)
+                        {
+                            @* S3-T07 (RF-27): el margen se calcula sobre los tipos de
+                               conceptos que el usuario selecciona expresamente.
+                               No se ingresa un importe ni se elige una moneda. *@
+
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label asp-for="Entrada.PorcentajeMargen" class="form-label">
+                                        Porcentaje de margen
+                                        <span class="obligatorio" aria-hidden="true">*</span>
+                                    </label>
+
+                                    <input asp-for="Entrada.PorcentajeMargen"
+                                           class="form-control"
+                                           inputmode="decimal"
+                                           required />
+
+                                    <span asp-validation-for="Entrada.PorcentajeMargen"
+                                          class="text-danger"></span>
+                                </div>
+
+                                <div class="col-12">
+                                    <fieldset>
+                                        <legend class="form-label">
+                                            Tipos de conceptos para la base del margen
+                                        </legend>
+
+                                        <p class="form-text">
+                                            Seleccioná uno o más tipos de conceptos.
+                                            Los subtotales se muestran separados por moneda.
+                                        </p>
+
+                                        @foreach (var tipo in Model.TiposBaseMargen)
+                                        {
+                                            string identificador = $"base-margen-{tipo.TipoId}";
+
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input"
+                                                       type="checkbox"
+                                                       id="@identificador"
+                                                       name="Entrada.TiposBaseSeleccionados"
+                                                       value="@tipo.TipoId"
+                                                       checked="@(Model.Entrada.TiposBaseSeleccionados.Contains(tipo.TipoId))" />
+
+                                                <label class="form-check-label" for="@identificador">
+                                                    @tipo.Nombre —
+                                                    UYU @tipo.SubtotalUYU.ToString("0.##########", cultura)
+                                                    · USD @tipo.SubtotalUSD.ToString("0.##########", cultura)
+                                                </label>
+                                            </div>
+                                        }
+
+                                        <span asp-validation-for="Entrada.TiposBaseSeleccionados"
+                                              class="text-danger"></span>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="row g-3">
+                                <div class="col-lg-6">
+                                    <label asp-for="Entrada.Descripcion" class="form-label">Concepto</label>
+                                    <input asp-for="Entrada.Descripcion" class="form-control" maxlength="200" />
+                                </div>
+                                <div class="col-sm-6 col-lg-3">
+                                    <label asp-for="Entrada.Importe" class="form-label">
+                                        Importe <span class="obligatorio" aria-hidden="true">*</span>
+                                    </label>
+                                    <input asp-for="Entrada.Importe" inputmode="decimal" class="form-control" required />
+                                </div>
+                                <div class="col-sm-6 col-lg-3">
+                                    <label asp-for="Entrada.Moneda" class="form-label">
+                                        Moneda <span class="obligatorio" aria-hidden="true">*</span>
+                                    </label>
+                                    <select asp-for="Entrada.Moneda" class="form-select" required>
+                                        <option value="">Seleccioná una moneda</option>
+                                        <option value="@Moneda.UYU">UYU</option>
+                                        <option value="@Moneda.USD">USD</option>
+                                    </select>
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="panel-pie d-flex justify-content-end gap-2">
+                        <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Cancelar</a>
+                        @if (!esMaterial || Model.Referencias.Count > 0)
+                        {
+                            <button type="submit" class="btn btn-outline-primary">
+                                <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                                <span data-texto-guardar>Agregar concepto</span>
+                            </button>
+                        }
+                    </div>
+                </form>
+            }
+            else if (!ViewData.ModelState.IsValid)
+            {
+                <div asp-validation-summary="All" class="resumen-errores seccion-form" role="alert" tabindex="-1"></div>
+            }
+        </section>
+    }
+</div>
 
 @section Scripts {
     <script src="~/js/conceptos-presupuesto.js" asp-append-version="true"></script>

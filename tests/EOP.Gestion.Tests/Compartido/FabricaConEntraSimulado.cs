@@ -26,15 +26,19 @@ internal sealed class FabricaConEntraSimulado : WebApplicationFactory<Program>
 
     private readonly string? _cadenaSqlServer;
     private readonly SqliteConnection? _conexionSqlite;
+    private readonly Action<IServiceCollection>? _configurarServiciosAdicionales;
 
     public ProveedorEntraSimulado Entra { get; } = new();
 
     public RegistroDeLogsDePrueba Logs { get; } = new();
 
     // Sin cadena se usa SQLite en memoria. La cadena de SQL Server debe venir de ServidorSqlDePrueba.
-    public FabricaConEntraSimulado(string? cadenaSqlServer = null)
+    public FabricaConEntraSimulado(
+        string? cadenaSqlServer = null,
+        Action<IServiceCollection>? configurarServiciosAdicionales = null)
     {
         _cadenaSqlServer = cadenaSqlServer;
+        _configurarServiciosAdicionales = configurarServiciosAdicionales;
 
         if (cadenaSqlServer == null)
         {
@@ -74,6 +78,7 @@ internal sealed class FabricaConEntraSimulado : WebApplicationFactory<Program>
 
             servicios.AddSingleton<ILoggerProvider>(Logs);
             servicios.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, Entra.AplicarA);
+            _configurarServiciosAdicionales?.Invoke(servicios);
         });
     }
 
@@ -157,6 +162,20 @@ internal sealed class FabricaConEntraSimulado : WebApplicationFactory<Program>
         public bool TieneSesion => _cookies.Keys.Any(nombre => nombre.StartsWith(NombreCookieDeSesion, StringComparison.Ordinal));
 
         public string CookiesActuales => string.Join("; ", _cookies.Select(cookie => $"{cookie.Key}={cookie.Value}"));
+
+        // Simula la pérdida de una cookie concreta (por ejemplo .EOP.Borrador) manteniendo la autenticación.
+        public void EliminarCookie(string nombre) => _cookies.Remove(nombre);
+
+        // Crea una segunda pestaña del mismo navegador compartiendo exactamente las cookies actuales.
+        public Navegador ClonarPestana()
+        {
+            var clon = new Navegador(fabrica);
+            foreach (KeyValuePair<string, string> cookie in _cookies)
+            {
+                clon._cookies[cookie.Key] = cookie.Value;
+            }
+            return clon;
+        }
 
         public Task<HttpResponseMessage> GetAsync(string ruta) => EnviarAsync(new HttpRequestMessage(HttpMethod.Get, ruta));
 

@@ -22,24 +22,37 @@ public class ConceptosPresupuestoController : Controller
 {
     private readonly IRepositorioUsuarios _usuarios;
     private readonly IRepositorioConceptosPresupuesto _repositorio;
+    private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
+    private readonly ISincronizadorBorradorPresupuesto _sincronizador;
     private readonly ConsultarConceptosPresupuesto _consultarConceptos;
     private readonly ConsultarMateriales _consultarMateriales;
     private readonly AgregarConceptoManual _agregarConcepto;
     private readonly SeleccionarMaterialDeConcepto _seleccionarMaterial;
     private readonly CambiarProveedorDeConcepto _cambiarProveedor;
     private readonly ActualizarReferenciaDeConcepto _actualizarReferencia;
-
     private readonly RegistrarMargen _registrarMargen;
+    private readonly GuardarBorradorPresupuesto _guardarBorrador;
+    private readonly ILogger<ConceptosPresupuestoController> _logger;
+
     public ConceptosPresupuestoController(
-        IRepositorioUsuarios usuarios, IRepositorioConceptosPresupuesto repositorio,
-        ConsultarConceptosPresupuesto consultarConceptos, ConsultarMateriales consultarMateriales,
-        AgregarConceptoManual agregarConcepto, SeleccionarMaterialDeConcepto seleccionarMaterial,
+        IRepositorioUsuarios usuarios,
+        IRepositorioConceptosPresupuesto repositorio,
+        IAlmacenBorradorPresupuesto almacenBorrador,
+        ISincronizadorBorradorPresupuesto sincronizador,
+        ConsultarConceptosPresupuesto consultarConceptos,
+        ConsultarMateriales consultarMateriales,
+        AgregarConceptoManual agregarConcepto,
+        SeleccionarMaterialDeConcepto seleccionarMaterial,
         CambiarProveedorDeConcepto cambiarProveedor,
         ActualizarReferenciaDeConcepto actualizarReferencia,
-        RegistrarMargen registrarMargen)
+        RegistrarMargen registrarMargen,
+        GuardarBorradorPresupuesto guardarBorrador,
+        ILogger<ConceptosPresupuestoController> logger)
     {
         _usuarios = usuarios;
         _repositorio = repositorio;
+        _almacenBorrador = almacenBorrador;
+        _sincronizador = sincronizador;
         _consultarConceptos = consultarConceptos;
         _consultarMateriales = consultarMateriales;
         _agregarConcepto = agregarConcepto;
@@ -47,11 +60,18 @@ public class ConceptosPresupuestoController : Controller
         _cambiarProveedor = cambiarProveedor;
         _actualizarReferencia = actualizarReferencia;
         _registrarMargen = registrarMargen;
+        _guardarBorrador = guardarBorrador;
+        _logger = logger;
     }
 
     [HttpGet]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
-    public async Task<IActionResult> Index(int id, int tipoId, string? busqueda, CancellationToken cancellationToken)
+    public async Task<IActionResult> Index(
+        int id,
+        int tipoId,
+        string? busqueda,
+        bool esperabaCambiosPendientes,
+        CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
         if (usuario == null || !usuario.Activo)
@@ -65,10 +85,29 @@ public class ConceptosPresupuestoController : Controller
             return NotFound();
         }
 
+        bool puedeEditar = PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario);
+        if (puedeEditar && esperabaCambiosPendientes)
+        {
+            string? mensajePerdidaOConflicto = await _sincronizador.EjecutarConBloqueoAsync(
+                usuario.Id,
+                async () =>
+                {
+                    await _almacenBorrador.CargarAsync(cancellationToken);
+                    return await ControladorEstadoBorrador.VerificarNavegacionConCambiosPendientesAsync(
+                        presupuesto.Id, usuario.Id, _repositorio, _almacenBorrador, cancellationToken);
+                },
+                cancellationToken);
+
+            if (mensajePerdidaOConflicto != null)
+            {
+                TempData["MensajeError"] = mensajePerdidaOConflicto;
+                return RedirectToAction(nameof(Index), new { id });
+            }
+        }
+
         return View(await PrepararPantallaAsync(
             presupuesto, usuario, new ConceptoManualViewModel { TipoId = tipoId }, busqueda, cancellationToken));
     }
-
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -77,6 +116,10 @@ public class ConceptosPresupuestoController : Controller
         int id,
         ConceptoManualViewModel entrada,
         string? busqueda,
+        bool esperabaCambiosPendientes,
+        int versionBorrador,
+        string? huellaEstadoBase,
+        string? borradorId,
         CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
@@ -139,23 +182,26 @@ public class ConceptosPresupuestoController : Controller
 
         if (ModelState.IsValid)
         {
+            var contextoEdicion = new ContextoEdicionBorrador(
+                esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
+
             string? error;
 
             if (entrada.TipoId == TipoConcepto.MargenId)
             {
-                // RF-27: guardamos el margen y los tipos seleccionados.
-                // El caso de uso valida los datos y el repositorio
-                // comprueba permisos, duplicados y tipos disponibles.
+                // RF-27 + RF-05: el margen y su base se incorporan al borrador pendiente y se
+                // persisten recién cuando el usuario presiona «Guardar borrador».
                 error = await _registrarMargen.EjecutarAsync(
                     id,
                     porcentajeMargen,
                     entrada.TiposBaseSeleccionados,
                     usuario,
-                    cancellationToken);
+                    cancellationToken,
+                    contextoEdicion);
             }
             else
             {
-                // Los demás tipos conservan el funcionamiento anterior.
+                // RF-05: el concepto se incorpora al borrador pendiente hasta guardar explícitamente.
                 error = await _agregarConcepto.EjecutarAsync(
                     id,
                     entrada.TipoId,
@@ -165,16 +211,31 @@ public class ConceptosPresupuestoController : Controller
                     entrada.ReferenciaId,
                     cantidad,
                     usuario,
-                    cancellationToken);
+                    cancellationToken,
+                    contextoEdicion);
             }
 
             if (error == null)
             {
-                TempData["MensajeExito"] =
-                    entrada.TipoId == TipoConcepto.MargenId
-                        ? "El margen se agregó al presupuesto."
-                        : "El concepto se agregó al presupuesto.";
+                if (entrada.TipoId == TipoConcepto.MargenId)
+                {
+                    TempData["MensajeExito"] =
+                        "El margen se agregó al borrador. Presioná Guardar borrador para confirmar los cambios.";
+                }
+                else
+                {
+                    TempData["MensajeExito"] =
+                        "El concepto se agregó al borrador. Presioná Guardar borrador para confirmar los cambios.";
+                }
 
+                return RedirectToAction(nameof(Index), new { id });
+            }
+
+            // Si el borrador se perdió o quedó desactualizado por otra pestaña/usuario, redirigimos
+            // a Index para mostrar el estado real vigente junto con el aviso claro al usuario.
+            if (EsErrorDeEstadoBorrador(error))
+            {
+                TempData["MensajeError"] = error;
                 return RedirectToAction(nameof(Index), new { id });
             }
 
@@ -191,13 +252,98 @@ public class ConceptosPresupuestoController : Controller
                 cancellationToken));
     }
 
+    // US-003 (RF-05): guardado explícito de los cambios pendientes del borrador.
+    // Solo esta acción persiste definitivamente los conceptos y el margen en SQL Server.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> GuardarBorrador(
+        int id,
+        bool esperabaCambiosPendientes,
+        int versionBorrador,
+        string? huellaEstadoBase,
+        string? borradorId,
+        CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
+        {
+            return Forbid();
+        }
+
+        var contextoEdicion = new ContextoEdicionBorrador(
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
+
+        try
+        {
+            ResultadoAccionGuardarBorrador resultado = await _guardarBorrador.EjecutarAsync(
+                id, contextoEdicion, usuario, cancellationToken);
+
+            if (resultado.Estado == ResultadoGuardarBorrador.EdicionNoPermitida)
+            {
+                return Forbid();
+            }
+
+            if (resultado.GuardadoCorrectamente)
+            {
+                if (resultado.HuboCambiosGuardados)
+                {
+                    TempData["MensajeExito"] = "El borrador se guardó correctamente.";
+                }
+                else
+                {
+                    TempData["MensajeExito"] = "El borrador ya estaba guardado sin cambios pendientes.";
+                }
+
+                return RedirectToAction(nameof(Index), new { id });
+            }
+
+            TempData["MensajeError"] = resultado.MensajeError;
+            return RedirectToAction(nameof(Index), new { id });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception excepcion)
+        {
+            // RNF-12: registramos solo el tipo de error y el identificador de solicitud,
+            // sin datos personales ni mensajes crudos de SQL Server. Los cambios pendientes
+            // quedan intactos en la sesión para que el usuario pueda reintentar.
+            _logger.LogError(
+                "No se pudo guardar el borrador del presupuesto {PresupuestoId}. Tipo de error: {TipoError}. Id de solicitud: {IdSolicitud}",
+                id,
+                excepcion.GetType().Name,
+                HttpContext.TraceIdentifier);
+
+            TempData["MensajeError"] =
+                "No se pudo guardar el borrador por un error inesperado. Tus cambios pendientes se conservaron para que puedas reintentar.";
+
+            return RedirectToAction(nameof(Index), new { id });
+        }
+    }
 
     // US-007: pantalla para buscar y elegir a mano el material de una fila de tipo Material.
     // Buscar solo lee el catálogo; no crea ni modifica nada (RF-12).
     [HttpGet]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
     public async Task<IActionResult> SeleccionarMaterial(
-        int id, int conceptoId, string? busqueda, CancellationToken cancellationToken)
+        int id,
+        int conceptoId,
+        string? busqueda,
+        bool esperabaCambiosPendientes,
+        CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
         if (usuario == null || !usuario.Activo)
@@ -218,7 +364,30 @@ public class ConceptosPresupuestoController : Controller
             return Forbid();
         }
 
-        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        // Si se llegó con indicador de cambios pendientes o con un Id temporal negativo (< 0),
+        // verificamos que el borrador siga presente antes de intentar mostrar la fila.
+        if (esperabaCambiosPendientes || conceptoId < 0)
+        {
+            string? mensajePerdidaOConflicto = await _sincronizador.EjecutarConBloqueoAsync(
+                usuario.Id,
+                async () =>
+                {
+                    await _almacenBorrador.CargarAsync(cancellationToken);
+                    return await ControladorEstadoBorrador.VerificarNavegacionConCambiosPendientesAsync(
+                        id, usuario.Id, _repositorio, _almacenBorrador, cancellationToken);
+                },
+                cancellationToken);
+
+            if (mensajePerdidaOConflicto != null)
+            {
+                TempData["MensajeError"] = mensajePerdidaOConflicto;
+                return RedirectToAction(nameof(Index), new { id });
+            }
+        }
+
+        (FilaConceptoDto? fila, BorradorPresupuestoDto? borrador) = await ObtenerFilaYEstadoAsync(
+            id, conceptoId, usuario.Id, cancellationToken);
+
         if (fila == null)
         {
             return NotFound();
@@ -230,16 +399,24 @@ public class ConceptosPresupuestoController : Controller
             return RedirectToAction(nameof(Index), new { id });
         }
 
-        return View(await PrepararSeleccionAsync(presupuesto, fila, busqueda, cancellationToken));
+        return View(await PrepararSeleccionAsync(presupuesto, borrador, fila, busqueda, cancellationToken));
     }
 
-    // US-007: guarda la referencia que el usuario eligió para la fila. Sirve para vincular una
-    // fila sin material y para sustituir el material de una fila que ya lo tenía (RF-13).
+    // US-007 + RF-05: aplica al borrador pendiente la referencia que el usuario eligió para la fila.
+    // Sirve para vincular una fila sin material y para sustituir el material de una fila que ya lo tenía (RF-13).
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
     public async Task<IActionResult> AsignarMaterial(
-        int id, int conceptoId, int? referenciaId, string? busqueda, CancellationToken cancellationToken)
+        int id,
+        int conceptoId,
+        int? referenciaId,
+        string? busqueda,
+        bool esperabaCambiosPendientes,
+        int versionBorrador,
+        string? huellaEstadoBase,
+        string? borradorId,
+        CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
         if (usuario == null || !usuario.Activo)
@@ -258,15 +435,26 @@ public class ConceptosPresupuestoController : Controller
             return Forbid();
         }
 
+        var contextoEdicion = new ContextoEdicionBorrador(
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
+
         string? error = await _seleccionarMaterial.EjecutarAsync(
-            id, conceptoId, referenciaId, usuario, cancellationToken);
+            id, conceptoId, referenciaId, usuario, cancellationToken, contextoEdicion);
         if (error == null)
         {
-            TempData["MensajeExito"] = "El material se asoció a la fila del presupuesto.";
+            TempData["MensajeExito"] =
+                "El material se asoció a la fila en el borrador. Presioná Guardar borrador para confirmar los cambios.";
             return RedirectToAction(nameof(Index), new { id });
         }
 
-        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        if (EsErrorDeEstadoBorrador(error))
+        {
+            TempData["MensajeError"] = error;
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        (FilaConceptoDto? fila, BorradorPresupuestoDto? borrador) = await ObtenerFilaYEstadoAsync(
+            id, conceptoId, usuario.Id, cancellationToken);
         if (fila == null)
         {
             TempData["MensajeError"] = error;
@@ -275,17 +463,24 @@ public class ConceptosPresupuestoController : Controller
 
         ModelState.AddModelError(string.Empty, error);
         return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
-            presupuesto, fila, busqueda, cancellationToken));
+            presupuesto, borrador, fila, busqueda, cancellationToken));
     }
 
-    // S3-T12 (US-010A, RF-20): el usuario eligió otra referencia de proveedor del material que la
-    // fila ya tiene, desde el panel de referencias de S3-T11. El material no cambia; se vuelven a
-    // copiar a la fila el precio y la moneda (y el nombre y la unidad actuales del material).
+    // S3-T12 (US-010A, RF-20) + RF-05: el usuario eligió otra referencia de proveedor del material
+    // que la fila ya tiene, desde el panel de referencias de S3-T11. El cambio queda pendiente en el
+    // borrador hasta que el usuario presione «Guardar borrador».
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
     public async Task<IActionResult> CambiarProveedor(
-        int id, int conceptoId, int? referenciaId, CancellationToken cancellationToken)
+        int id,
+        int conceptoId,
+        int? referenciaId,
+        bool esperabaCambiosPendientes,
+        int versionBorrador,
+        string? huellaEstadoBase,
+        string? borradorId,
+        CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
         if (usuario == null || !usuario.Activo)
@@ -300,22 +495,32 @@ public class ConceptosPresupuestoController : Controller
         }
 
         // Mismo control que al abrir la pantalla: Operador solo si es el responsable y el
-        // presupuesto está en un estado editable (RNF-4). El repositorio lo vuelve a comprobar
-        // dentro de la transacción.
+        // presupuesto está en un estado editable (RNF-4).
         if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
         {
             return Forbid();
         }
 
+        var contextoEdicion = new ContextoEdicionBorrador(
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
+
         string? error = await _cambiarProveedor.EjecutarAsync(
-            id, conceptoId, referenciaId, usuario, cancellationToken);
+            id, conceptoId, referenciaId, usuario, cancellationToken, contextoEdicion);
         if (error == null)
         {
-            TempData["MensajeExito"] = "El proveedor de la fila se actualizó con la referencia seleccionada.";
+            TempData["MensajeExito"] =
+                "El proveedor de la fila se actualizó en el borrador. Presioná Guardar borrador para confirmar los cambios.";
             return RedirectToAction(nameof(Index), new { id });
         }
 
-        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        if (EsErrorDeEstadoBorrador(error))
+        {
+            TempData["MensajeError"] = error;
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        (FilaConceptoDto? fila, BorradorPresupuestoDto? borrador) = await ObtenerFilaYEstadoAsync(
+            id, conceptoId, usuario.Id, cancellationToken);
         if (fila == null)
         {
             TempData["MensajeError"] = error;
@@ -324,17 +529,24 @@ public class ConceptosPresupuestoController : Controller
 
         ModelState.AddModelError(string.Empty, error);
         return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
-            presupuesto, fila, null, cancellationToken));
+            presupuesto, borrador, fila, null, cancellationToken));
     }
 
-    // S3-T12 (RF-020): el usuario pidió, y confirmó en el diálogo, que la fila vuelva a copiar los
-    // valores vigentes de la referencia que ya tiene. No recibe ninguna referencia por parámetro:
-    // el servidor usa la que la fila ya guarda, así esta acción no puede cambiar de proveedor.
+    // S3-T12 (RF-020) + RF-05: el usuario pidió, y confirmó en el diálogo, que la fila vuelva a copiar
+    // los valores vigentes de la referencia que ya tiene. El cambio queda pendiente en el borrador
+    // hasta que el usuario presione «Guardar borrador».
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Roles = "Operador,Supervisor,Administrador")]
     public async Task<IActionResult> ActualizarReferencia(
-        int id, int conceptoId, bool confirmar, CancellationToken cancellationToken)
+        int id,
+        int conceptoId,
+        bool confirmar,
+        bool esperabaCambiosPendientes,
+        int versionBorrador,
+        string? huellaEstadoBase,
+        string? borradorId,
+        CancellationToken cancellationToken)
     {
         Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
         if (usuario == null || !usuario.Activo)
@@ -349,21 +561,31 @@ public class ConceptosPresupuestoController : Controller
         }
 
         // Un presupuesto aprobado o en cualquier estado no editable nunca se modifica (RNF-4).
-        // El repositorio lo vuelve a comprobar dentro de la transacción.
         if (!PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario))
         {
             return Forbid();
         }
 
+        var contextoEdicion = new ContextoEdicionBorrador(
+            esperabaCambiosPendientes, versionBorrador, huellaEstadoBase, borradorId);
+
         string? error = await _actualizarReferencia.EjecutarAsync(
-            id, conceptoId, confirmar, usuario, cancellationToken);
+            id, conceptoId, confirmar, usuario, cancellationToken, contextoEdicion);
         if (error == null)
         {
-            TempData["MensajeExito"] = "Los valores de la fila se actualizaron con los vigentes del catálogo.";
+            TempData["MensajeExito"] =
+                "Los valores de la fila se actualizaron en el borrador. Presioná Guardar borrador para confirmar los cambios.";
             return RedirectToAction(nameof(Index), new { id });
         }
 
-        FilaConceptoDto? fila = await _consultarConceptos.ObtenerFilaAsync(id, conceptoId, cancellationToken);
+        if (EsErrorDeEstadoBorrador(error))
+        {
+            TempData["MensajeError"] = error;
+            return RedirectToAction(nameof(Index), new { id });
+        }
+
+        (FilaConceptoDto? fila, BorradorPresupuestoDto? borrador) = await ObtenerFilaYEstadoAsync(
+            id, conceptoId, usuario.Id, cancellationToken);
         if (fila == null)
         {
             TempData["MensajeError"] = error;
@@ -372,7 +594,14 @@ public class ConceptosPresupuestoController : Controller
 
         ModelState.AddModelError(string.Empty, error);
         return View(nameof(SeleccionarMaterial), await PrepararSeleccionAsync(
-            presupuesto, fila, null, cancellationToken));
+            presupuesto, borrador, fila, null, cancellationToken));
+    }
+
+    private static bool EsErrorDeEstadoBorrador(string error)
+    {
+        return string.Equals(error, MensajesBorradorPresupuesto.CambiosPendientesPerdidos, StringComparison.Ordinal)
+            || string.Equals(error, MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, StringComparison.Ordinal)
+            || string.Equals(error, MensajesBorradorPresupuesto.PresupuestoModificadoSinPendientes, StringComparison.Ordinal);
     }
 
     private async Task<Usuario?> ObtenerUsuarioAsync(CancellationToken cancellationToken)
@@ -386,8 +615,45 @@ public class ConceptosPresupuestoController : Controller
         return await _usuarios.ObtenerPorIdentidadExternaAsync(identidad, cancellationToken);
     }
 
+    // Lee el borrador y la fila bajo el sincronizador para asegurar una lectura consistente con
+    // cualquier escritura o guardado concurrente de la misma sesión.
+    private Task<(FilaConceptoDto? Fila, BorradorPresupuestoDto? Borrador)> ObtenerFilaYEstadoAsync(
+        int presupuestoId, int conceptoId, int usuarioId, CancellationToken cancellationToken)
+    {
+        return _sincronizador.EjecutarConBloqueoAsync(
+            usuarioId,
+            async () =>
+            {
+                await _almacenBorrador.CargarAsync(cancellationToken);
+                BorradorPresupuestoDto? borrador = _almacenBorrador.Obtener(presupuestoId, usuarioId);
+
+                if (borrador != null)
+                {
+                    foreach (ConceptoBorradorDto concepto in borrador.Conceptos)
+                    {
+                        if (concepto.Id == conceptoId)
+                        {
+                            return (concepto.AFilaDto(), (BorradorPresupuestoDto?)borrador);
+                        }
+                    }
+
+                    return ((FilaConceptoDto?)null, (BorradorPresupuestoDto?)borrador);
+                }
+
+                FilaConceptoDto? filaPersistida = await _consultarConceptos.ObtenerFilaAsync(
+                    presupuestoId, conceptoId, cancellationToken);
+
+                return (filaPersistida, (BorradorPresupuestoDto?)null);
+            },
+            cancellationToken);
+    }
+
     private async Task<SeleccionarMaterialViewModel> PrepararSeleccionAsync(
-        Presupuesto presupuesto, FilaConceptoDto fila, string? busqueda, CancellationToken cancellationToken)
+        Presupuesto presupuesto,
+        BorradorPresupuestoDto? borrador,
+        FilaConceptoDto fila,
+        string? busqueda,
+        CancellationToken cancellationToken)
     {
         // Sin texto de búsqueda no se lista nada: el usuario tiene que buscar a propósito y elegir
         // expresamente. Nada se preselecciona a partir del Concepto detectado (RF-12).
@@ -406,10 +672,21 @@ public class ConceptosPresupuestoController : Controller
                 fila.MaterialId.Value, cancellationToken);
         }
 
+        bool tieneCambiosPendientes = borrador != null && borrador.TieneCambiosPendientes;
+        string? borradorId = tieneCambiosPendientes ? borrador!.BorradorId : null;
+        int versionBorrador = tieneCambiosPendientes ? borrador!.Version : 0;
+        string? huellaEstadoBase = tieneCambiosPendientes
+            ? borrador!.HuellaEstadoBase
+            : await _repositorio.ObtenerHuellaPersistidaAsync(presupuesto.Id, cancellationToken);
+
         return new SeleccionarMaterialViewModel
         {
             PresupuestoId = presupuesto.Id,
             Codigo = presupuesto.Codigo,
+            TieneCambiosPendientes = tieneCambiosPendientes,
+            BorradorId = borradorId,
+            VersionBorrador = versionBorrador,
+            HuellaEstadoBase = huellaEstadoBase,
             Fila = fila,
             MaterialActual = materialActual,
             Busqueda = busqueda,
@@ -417,16 +694,57 @@ public class ConceptosPresupuestoController : Controller
         };
     }
 
-
     private async Task<ConceptosPresupuestoViewModel> PrepararPantallaAsync(
         Presupuesto presupuesto, Usuario usuario, ConceptoManualViewModel entrada, string? busqueda,
         CancellationToken cancellationToken)
     {
         bool puedeAgregar = PermisosConceptosPresupuesto.PuedeEditar(presupuesto, usuario);
 
-        // Obtenemos las filas del presupuesto una sola vez.
-        var filas = await _consultarConceptos.ObtenerFilasAsync(
-            presupuesto.Id, cancellationToken);
+        List<FilaConceptoDto> filas;
+        bool tieneCambiosPendientes = false;
+        string? borradorId = null;
+        int versionBorrador = 0;
+        string? huellaEstadoBase = null;
+
+        // Solo mostramos cambios pendientes cuando el usuario sigue autorizado a editar el
+        // presupuesto. En modo solo lectura siempre mostramos los datos efectivamente guardados.
+        BorradorPresupuestoDto? borrador = null;
+        if (puedeAgregar)
+        {
+            borrador = await _sincronizador.EjecutarConBloqueoAsync(
+                usuario.Id,
+                async () =>
+                {
+                    await _almacenBorrador.CargarAsync(cancellationToken);
+                    return _almacenBorrador.Obtener(presupuesto.Id, usuario.Id);
+                },
+                cancellationToken);
+        }
+
+        if (borrador != null && borrador.TieneCambiosPendientes)
+        {
+            filas = new List<FilaConceptoDto>();
+            foreach (ConceptoBorradorDto concepto in borrador.Conceptos)
+            {
+                filas.Add(concepto.AFilaDto());
+            }
+
+            tieneCambiosPendientes = true;
+            borradorId = borrador.BorradorId;
+            versionBorrador = borrador.Version;
+            huellaEstadoBase = borrador.HuellaEstadoBase;
+        }
+        else
+        {
+            filas = await _consultarConceptos.ObtenerFilasAsync(
+                presupuesto.Id, cancellationToken);
+
+            if (puedeAgregar)
+            {
+                huellaEstadoBase = await _repositorio.ObtenerHuellaPersistidaAsync(
+                    presupuesto.Id, cancellationToken);
+            }
+        }
 
         // Agrupamos los subtotales por tipo de concepto.
         // Los importes en USD y UYU se mantienen separados.
@@ -459,6 +777,10 @@ public class ConceptosPresupuestoController : Controller
             PresupuestoId = presupuesto.Id,
             Codigo = presupuesto.Codigo,
             PuedeAgregar = puedeAgregar,
+            TieneCambiosPendientes = tieneCambiosPendientes,
+            BorradorId = borradorId,
+            VersionBorrador = versionBorrador,
+            HuellaEstadoBase = huellaEstadoBase,
             Filas = filas,
             TiposBaseMargen = tiposBaseMargen,
             Tipos = tipos,
@@ -496,5 +818,4 @@ public class ConceptosPresupuestoController : Controller
 
         return pantalla;
     }
-
 }

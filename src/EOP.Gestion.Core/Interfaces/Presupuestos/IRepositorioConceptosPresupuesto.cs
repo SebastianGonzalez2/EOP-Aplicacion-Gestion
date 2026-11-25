@@ -8,26 +8,27 @@ public interface IRepositorioConceptosPresupuesto
 {
     Task<Presupuesto?> ObtenerPresupuestoAsync(int presupuestoId, CancellationToken cancellationToken);
 
-    Task<ResultadoGuardarConcepto> AgregarSiPuedeEditarAsync(
-        ConceptoPresupuesto concepto, Usuario usuario, CancellationToken cancellationToken);
+    // Verifica en la base (con el estado y rol actuales del usuario) si puede editar el presupuesto.
+    Task<bool> PuedeEditarEnBaseAsync(int presupuestoId, Usuario usuario, CancellationToken cancellationToken);
 
-    // US-007: asocia o sustituye la referencia de material-proveedor de una fila de tipo Material
-    // que ya existe. Copia los datos históricos de la nueva referencia (DT-11) y conserva
-    // ConceptoDetectado y la cantidad. Verifica el acceso del usuario dentro de la misma transacción.
-    Task<ResultadoSeleccionarMaterial> SeleccionarMaterialSiPuedeEditarAsync(
-        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-        CancellationToken cancellationToken);
+    // Lee el estado persistido del presupuesto (conceptos y base de margen) sin seguimiento para
+    // inicializar el borrador en trabajo y calcular su huella de concurrencia (US-003, RF-05).
+    Task<BorradorPresupuestoDto?> ObtenerBorradorBaseAsync(int presupuestoId, CancellationToken cancellationToken);
 
-    // S3-T12 (US-010A): cambia solo el proveedor de una fila que ya tiene material. La referencia
-    // nueva tiene que ser del mismo material que la fila; si no, se rechaza. Vuelve a copiar los
-    // cuatro datos históricos (DT-11) y conserva ConceptoDetectado y la cantidad.
-    Task<ResultadoSeleccionarMaterial> CambiarProveedorSiPuedeEditarAsync(
-        int presupuestoId, int conceptoId, int referenciaId, Usuario usuario,
-        CancellationToken cancellationToken);
+    // Calcula la huella SHA-256 actual de lo persistido en SQL Server sin seguimiento.
+    Task<string?> ObtenerHuellaPersistidaAsync(int presupuestoId, CancellationToken cancellationToken);
 
-    // S3-T12 (RF-020): vuelve a copiar a la fila los cuatro valores vigentes de la referencia que
-    // la fila ya tiene. Devuelve Seleccionado si actualizó y SinCambios si ya coincidían con el
-    // catálogo. No cambia material ni proveedor y no modifica el catálogo.
-    Task<ResultadoSeleccionarMaterial> ActualizarReferenciaActualSiPuedeEditarAsync(
-        int presupuestoId, int conceptoId, Usuario usuario, CancellationToken cancellationToken);
+    // Lee una referencia del catálogo junto con su material y proveedor sin seguimiento.
+    // Solo lectura: nunca crea ni modifica registros del catálogo (DT-11, RF-20).
+    Task<ReferenciaCatalogoPresupuestoDto?> ObtenerReferenciaCatalogoAsync(
+        int referenciaId, CancellationToken cancellationToken);
+
+    // Obtiene el nombre visible de un tipo de concepto fijo (Material, Mano de obra, etc.).
+    Task<string?> ObtenerNombreTipoConceptoAsync(int tipoId, CancellationToken cancellationToken);
+
+    // US-003 (RF-05): persiste de forma atómica los cambios pendientes del borrador dentro de una
+    // única transacción de SQL Server, verificando permisos, estado editable, concurrencia,
+    // referencias del catálogo e invariantes de negocio.
+    Task<ResultadoPersistenciaBorrador> GuardarBorradorSiPuedeEditarAsync(
+        BorradorPresupuestoDto borrador, Usuario usuario, CancellationToken cancellationToken);
 }

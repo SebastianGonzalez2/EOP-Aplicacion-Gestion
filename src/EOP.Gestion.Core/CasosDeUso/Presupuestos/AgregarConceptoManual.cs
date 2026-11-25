@@ -3,23 +3,36 @@ using EOP.Gestion.Core.DTOs.Presupuestos;
 using EOP.Gestion.Core.Entidades.Presupuestos;
 using EOP.Gestion.Core.Entidades.Usuarios;
 using EOP.Gestion.Core.Interfaces.Presupuestos;
+using EOP.Gestion.Core.ServiciosDominio.Presupuestos;
 
 namespace EOP.Gestion.Core.CasosDeUso.Presupuestos;
 
+// Agrega un concepto manual (Material o importe directo) al borrador pendiente del presupuesto.
+// Según RF-05 (US-003), esta acción NO persiste en SQL Server: los cambios quedan pendientes
+// hasta que el usuario presiona explícitamente «Guardar borrador».
 public class AgregarConceptoManual
 {
     private readonly IRepositorioConceptosPresupuesto _repositorio;
+    private readonly IAlmacenBorradorPresupuesto _almacenBorrador;
+    private readonly ISincronizadorBorradorPresupuesto _sincronizador;
 
-    public AgregarConceptoManual(IRepositorioConceptosPresupuesto repositorio)
+    public AgregarConceptoManual(
+        IRepositorioConceptosPresupuesto repositorio,
+        IAlmacenBorradorPresupuesto almacenBorrador,
+        ISincronizadorBorradorPresupuesto sincronizador)
     {
         _repositorio = repositorio;
+        _almacenBorrador = almacenBorrador;
+        _sincronizador = sincronizador;
     }
 
     public async Task<string?> EjecutarAsync(
         int presupuestoId, int tipoId, string? descripcion, decimal? importe, Moneda? moneda,
-        int? referenciaId, decimal? cantidad, Usuario usuario, CancellationToken cancellationToken)
+        int? referenciaId, decimal? cantidad, Usuario usuario, CancellationToken cancellationToken,
+        ContextoEdicionBorrador? contextoEdicion = null)
     {
-        var concepto = new ConceptoPresupuesto { PresupuestoId = presupuestoId, TipoConceptoId = tipoId };
+        string? descripcionLimpia = null;
+
         if (tipoId == TipoConcepto.MaterialId)
         {
             if (referenciaId is null or <= 0)
@@ -32,20 +45,26 @@ public class AgregarConceptoManual
                 return "Ingresá una cantidad mayor que cero.";
             }
 
-            if (!AdmitePrecisionDeGuardado(cantidad.Value))
+            if (!ValidadorBorradorPresupuesto.AdmitePrecisionDeGuardado(cantidad.Value))
             {
                 return "Ingresá una cantidad con hasta 18 dígitos enteros y 10 decimales.";
             }
-
-            concepto.MaterialProveedorId = referenciaId;
-            concepto.Cantidad = cantidad;
         }
         else if (TipoConcepto.AdmiteImporteDirecto(tipoId))
         {
-            descripcion = descripcion?.Trim();
-            if (descripcion?.Length > 200)
+            if (descripcion != null)
+            {
+                descripcionLimpia = descripcion.Trim();
+            }
+
+            if (descripcionLimpia != null && descripcionLimpia.Length > ValidadorBorradorPresupuesto.LargoMaximoDescripcion)
             {
                 return "La descripción admite hasta 200 caracteres.";
+            }
+
+            if (string.IsNullOrEmpty(descripcionLimpia))
+            {
+                descripcionLimpia = null;
             }
 
             if (!importe.HasValue)
@@ -53,7 +72,7 @@ public class AgregarConceptoManual
                 return "Ingresá el importe del concepto.";
             }
 
-            if (!AdmitePrecisionDeGuardado(importe.Value))
+            if (!ValidadorBorradorPresupuesto.AdmitePrecisionDeGuardado(importe.Value))
             {
                 return "Ingresá un importe con hasta 18 dígitos enteros y 10 decimales.";
             }
@@ -62,37 +81,103 @@ public class AgregarConceptoManual
             {
                 return "Seleccioná USD o UYU.";
             }
-
-            concepto.Concepto = string.IsNullOrEmpty(descripcion) ? null : descripcion;
-            concepto.PrecioUnitario = importe;
-            concepto.Moneda = moneda;
         }
         else
         {
             return "Seleccioná un tipo de concepto disponible.";
         }
 
-        ResultadoGuardarConcepto resultado = await _repositorio.AgregarSiPuedeEditarAsync(
-            concepto, usuario, cancellationToken);
-        switch (resultado)
-        {
-            case ResultadoGuardarConcepto.Guardado:
-                return null;
-            case ResultadoGuardarConcepto.EdicionNoPermitida:
-                return "El presupuesto ya no está disponible para edición.";
-            case ResultadoGuardarConcepto.ReferenciaInexistente:
-                return "La referencia seleccionada no existe. Buscá otra referencia del catálogo.";
-            case ResultadoGuardarConcepto.ReferenciaDuplicada:
-                return "Ese material y proveedor ya están en el presupuesto. Conservá la fila existente o seleccioná otra referencia.";
-            default:
-                throw new InvalidOperationException("El repositorio devolvió un resultado desconocido.");
-        }
-    }
+        ContextoEdicionBorrador contexto = contextoEdicion ?? ContextoEdicionBorrador.Inicial;
 
-    private static bool AdmitePrecisionDeGuardado(decimal valor)
-    {
-        return valor >= -ValidadorPrecioUnitario.ValorMaximo
-            && valor <= ValidadorPrecioUnitario.ValorMaximo
-            && Math.Round(valor, ValidadorPrecioUnitario.CantidadMaximaDeDecimales) == valor;
+        return await _sincronizador.EjecutarConBloqueoAsync(
+            usuario.Id,
+            async () =>
+            {
+                await _almacenBorrador.CargarAsync(cancellationToken);
+
+                // Verificamos permisos y estado editable en el servidor antes de modificar el borrador.
+                bool puedeEditar = await _repositorio.PuedeEditarEnBaseAsync(
+                    presupuestoId, usuario, cancellationToken);
+
+                if (!puedeEditar)
+                {
+                    return "El presupuesto ya no está disponible para edición.";
+                }
+
+                ResultadoVerificacionBorrador verificacion = await ControladorEstadoBorrador.PrepararParaEdicionAsync(
+                    presupuestoId, usuario.Id, contexto, _repositorio, _almacenBorrador, cancellationToken);
+
+                if (verificacion.MensajeError != null || verificacion.BorradorParaEditar == null)
+                {
+                    return verificacion.MensajeError;
+                }
+
+                BorradorPresupuestoDto borrador = verificacion.BorradorParaEditar;
+
+                string? nombreTipo = await _repositorio.ObtenerNombreTipoConceptoAsync(tipoId, cancellationToken);
+                if (string.IsNullOrWhiteSpace(nombreTipo))
+                {
+                    return "Seleccioná un tipo de concepto disponible.";
+                }
+
+                var nuevoConcepto = new ConceptoBorradorDto
+                {
+                    Id = borrador.ObtenerSiguienteIdTemporal(),
+                    TipoConceptoId = tipoId,
+                    TipoNombre = nombreTipo,
+                    EsNuevo = true
+                };
+
+                if (tipoId == TipoConcepto.MaterialId)
+                {
+                    // Leemos la referencia del catálogo sin seguimiento (solo lectura).
+                    ReferenciaCatalogoPresupuestoDto? referencia = await _repositorio.ObtenerReferenciaCatalogoAsync(
+                        referenciaId!.Value, cancellationToken);
+
+                    if (referencia == null)
+                    {
+                        return "La referencia seleccionada no existe. Buscá otra referencia del catálogo.";
+                    }
+
+                    // RF-20: una misma combinación material-proveedor no puede repetirse en el presupuesto.
+                    bool combinacionRepetida = false;
+                    foreach (ConceptoBorradorDto filaExistente in borrador.Conceptos)
+                    {
+                        if (filaExistente.MaterialProveedorId == referencia.MaterialProveedorId)
+                        {
+                            combinacionRepetida = true;
+                            break;
+                        }
+                    }
+
+                    if (combinacionRepetida)
+                    {
+                        return "Ese material y proveedor ya están en el presupuesto. Conservá la fila existente o seleccioná otra referencia.";
+                    }
+
+                    // Copiamos los cuatro valores históricos (DT-11) en el servidor, ignorando cualquier
+                    // texto, precio o moneda que pudiera venir manipulado en el formulario.
+                    nuevoConcepto.CopiarReferencia(referencia);
+                    nuevoConcepto.Cantidad = cantidad;
+                }
+                else
+                {
+                    nuevoConcepto.Concepto = descripcionLimpia;
+                    nuevoConcepto.PrecioUnitario = importe;
+                    nuevoConcepto.Moneda = moneda;
+                }
+
+                borrador.Conceptos.Add(nuevoConcepto);
+                if (!verificacion.EsNuevoBorrador)
+                {
+                    borrador.IncrementarVersion();
+                }
+
+                _almacenBorrador.Guardar(presupuestoId, usuario.Id, borrador);
+                await _almacenBorrador.ConfirmarAsync(cancellationToken);
+
+                return null;
+            },
+            cancellationToken);
     }
 }

@@ -54,10 +54,11 @@ public class MatrizDeAutorizacionTests(SesionIntegracionTests.FabricaDePrueba fa
         // al detalle de un presupuesto para consultarlo.
         ["GET Presupuestos/Detalle"] = "Administrador,Operador,Supervisor",
 
-        // US-011 y RF-73: los tres roles consultan. El alta comprueba además
-        // el estado del presupuesto y la responsabilidad si se trata de un Operador.
+        // US-011, US-003 y RF-73: los tres roles consultan. El alta y el guardado de borrador
+        // comprueban además el estado del presupuesto y la responsabilidad si se trata de un Operador.
         ["GET ConceptosPresupuesto/Index"] = "Administrador,Operador,Supervisor",
         ["POST ConceptosPresupuesto/Agregar"] = "Administrador,Operador,Supervisor",
+        ["POST ConceptosPresupuesto/GuardarBorrador"] = "Administrador,Operador,Supervisor",
 
         // US-007 y RF-73: los tres roles pueden entrar; el servidor además exige estado editable
         // y, para el Operador, ser el responsable del presupuesto.
