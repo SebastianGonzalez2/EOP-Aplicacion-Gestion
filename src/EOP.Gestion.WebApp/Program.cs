@@ -60,6 +60,11 @@ builder.Services.AddScoped<CambiarProveedorDeConcepto>();
 builder.Services.AddScoped<ActualizarReferenciaDeConcepto>();
 builder.Services.AddScoped<GuardarBorradorPresupuesto>();
 
+// S3-T15 (US-003, US-042): descarte voluntario y gestión de los cambios sin guardar al cerrar sesión.
+builder.Services.AddScoped<DescartarCambiosPresupuesto>();
+builder.Services.AddScoped<ConsultarCambiosPendientesDelUsuario>();
+builder.Services.AddScoped<ResolverCambiosPendientesAlCerrarSesion>();
+
 // US-003 (RF-05): conservamos los cambios pendientes de un presupuesto en la sesión del servidor
 // hasta que el usuario presiona explícitamente «Guardar borrador». La cookie de sesión respeta
 // las mismas reglas de seguridad que la cookie de autenticación (HttpOnly y HTTPS obligatorio)

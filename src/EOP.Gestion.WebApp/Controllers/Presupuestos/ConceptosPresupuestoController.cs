@@ -601,7 +601,8 @@ public class ConceptosPresupuestoController : Controller
     {
         return string.Equals(error, MensajesBorradorPresupuesto.CambiosPendientesPerdidos, StringComparison.Ordinal)
             || string.Equals(error, MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, StringComparison.Ordinal)
-            || string.Equals(error, MensajesBorradorPresupuesto.PresupuestoModificadoSinPendientes, StringComparison.Ordinal);
+            || string.Equals(error, MensajesBorradorPresupuesto.PresupuestoModificadoSinPendientes, StringComparison.Ordinal)
+            || string.Equals(error, MensajesBorradorPresupuesto.CambiosDescartadosEnOtraPestana, StringComparison.Ordinal);
     }
 
     private async Task<Usuario?> ObtenerUsuarioAsync(CancellationToken cancellationToken)

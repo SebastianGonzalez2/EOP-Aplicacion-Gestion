@@ -152,6 +152,90 @@ public class AlmacenBorradorPresupuestoEnSesion : IAlmacenBorradorPresupuesto
         return string.Equals(huellaGuardada, huellaActual, StringComparison.Ordinal);
     }
 
+    public List<BorradorPresupuestoDto> ObtenerPendientesDelUsuario(int usuarioId)
+    {
+        var pendientes = new List<BorradorPresupuestoDto>();
+
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null)
+        {
+            return pendientes;
+        }
+
+        // Todas las claves de borrador de este usuario empiezan igual: "BorradorPresupuesto:{usuarioId}:".
+        // Filtrar por ese prefijo es lo que garantiza que nunca veamos borradores de otra persona,
+        // aunque hayan quedado en la misma sesión del navegador.
+        string prefijo = $"BorradorPresupuesto:{usuarioId}:";
+
+        // Copiamos las claves a una lista aparte porque Obtener() puede borrar una clave corrupta,
+        // y no se puede modificar una colección mientras se la está recorriendo.
+        var claves = new List<string>(sesion.Keys);
+
+        foreach (string clave in claves)
+        {
+            if (!clave.StartsWith(prefijo, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            string textoPresupuestoId = clave.Substring(prefijo.Length);
+            if (!int.TryParse(textoPresupuestoId, out int presupuestoId))
+            {
+                continue;
+            }
+
+            BorradorPresupuestoDto? borrador = Obtener(presupuestoId, usuarioId);
+            if (borrador != null && borrador.TieneCambiosPendientes)
+            {
+                pendientes.Add(borrador);
+            }
+        }
+
+        // Los ordenamos por presupuesto para que la advertencia los muestre siempre en el mismo orden.
+        pendientes.Sort((primero, segundo) => primero.PresupuestoId.CompareTo(segundo.PresupuestoId));
+        return pendientes;
+    }
+
+    public void RegistrarDescarte(int presupuestoId, int usuarioId, string borradorId)
+    {
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null || string.IsNullOrWhiteSpace(borradorId))
+        {
+            return;
+        }
+
+        sesion.SetString(ArmarClaveUltimoDescarte(presupuestoId, usuarioId), borradorId);
+    }
+
+    public bool FueDescartadoEnSesion(int presupuestoId, int usuarioId, string borradorId)
+    {
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null || string.IsNullOrWhiteSpace(borradorId))
+        {
+            return false;
+        }
+
+        string? borradorDescartado = sesion.GetString(ArmarClaveUltimoDescarte(presupuestoId, usuarioId));
+        if (string.IsNullOrWhiteSpace(borradorDescartado))
+        {
+            return false;
+        }
+
+        return string.Equals(borradorDescartado, borradorId, StringComparison.Ordinal);
+    }
+
+    public void VaciarDatosTemporales()
+    {
+        ISession? sesion = ObtenerSesion();
+        if (sesion == null)
+        {
+            return;
+        }
+
+        // Clear() borra todas las claves de la sesión: borradores, huellas y descartes.
+        sesion.Clear();
+    }
+
     private ISession? ObtenerSesion()
     {
         HttpContext? contexto = _accesoHttpContext.HttpContext;
@@ -171,5 +255,10 @@ public class AlmacenBorradorPresupuestoEnSesion : IAlmacenBorradorPresupuesto
     private static string ArmarClaveUltimaHuella(int presupuestoId, int usuarioId)
     {
         return $"BorradorPresupuestoUltimaHuella:{usuarioId}:{presupuestoId}";
+    }
+
+    private static string ArmarClaveUltimoDescarte(int presupuestoId, int usuarioId)
+    {
+        return $"BorradorPresupuestoUltimoDescarte:{usuarioId}:{presupuestoId}";
     }
 }

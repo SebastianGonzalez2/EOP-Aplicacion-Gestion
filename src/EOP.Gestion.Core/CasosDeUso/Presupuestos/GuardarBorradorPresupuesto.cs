@@ -92,6 +92,15 @@ public class GuardarBorradorPresupuesto
                         MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana);
                 }
 
+                // S3-T15: el borrador no se perdió, el usuario lo descartó desde otra pestaña.
+                if (ControladorEstadoBorrador.FueDescartadoDesdeOtraPestana(
+                    presupuestoId, usuario.Id, contextoEdicion, _almacenBorrador))
+                {
+                    return ResultadoAccionGuardarBorrador.Error(
+                        ResultadoGuardarBorrador.BorradorDesactualizado,
+                        MensajesBorradorPresupuesto.CambiosDescartadosEnOtraPestana);
+                }
+
                 return ResultadoAccionGuardarBorrador.Error(
                     ResultadoGuardarBorrador.CambiosPendientesPerdidos,
                     MensajesBorradorPresupuesto.CambiosPendientesPerdidos);
