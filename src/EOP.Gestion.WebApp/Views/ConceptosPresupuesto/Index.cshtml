@@ -30,22 +30,34 @@
 
         @if (Model.PuedeAgregar)
         {
-            @* US-003 (RF-05): único botón primario de la pantalla. Solo al presionarlo se guardan
-               definitivamente en la base de datos los conceptos y selecciones del borrador. *@
-            <form id="formulario-guardar-borrador"
-                  asp-action="GuardarBorrador"
-                  asp-route-id="@Model.PresupuestoId"
-                  method="post">
-                <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
-                <input type="hidden" name="borradorId" value="@Model.BorradorId" />
-                <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
-                <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
-                <button type="submit" class="btn btn-primary">
-                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
-                    <i class="bi bi-check2 me-1" data-icono-guardar aria-hidden="true"></i>
-                    <span data-texto-guardar>Guardar borrador</span>
-                </button>
-            </form>
+            <div class="d-flex flex-wrap gap-2">
+                @* S3-T15: el descarte voluntario solo tiene sentido si hay algo para descartar.
+                   El botón no descarta: abre el diálogo de confirmación (RNF-1, guía sección 18.1). *@
+                @if (Model.TieneCambiosPendientes)
+                {
+                    <button type="button" class="btn btn-outline-danger"
+                            data-bs-toggle="modal" data-bs-target="#confirmarDescartarCambios">
+                        Descartar cambios
+                    </button>
+                }
+
+                @* US-003 (RF-05): único botón primario de la pantalla. Solo al presionarlo se guardan
+                   definitivamente en la base de datos los conceptos y selecciones del borrador. *@
+                <form id="formulario-guardar-borrador"
+                      asp-action="GuardarBorrador"
+                      asp-route-id="@Model.PresupuestoId"
+                      method="post">
+                    <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+                    <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
+                    <button type="submit" class="btn btn-primary">
+                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                        <i class="bi bi-check2 me-1" data-icono-guardar aria-hidden="true"></i>
+                        <span data-texto-guardar>Guardar borrador</span>
+                    </button>
+                </form>
+            </div>
         }
     </div>
 
@@ -75,11 +87,40 @@
 
     @if (Model.PuedeAgregar && Model.TieneCambiosPendientes)
     {
-        <div class="alert mensaje mensaje-info" role="status">
-            <i class="bi bi-info-circle" aria-hidden="true"></i>
-            <div class="mensaje-cuerpo">
-                <strong>Tenés cambios pendientes sin guardar.</strong>
-                Los conceptos y selecciones realizados solo se conservan definitivamente al presionar Guardar borrador.
+        <partial name="_IndicadorCambiosSinGuardar" />
+
+        @* S3-T15 (US-003, RF-05, RNF-1): confirmación del descarte voluntario. Manda el
+           identificador y la versión del borrador que ve esta pantalla: si otra pestaña lo cambió,
+           el servidor no descarta nada. "Cancelar" cierra el diálogo y los cambios siguen ahí. *@
+        <div class="modal fade" id="confirmarDescartarCambios" tabindex="-1"
+             aria-labelledby="confirmarDescartarCambiosTitulo" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="formulario-descartar-cambios" class="modal-content"
+                      asp-action="DescartarCambios" asp-route-id="@Model.PresupuestoId" method="post">
+                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+
+                    <div class="modal-header">
+                        <h2 class="modal-title" id="confirmarDescartarCambiosTitulo">
+                            ¿Descartar los cambios sin guardar de @Model.Codigo?
+                        </h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancelar"></button>
+                    </div>
+
+                    <div class="modal-body">
+                        Se eliminan los conceptos y selecciones que todavía no guardaste en este presupuesto.
+                        El presupuesto vuelve a la información del último guardado, que no se modifica.
+                        Esta acción no se puede deshacer.
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                            <span data-texto-guardar>Descartar cambios</span>
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     }
@@ -236,8 +277,14 @@
 
             @if (tipoElegido != null)
             {
+                @* S3-T15: lo que se escribe acá NO forma parte del borrador hasta presionar «Agregar
+                   concepto». data-advertir-datos-no-enviados le pide al script que avise antes de
+                   salir con datos escritos. Si la página volvió del servidor con errores de
+                   validación, los datos ya vienen escritos pero no se agregaron: arrancamos marcados. *@
                 <form id="formulario-concepto" asp-action="Agregar" asp-route-id="@Model.PresupuestoId"
-                      asp-route-busqueda="@Model.Busqueda" method="post">
+                      asp-route-busqueda="@Model.Busqueda" method="post"
+                      data-advertir-datos-no-enviados
+                      data-datos-no-enviados="@(ViewData.ModelState.IsValid ? "false" : "true")">
                     <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
                     <input type="hidden" name="borradorId" value="@Model.BorradorId" />
                     <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
@@ -367,6 +414,36 @@
                         }
                     </div>
                 </form>
+
+                @* S3-T15: aviso de datos escritos y no enviados. Lo abre cambios-pendientes.js cuando
+                   el usuario intenta salir (o usar otro formulario) con datos en «Agregar concepto».
+                   Esos datos no están en el borrador, así que no se conservan si sigue. *@
+                <div class="modal fade" id="modalDatosNoEnviados" tabindex="-1"
+                     aria-labelledby="modalDatosNoEnviadosTitulo" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h2 class="modal-title" id="modalDatosNoEnviadosTitulo">
+                                    Tenés datos escritos que todavía no agregaste
+                                </h2>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Volver al formulario"></button>
+                            </div>
+                            <div class="modal-body">
+                                Lo que escribiste en «@tipoElegido.Nombre» todavía no se agregó al borrador.
+                                Si seguís, esos datos se pierden. Los cambios que ya están en el borrador se conservan.
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"
+                                        data-volver-al-formulario>
+                                    Volver al formulario
+                                </button>
+                                <button type="button" class="btn btn-danger" data-seguir-sin-agregar>
+                                    Seguir sin agregarlos
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             }
             else if (!ViewData.ModelState.IsValid)
             {

@@ -39,15 +39,23 @@ El guardado es explícito. No existe guardado automático como sustituto de esta
 
 ### 3.3. Cambios sin guardar
 
-Cuando el usuario intenta abandonar la pantalla con cambios pendientes, debe aparecer una advertencia con tres opciones:
+> **Modificado el 25/11/2026 (S3-T15, cambio de navegación libre aprobado).** Antes, abandonar la pantalla con cambios pendientes mostraba una advertencia obligatoria. Ver [consideraciones-documentacion-sprint-3.md](./consideraciones-documentacion-sprint-3.md).
 
-**Guardar:** guarda los cambios antes de abandonar la pantalla.
+El usuario puede abandonar la pantalla de elaboración con cambios pendientes para consultar o registrar información en otras secciones (Catálogo de Materiales, Proveedores, Clientes, listado de presupuestos u otro presupuesto) sin guardar ni descartar. Los cambios se conservan temporalmente en la sesión, separados de lo guardado, y se recuperan al volver al presupuesto mientras la sesión siga disponible. No se guardan automáticamente.
 
-**Descartar cambios:** descarta las modificaciones posteriores al último guardado y permite abandonar.
+Mientras existan cambios pendientes, la pantalla muestra el aviso «Tenés cambios sin guardar. Tus cambios se conservan temporalmente. Guardá el borrador para conservarlos definitivamente.», junto con las acciones **Guardar borrador** y **Descartar cambios** (esta última pide confirmación).
 
-**Continuar editando:** permanece en el presupuesto y mantiene los cambios realizados para continuar trabajando.
+Al **cerrar sesión** con cambios pendientes en uno o más presupuestos, desde cualquier sección, aparece una advertencia que lista los presupuestos afectados con tres opciones:
 
-Si no existen cambios pendientes, no es necesaria esta advertencia.
+**Guardar:** guarda los cambios de cada presupuesto y cierra la sesión solo si todos los guardados terminaron bien. Si alguno falla, informa el resultado de cada presupuesto y la sesión sigue iniciada.
+
+**Descartar cambios:** pide una segunda confirmación, elimina los cambios temporales sin tocar lo guardado y cierra la sesión.
+
+**Continuar editando:** cierra la advertencia, mantiene la sesión y conserva los cambios.
+
+Al **cerrar la pestaña o el navegador, recargar o salir hacia otro sitio** con cambios pendientes, se solicita la advertencia nativa del navegador. Su texto y botones los define el navegador y su aparición no está garantizada. No se guarda ni descarta nada automáticamente.
+
+Si no existen cambios pendientes, no se muestran el aviso ni las advertencias.
 
 ### 3.4. Pantalla de resumen
 

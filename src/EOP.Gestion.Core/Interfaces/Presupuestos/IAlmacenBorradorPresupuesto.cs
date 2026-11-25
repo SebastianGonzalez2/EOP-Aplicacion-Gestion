@@ -30,4 +30,20 @@ public interface IAlmacenBorradorPresupuesto
     void RegistrarHuellaGuardada(int presupuestoId, int usuarioId, string huellaGuardada);
 
     bool CoincideConUltimoGuardadoEnSesion(int presupuestoId, int usuarioId, string huellaActual);
+
+    // S3-T15: devuelve todos los borradores con cambios pendientes de ESE usuario, de cualquier
+    // presupuesto. Lo usamos para saber, desde cualquier pantalla, si al cerrar sesión hay algo
+    // sin guardar. Nunca devuelve borradores de otro usuario.
+    List<BorradorPresupuestoDto> ObtenerPendientesDelUsuario(int usuarioId);
+
+    // S3-T15: anota qué borrador se descartó a propósito. Así, si una pestaña vieja intenta seguir
+    // trabajando con ese borrador, le explicamos que se descartó desde otra pestaña en lugar de
+    // decirle que "se perdió".
+    void RegistrarDescarte(int presupuestoId, int usuarioId, string borradorId);
+
+    bool FueDescartadoEnSesion(int presupuestoId, int usuarioId, string borradorId);
+
+    // S3-T15: borra TODO lo que guarda el almacén temporal en esta sesión. Se usa solo al cerrar
+    // sesión, para que no quede nada guardado para la próxima persona que use el mismo navegador.
+    void VaciarDatosTemporales();
 }

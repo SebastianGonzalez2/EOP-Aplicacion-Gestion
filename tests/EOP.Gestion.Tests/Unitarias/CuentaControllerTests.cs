@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Security.Claims;
+using EOP.Gestion.Tests.Compartido;
 using EOP.Gestion.WebApp.Controllers;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -9,6 +10,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace EOP.Gestion.Tests.Unitarias;
 
@@ -53,13 +55,21 @@ public class CuentaControllerTests
         Assert.Equal("/Home/Privacy", resultado.Url);
     }
 
+    // Sin usuario de EOP no puede haber borradores propios: no se consulta nada y se cierra directo.
+    // Los casos con cambios pendientes se prueban de punta a punta en CierreSesionConCambiosPendientesTests.
     [Fact]
-    public void CerrarSesion_CierraLaSesionLocalYLaDeEntraId()
+    public async Task CerrarSesion_CierraLaSesionLocalYLaDeEntraId()
     {
         var controller = CrearController(UsuarioAutenticado());
         controller.Url = new UrlHelperDePrueba();
 
-        var resultado = Assert.IsType<SignOutResult>(controller.CerrarSesion());
+        var resultado = Assert.IsType<SignOutResult>(await controller.CerrarSesion(
+            decision: null,
+            borradores: null,
+            usuarios: new RepositorioUsuariosConTurnoEnMemoria(),
+            resolverCambiosPendientes: null!,
+            logger: NullLogger<CuentaController>.Instance,
+            CancellationToken.None));
 
         Assert.Equal(
             [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme],

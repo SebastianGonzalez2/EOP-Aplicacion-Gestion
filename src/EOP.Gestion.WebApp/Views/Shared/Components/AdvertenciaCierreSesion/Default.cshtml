@@ -1,0 +1,15 @@
+@model EOP.Gestion.WebApp.ViewModels.Cuenta.CambiosPendientesCierreSesionViewModel
+@*
+    S3-T15: diálogo que aparece al tocar "Cerrar sesión" con cambios sin guardar.
+    Va al final del _Layout, fuera del menú desplegable: si estuviera adentro del menú, al
+    cerrarse el menú se escondería también el diálogo.
+
+    data-cambios-pendientes-usuario le avisa a cambios-pendientes.js que el usuario tiene
+    borradores sin guardar (para la advertencia nativa al cerrar la pestaña o el navegador).
+*@
+<div class="modal fade" id="modalCambiosPendientesCierre" tabindex="-1"
+     aria-labelledby="tituloDecisionCierre" aria-hidden="true" data-cambios-pendientes-usuario>
+    <div class="modal-dialog">
+        <partial name="_DecisionCambiosPendientes" model="Model" />
+    </div>
+</div>

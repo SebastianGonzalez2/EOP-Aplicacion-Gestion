@@ -161,6 +161,7 @@ Prioridad: Alta.
 
 ## RF-005 — Continuar la elaboración o modificación de un presupuesto editable
 
+> **Modificación aprobada el 25/11/2026 (S3-T15, cambio de navegación libre).** Se sustituyó la advertencia obligatoria al acceder a otra sección por la navegación libre con conservación temporal, el indicador de cambios sin guardar, el descarte voluntario y la advertencia al cerrar sesión. Detalle y motivo en [consideraciones-documentacion-sprint-3.md](./consideraciones-documentacion-sprint-3.md). **Esta copia Markdown ya refleja el cambio; el anteproyecto original en Word todavía no.**
 
 **Descripción**
 
@@ -175,13 +176,23 @@ Al volver a acceder al Presupuesto deberán conservarse los avances efectivament
 
 Los presupuestos en estado Borrador, Para revisión interna y Solicitud de modificación del cliente deberán poder continuar siendo modificados.
 
-La información registrada deberá conservarse unicamente si el usuario aprieta Guardar, aunque el usuario abandone la pantalla de elaboración y acceda nuevamente en otro momento.
+La información registrada deberá conservarse definitivamente únicamente si el usuario presiona Guardar borrador, aunque el usuario abandone la pantalla de elaboración y acceda nuevamente en otro momento. No existirá guardado automático como sustituto de esa acción.
 
 La continuación de la elaboración deberá realizarse sobre el mismo presupuesto y no deberá generar automáticamente un nuevo presupuesto.
 
 Los presupuestos cuyo estado no permita edición deberán poder consultarse, pero no modificarse mediante el proceso normal de elaboración.
 
-Si el usuario intenta cerrar la aplicación o acceder a otra sección sin haber guardado los cambios, se mostrará una ventana advirtiendo de esto con las opciones: Guardar, Descartar Cambios y Continuar editando.
+Los cambios realizados y todavía no guardados se conservarán temporalmente, separados de los datos guardados, para el usuario y el presupuesto correspondientes. El usuario podrá acceder a otras secciones de EOP (por ejemplo, Catálogo de Materiales, Proveedores, Clientes o el listado de presupuestos) o abrir otro presupuesto sin que se le exija guardar ni descartar esos cambios, y sin que se guarden automáticamente.
+
+Al volver a un presupuesto con cambios temporales, el sistema deberá recuperarlos siempre que la sesión del usuario siga disponible y el usuario conserve autorización para editarlo. Cada presupuesto conservará su propio avance temporal de forma independiente, y ningún usuario podrá acceder a los cambios temporales de otro. La conservación temporal no constituye un guardado: puede perderse al expirar la sesión por inactividad, al cerrar el navegador o por reinicios o publicaciones de la aplicación. Cuando el sistema detecte que los cambios temporales esperados ya no están disponibles, deberá informarlo y mostrar la información del último guardado.
+
+Mientras existan cambios sin guardar, la pantalla de elaboración deberá mostrar un indicador visible con el texto «Tenés cambios sin guardar. Tus cambios se conservan temporalmente. Guardá el borrador para conservarlos definitivamente.». El indicador deberá desaparecer tras un guardado exitoso o un descarte confirmado, y mantenerse si el guardado falla y los cambios siguen disponibles.
+
+El usuario podrá descartar voluntariamente los cambios sin guardar de un presupuesto, previa confirmación explícita. El descarte eliminará solo los cambios temporales de ese usuario y presupuesto, y el presupuesto volverá a mostrar la información del último guardado, sin modificar los datos guardados.
+
+Si el usuario intenta cerrar sesión desde cualquier sección de EOP con cambios sin guardar en uno o más presupuestos, se mostrará una advertencia que identifique los presupuestos afectados con las opciones: Guardar, Descartar cambios y Continuar editando. Si el guardado de algún presupuesto falla, no se cerrará la sesión y se informará el resultado de cada presupuesto. Los demás borradores no podrán descartarse sin la confirmación del usuario.
+
+Ante el cierre de la pestaña o del navegador, la recarga de la página o la salida hacia un sitio externo con cambios sin guardar, el sistema solicitará al navegador su advertencia nativa de abandono. Esa advertencia depende del navegador: no admite mensajes ni botones personalizados y su aparición no está garantizada. No se guardarán ni descartarán cambios automáticamente en esos casos.
 
 Proceso de negocio al que responde: Elaboración y seguimiento de presupuestos.
 
@@ -2644,7 +2655,7 @@ Una vez establecida la vinculación, los accesos posteriores deberán identifica
 
 Un usuario que se encuentre en estado Inactivo no deberá poder acceder a las funcionalidades de la aplicación, aunque su identidad haya sido autenticada correctamente por Microsoft Entra ID.
 
-El usuario deberá poder cerrar su sesión.
+El usuario deberá poder cerrar su sesión. Si existen cambios sin guardar en presupuestos, antes de cerrar la sesión se aplicará la advertencia definida en RF-005 (Guardar, Descartar cambios o Continuar editando); sin cambios pendientes, el cierre de sesión seguirá el flujo normal. Al cerrar la sesión no deberán quedar disponibles los cambios temporales del usuario. *(Regla complementada el 25/11/2026 por S3-T15; pendiente de incorporar al anteproyecto en Word.)*
 
 Si la identidad autenticada no corresponde a un usuario habilitado registrado en EOP, no deberá permitirse el acceso a la aplicación
 

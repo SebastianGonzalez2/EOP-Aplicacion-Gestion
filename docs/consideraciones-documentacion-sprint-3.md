@@ -14,7 +14,7 @@ Este archivo es un registro de trabajo acumulativo. No sustituye el anteproyecto
 
 **Fecha:** 25/11/2026  
 **Tareas:** S3-T14 (guardado de borradores, antecedente), S3-T15 (gestión de cambios sin guardar), S3-T16 (restricciones de edición, antecedente).  
-**Estado:** propuesta de cambio aceptada por Sebastián; pendiente de constatar aprobación formal del equipo y, cuando corresponda, del cliente; implementación y pruebas de S3-T15 pendientes de verificar.
+**Estado:** cambio aprobado (ver 2.8); copias Markdown de RF-005, RF-069, US-003, US-042 y del flujo de pantallas actualizadas en la rama `feat/S3-T15-gestion-cambios-pendientes`; anteproyecto en Word pendiente de actualizar; implementación y pruebas de S3-T15 en curso.
 
 ### 2.1. Comportamiento previsto originalmente
 
@@ -74,13 +74,29 @@ Estos son escenarios a especificar y verificar; no constituyen resultados de pru
 
 ### 2.7. Decisiones pendientes antes de cerrar la documentación
 
-- Formalizar el cambio conforme al proceso de gestión de cambios y registrar la validación correspondiente.
-- Definir y aprobar el comportamiento al cerrar sesión con varios presupuestos pendientes: qué se guarda o descarta, cómo se informa cada resultado y qué ocurre si falla una operación. No descartar silenciosamente otros borradores.
-- Definir el tratamiento de datos de formularios aún no enviados y la advertencia cuando se pierde el almacenamiento temporal, sin agregar funcionalidades fuera del alcance aprobado.
+- ~~Formalizar el cambio conforme al proceso de gestión de cambios y registrar la validación correspondiente.~~ Resuelto el 25/11/2026 (ver 2.8).
+- ~~Definir y aprobar el comportamiento al cerrar sesión con varios presupuestos pendientes.~~ Resuelto el 25/11/2026 (ver 2.8).
+- ~~Definir el tratamiento de datos de formularios aún no enviados.~~ Resuelto el 25/11/2026 (ver 2.8). La advertencia ante la pérdida del almacenamiento temporal se conserva tal como la implementó S3-T14.
 - Verificar el comportamiento real de S3-T15 y sus pruebas, incluyendo regresiones de S3-T14 y S3-T16; incorporar enlaces a los PR y evidencias cuando estén disponibles.
 - Actualizar el anteproyecto original en Word y sincronizar las copias Markdown afectadas. No declarar actualizado el original si solo se modificaron las copias.
 
-### 2.8. Referencias
+### 2.8. Aprobación y decisiones aprobadas (25/11/2026)
+
+**Aprobación del cambio.** El 25/11/2026 Sebastián confirmó que el cambio de navegación libre quedó aprobado por el equipo y autorizó actualizar la documentación e implementar S3-T15. La aprobación del cliente, si corresponde, no consta en este registro y deberá agregarse cuando exista.
+
+**Decisiones de diseño aprobadas junto con el cambio:**
+
+1. **Cierre de sesión con varios presupuestos pendientes.** La advertencia lista cada presupuesto con cambios sin guardar (código y nombre), con enlace para abrirlo, y ofrece:
+   - *Guardar todo y cerrar sesión:* guarda los presupuestos uno por uno con el mismo caso de uso de «Guardar borrador». Cada guardado es una transacción independiente (no es todo o nada). Si alguno falla, la sesión no se cierra y se informa el resultado de cada presupuesto: los guardados quedan guardados y los que fallaron conservan sus cambios temporales.
+   - *Descartar todo y cerrar sesión:* exige una segunda confirmación que nombra los presupuestos afectados.
+   - *Continuar editando:* cierra la advertencia sin cambiar nada.
+   - Para evitar conflictos entre pestañas, la advertencia envía la versión y el identificador de cada borrador que mostró. Si alguno ya no coincide, no se guarda, no se descarta y no se cierra la sesión.
+   - El servidor controla los pendientes al cerrar sesión: un pedido sin decisión explícita, por ejemplo sin JavaScript, se redirige a una pantalla de confirmación equivalente.
+2. **Limpieza de la sesión al cerrar sesión.** Después de un cierre de sesión correcto se vacía la sesión temporal (`Session.Clear()`), para que ningún cambio temporal quede almacenado para otra identidad en el mismo navegador.
+3. **Datos de formularios escritos y no enviados.** No forman parte del borrador ni se conservan. En la pantalla de elaboración, si hay datos escritos y no enviados y el usuario navega dentro de EOP, se muestra un modal de Bootstrap («Tenés datos escritos que todavía no agregaste») con *Volver al formulario* y *Seguir sin agregarlos*. No se usa `sessionStorage` ni otro almacenamiento temporal nuevo.
+4. **Advertencia nativa (`beforeunload`).** Se activa desde la plantilla general solo si el usuario tiene borradores pendientes, porque cerrar el navegador elimina la cookie de sesión y con ella los cambios temporales. No se activa en los enlaces ni formularios internos de EOP. Su texto, botones y aparición dependen del navegador.
+
+### 2.9. Referencias
 
 - [RF-005 y RF-069](./requerimientos-funcionales.md)
 - [US-003 y US-042](./user-stories.md)

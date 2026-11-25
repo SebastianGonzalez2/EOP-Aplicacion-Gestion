@@ -1,0 +1,78 @@
+@model EOP.Gestion.WebApp.ViewModels.Cuenta.CambiosPendientesCierreSesionViewModel
+@*
+    S3-T15 (US-003, US-042): pantalla de cambios sin guardar al cerrar sesión.
+
+    Llega acá el usuario que quiso cerrar sesión con cambios pendientes cuando:
+    - el navegador no ejecutó JavaScript (y por eso no vio el diálogo),
+    - la lista de cambios cambió mientras decidía (por ejemplo, desde otra pestaña), o
+    - algún presupuesto no se pudo guardar o descartar.
+    La sesión sigue abierta hasta que todo se resuelva.
+*@
+@{
+    ViewData["Title"] = "Cambios sin guardar";
+}
+
+<div class="encabezado">
+    <div>
+        <h1>Cambios sin guardar</h1>
+        <p>La sesión sigue abierta hasta que decidas qué hacer con tus cambios.</p>
+    </div>
+</div>
+
+<partial name="_Mensajes" />
+
+@if (Model.Resultados.Count > 0)
+{
+    <section class="panel mb-4" aria-labelledby="tituloResultadoCierre">
+        <div class="seccion-form pb-0">
+            <h2 id="tituloResultadoCierre">Resultado del último intento</h2>
+        </div>
+        <div class="table-responsive" tabindex="0" role="region" aria-label="Resultado por presupuesto">
+            <table class="table tabla mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Presupuesto</th>
+                        <th scope="col" class="col-principal">Resultado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var resultado in Model.Resultados)
+                    {
+                        <tr>
+                            <td>@resultado.Codigo</td>
+                            <td class="col-texto">
+                                @if (resultado.Correcto)
+                                {
+                                    <i class="bi bi-check-circle me-1" aria-hidden="true"></i>
+                                }
+                                else
+                                {
+                                    <i class="bi bi-x-octagon me-1" aria-hidden="true"></i>
+                                }
+                                @resultado.Mensaje
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+
+@if (Model.Pendientes.Count == 0)
+{
+    <div class="alert mensaje mensaje-info" role="status">
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
+        <div class="mensaje-cuerpo">No tenés cambios sin guardar. Ya podés cerrar sesión.</div>
+    </div>
+
+    <form asp-controller="Cuenta" asp-action="CerrarSesion" method="post">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-box-arrow-right me-1" aria-hidden="true"></i>Cerrar sesión
+        </button>
+    </form>
+}
+else
+{
+    <partial name="_DecisionCambiosPendientes" model="Model" />
+}

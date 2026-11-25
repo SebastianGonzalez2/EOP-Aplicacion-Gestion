@@ -19,6 +19,10 @@ public static class MensajesBorradorPresupuesto
 
     public const string PresupuestoModificadoSinPendientes =
         "El presupuesto fue modificado mientras estabas editándolo. Revisá la información antes de continuar.";
+
+    // S3-T15: la pantalla todavía mostraba cambios que el usuario ya descartó desde otra pestaña.
+    public const string CambiosDescartadosEnOtraPestana =
+        "Los cambios sin guardar se descartaron desde otra pestaña. Se muestra la información del último guardado.";
 }
 
 // Resultado de comprobar si el borrador temporal de una solicitud coincide con el estado vigente.
@@ -101,6 +105,17 @@ public static class ControladorEstadoBorrador
                     MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana);
             }
 
+            // S3-T15: si ese mismo borrador se descartó a propósito (en otra pestaña), lo decimos
+            // así, en vez de hacerle creer al usuario que sus cambios se perdieron.
+            if (FueDescartadoDesdeOtraPestana(presupuestoId, usuarioId, contexto, almacenBorrador))
+            {
+                return new ResultadoVerificacionBorrador(
+                    null,
+                    false,
+                    ResultadoGuardarBorrador.BorradorDesactualizado,
+                    MensajesBorradorPresupuesto.CambiosDescartadosEnOtraPestana);
+            }
+
             return new ResultadoVerificacionBorrador(
                 null,
                 false,
@@ -161,5 +176,21 @@ public static class ControladorEstadoBorrador
         }
 
         return MensajesBorradorPresupuesto.CambiosPendientesPerdidos;
+    }
+
+    // S3-T15: indica si el borrador que la pantalla tenía en la mano es justo el que el usuario
+    // descartó. Solo se puede saber cuando la pantalla mandó el identificador del borrador.
+    public static bool FueDescartadoDesdeOtraPestana(
+        int presupuestoId,
+        int usuarioId,
+        ContextoEdicionBorrador contexto,
+        IAlmacenBorradorPresupuesto almacenBorrador)
+    {
+        if (string.IsNullOrWhiteSpace(contexto.BorradorIdEsperado))
+        {
+            return false;
+        }
+
+        return almacenBorrador.FueDescartadoEnSesion(presupuestoId, usuarioId, contexto.BorradorIdEsperado);
     }
 }

@@ -32,6 +32,7 @@ public class ConceptosPresupuestoController : Controller
     private readonly ActualizarReferenciaDeConcepto _actualizarReferencia;
     private readonly RegistrarMargen _registrarMargen;
     private readonly GuardarBorradorPresupuesto _guardarBorrador;
+    private readonly DescartarCambiosPresupuesto _descartarCambios;
     private readonly ILogger<ConceptosPresupuestoController> _logger;
 
     public ConceptosPresupuestoController(
@@ -47,6 +48,7 @@ public class ConceptosPresupuestoController : Controller
         ActualizarReferenciaDeConcepto actualizarReferencia,
         RegistrarMargen registrarMargen,
         GuardarBorradorPresupuesto guardarBorrador,
+        DescartarCambiosPresupuesto descartarCambios,
         ILogger<ConceptosPresupuestoController> logger)
     {
         _usuarios = usuarios;
@@ -61,6 +63,7 @@ public class ConceptosPresupuestoController : Controller
         _actualizarReferencia = actualizarReferencia;
         _registrarMargen = registrarMargen;
         _guardarBorrador = guardarBorrador;
+        _descartarCambios = descartarCambios;
         _logger = logger;
     }
 
@@ -334,6 +337,54 @@ public class ConceptosPresupuestoController : Controller
         }
     }
 
+    // S3-T15 (US-003, RF-05): descarte voluntario de los cambios sin guardar del presupuesto.
+    // Se llega acá desde el diálogo de confirmación de la pantalla (RNF-1). Solo borra el
+    // borrador temporal de este usuario: los datos guardados en SQL Server no se tocan.
+    //
+    // versionBorrador y borradorId identifican el borrador que estaba viendo la pantalla. Si otra
+    // pestaña lo cambió mientras tanto, el caso de uso no descarta nada y avisamos al usuario.
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Roles = "Operador,Supervisor,Administrador")]
+    public async Task<IActionResult> DescartarCambios(
+        int id,
+        int versionBorrador,
+        string? borradorId,
+        CancellationToken cancellationToken)
+    {
+        Usuario? usuario = await ObtenerUsuarioAsync(cancellationToken);
+        if (usuario == null || !usuario.Activo)
+        {
+            return Forbid();
+        }
+
+        Presupuesto? presupuesto = await _repositorio.ObtenerPresupuestoAsync(id, cancellationToken);
+        if (presupuesto == null)
+        {
+            return NotFound();
+        }
+
+        // No pedimos permiso de edición: descartar no modifica el presupuesto, solo limpia datos
+        // temporales que pertenecen al propio usuario (ver DescartarCambiosPresupuesto).
+        ResultadoAccionDescartarCambios resultado = await _descartarCambios.EjecutarAsync(
+            id, borradorId, versionBorrador, usuario, cancellationToken);
+
+        if (resultado.Estado == ResultadoDescartarCambios.Descartado)
+        {
+            TempData["MensajeExito"] = resultado.Mensaje;
+        }
+        else if (resultado.Estado == ResultadoDescartarCambios.SinCambiosPendientes)
+        {
+            TempData["MensajeAdvertencia"] = resultado.Mensaje;
+        }
+        else
+        {
+            TempData["MensajeError"] = resultado.Mensaje;
+        }
+
+        return RedirectToAction(nameof(Index), new { id });
+    }
+
     // US-007: pantalla para buscar y elegir a mano el material de una fila de tipo Material.
     // Buscar solo lee el catálogo; no crea ni modifica nada (RF-12).
     [HttpGet]
@@ -601,7 +652,8 @@ public class ConceptosPresupuestoController : Controller
     {
         return string.Equals(error, MensajesBorradorPresupuesto.CambiosPendientesPerdidos, StringComparison.Ordinal)
             || string.Equals(error, MensajesBorradorPresupuesto.BorradorModificadoEnOtraPestana, StringComparison.Ordinal)
-            || string.Equals(error, MensajesBorradorPresupuesto.PresupuestoModificadoSinPendientes, StringComparison.Ordinal);
+            || string.Equals(error, MensajesBorradorPresupuesto.PresupuestoModificadoSinPendientes, StringComparison.Ordinal)
+            || string.Equals(error, MensajesBorradorPresupuesto.CambiosDescartadosEnOtraPestana, StringComparison.Ordinal);
     }
 
     private async Task<Usuario?> ObtenerUsuarioAsync(CancellationToken cancellationToken)
