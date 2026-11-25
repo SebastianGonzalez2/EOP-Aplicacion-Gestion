@@ -1,7 +1,6 @@
 using System.Globalization;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Presupuestos;
-using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace EOP.Gestion.WebApp.ViewModels.Presupuestos;
 
@@ -9,6 +8,11 @@ public class ConceptosPresupuestoViewModel
 {
     public int PresupuestoId { get; init; }
     public string Codigo { get; init; } = string.Empty;
+
+    // UI-presupuestos: información general del presupuesto (cliente, tipo de proyecto,
+    // responsable, fechas y estado) que se muestra arriba de la tabla de conceptos.
+    public required PresupuestoDetalleDto Informacion { get; init; }
+
     public bool PuedeAgregar { get; init; }
     public bool TieneCambiosPendientes { get; init; }
     public string? BorradorId { get; init; }
@@ -17,8 +21,6 @@ public class ConceptosPresupuestoViewModel
     public IReadOnlyList<FilaConceptoDto> Filas { get; init; } = [];
     public IReadOnlyList<TipoBaseMargenDto> TiposBaseMargen { get; init; } = [];
     public IReadOnlyList<TipoConceptoOpcionDto> Tipos { get; init; } = [];
-    public List<SelectListItem> Referencias { get; } = [];
-    public string? Busqueda { get; init; }
     public ConceptoManualViewModel Entrada { get; init; } = new();
 }
 
@@ -29,6 +31,12 @@ public class ConceptoManualViewModel
     public string? Importe { get; set; }
     public Moneda? Moneda { get; set; }
     public int? ReferenciaId { get; set; }
+
+    // UI-presupuestos: material elegido en el selector del modal. Solo sirve para volver a
+    // mostrar sus referencias si el servidor rechaza el envío; el caso de uso no lo usa, porque
+    // el material se deduce siempre de la referencia (ReferenciaId).
+    public int? MaterialId { get; set; }
+
     public string? Cantidad { get; set; }
 
     // Porcentaje que el usuario quiere aplicar como margen.

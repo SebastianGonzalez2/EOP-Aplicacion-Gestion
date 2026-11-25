@@ -1,63 +1,57 @@
 @using System.Globalization
+@using EOP.Gestion.Core.Comun
 @using EOP.Gestion.Core.Entidades.Presupuestos
 @model EOP.Gestion.WebApp.ViewModels.Presupuestos.ConceptosPresupuestoViewModel
 
 @{
-    ViewData["Title"] = "Conceptos del presupuesto";
+    ViewData["Title"] = Model.Informacion.NombreProyecto;
     var cultura = CultureInfo.GetCultureInfo("es-UY");
-    var tipoElegido = Model.Tipos.FirstOrDefault(tipo => tipo.Id == Model.Entrada.TipoId);
-    bool esMaterial = tipoElegido?.Id == TipoConcepto.MaterialId;
-    bool esMargen = tipoElegido?.Id == TipoConcepto.MargenId;
+    var informacion = Model.Informacion;
     string indicadorPendientes = Model.TieneCambiosPendientes ? "true" : "false";
 }
+
+@* UI-presupuestos: pantalla única del presupuesto (US-001, US-003, US-007, US-010A, US-011).
+   Reúne la información general que antes estaba en «Detalle del presupuesto» y la tabla de
+   conceptos. De arriba hacia abajo: ruta, encabezado con estado y «Guardar borrador», etapas,
+   información general, aviso de cambios sin guardar, tabla con «Agregar concepto» y, al final,
+   las acciones de navegación y descarte. Lo que se puede hacer depende de los permisos que
+   calcula el servidor (PuedeAgregar); ocultar un botón acá no reemplaza ese control (RNF-4). *@
 
 <div data-borrador-presupuesto data-presupuesto-id="@Model.PresupuestoId" data-cambios-pendientes="@indicadorPendientes">
     <nav aria-label="Ruta de navegación">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a asp-controller="Presupuestos" asp-action="Index">Presupuestos</a></li>
-            <li class="breadcrumb-item">
-                <a asp-controller="Presupuestos" asp-action="Detalle" asp-route-id="@Model.PresupuestoId">@Model.Codigo</a>
-            </li>
-            <li class="breadcrumb-item active" aria-current="page">Conceptos</li>
+            <li class="breadcrumb-item active" aria-current="page">@Model.Codigo</li>
         </ol>
     </nav>
 
     <div class="encabezado">
-        <div>
-            <h1>Conceptos del presupuesto</h1>
-            <p>Código: @Model.Codigo</p>
+        <div class="encabezado-presupuesto">
+            <h1>@informacion.NombreProyecto</h1>
+            <p class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-break">Código: @Model.Codigo</span>
+                <partial name="_EtiquetaEstadoPresupuesto" model="informacion.Estado" />
+            </p>
         </div>
 
         @if (Model.PuedeAgregar)
         {
-            <div class="d-flex flex-wrap gap-2">
-                @* S3-T15: el descarte voluntario solo tiene sentido si hay algo para descartar.
-                   El botón no descarta: abre el diálogo de confirmación (RNF-1, guía sección 18.1). *@
-                @if (Model.TieneCambiosPendientes)
-                {
-                    <button type="button" class="btn btn-outline-danger"
-                            data-bs-toggle="modal" data-bs-target="#confirmarDescartarCambios">
-                        Descartar cambios
-                    </button>
-                }
-
-                @* US-003 (RF-05): único botón primario de la pantalla. Solo al presionarlo se guardan
-                   definitivamente en la base de datos los conceptos y selecciones del borrador. *@
-                <form id="formulario-guardar-borrador"
-                      asp-action="GuardarBorrador"
-                      asp-route-id="@Model.PresupuestoId"
-                      method="post">
-                    <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
-                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
-                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
-                    <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
-                    <button type="submit" class="btn btn-primary">
-                        <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
-                        <i class="bi bi-check2 me-1" data-icono-guardar aria-hidden="true"></i>
-                        <span data-texto-guardar>Guardar borrador</span>
-                    </button>
-                </form>
-            </div>
+            @* US-003 (RF-05): único botón primario de la pantalla. Solo al presionarlo se guardan
+               definitivamente en la base de datos los conceptos y selecciones del borrador. *@
+            <form id="formulario-guardar-borrador"
+                  asp-action="GuardarBorrador"
+                  asp-route-id="@Model.PresupuestoId"
+                  method="post">
+                <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
+                <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+                <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+                <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
+                <button type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                    <i class="bi bi-check2 me-1" data-icono-guardar aria-hidden="true"></i>
+                    <span data-texto-guardar>Guardar borrador</span>
+                </button>
+            </form>
         }
     </div>
 
@@ -85,50 +79,88 @@
         </ol>
     </section>
 
-    @if (Model.PuedeAgregar && Model.TieneCambiosPendientes)
+    @* Información general del presupuesto (US-001). Son los mismos datos que mostraba la pantalla
+       de detalle, ahora en una tarjeta compacta: en pantallas anchas van en una fila y en un
+       celular se acomodan de a dos o de a uno (RNF-14). Se muestran sin modificarlos. *@
+    <section class="panel mb-4" aria-labelledby="titulo-informacion-general">
+        <h2 id="titulo-informacion-general" class="visually-hidden">Información general</h2>
+        <dl class="datos-generales datos-compactos mb-0">
+            <div class="dato">
+                <dt>Código del presupuesto</dt>
+                <dd class="text-break">@informacion.Codigo</dd>
+            </div>
+            <div class="dato">
+                <dt>Nombre del proyecto</dt>
+                <dd>@informacion.NombreProyecto</dd>
+            </div>
+            <div class="dato">
+                <dt>Cliente</dt>
+                <dd>@informacion.NombreCliente</dd>
+            </div>
+            <div class="dato">
+                <dt>Tipo de proyecto</dt>
+                <dd>@informacion.NombreTipoProyecto</dd>
+            </div>
+            <div class="dato">
+                <dt>Responsable</dt>
+                <dd>@informacion.NombreResponsable</dd>
+            </div>
+            <div class="dato">
+                <dt>Fecha de creación</dt>
+                <dd class="num">@ZonaHorariaUruguay.ConvertirUtcALocal(informacion.FechaCreacion).ToString("dd/MM/yyyy")</dd>
+            </div>
+            <div class="dato">
+                <dt>Plazo de vigencia</dt>
+                <dd class="num">@informacion.PlazoVigenciaDias días</dd>
+            </div>
+            <div class="dato">
+                <dt>Estado actual</dt>
+                <dd><partial name="_EtiquetaEstadoPresupuesto" model="informacion.Estado" /></dd>
+            </div>
+        </dl>
+    </section>
+
+    @if (!Model.PuedeAgregar)
     {
-        <partial name="_IndicadorCambiosSinGuardar" />
-
-        @* S3-T15 (US-003, RF-05, RNF-1): confirmación del descarte voluntario. Manda el
-           identificador y la versión del borrador que ve esta pantalla: si otra pestaña lo cambió,
-           el servidor no descarta nada. "Cancelar" cierra el diálogo y los cambios siguen ahí. *@
-        <div class="modal fade" id="confirmarDescartarCambios" tabindex="-1"
-             aria-labelledby="confirmarDescartarCambiosTitulo" aria-hidden="true">
-            <div class="modal-dialog">
-                <form id="formulario-descartar-cambios" class="modal-content"
-                      asp-action="DescartarCambios" asp-route-id="@Model.PresupuestoId" method="post">
-                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
-                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
-
-                    <div class="modal-header">
-                        <h2 class="modal-title" id="confirmarDescartarCambiosTitulo">
-                            ¿Descartar los cambios sin guardar de @Model.Codigo?
-                        </h2>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancelar"></button>
-                    </div>
-
-                    <div class="modal-body">
-                        Se eliminan los conceptos y selecciones que todavía no guardaste en este presupuesto.
-                        El presupuesto vuelve a la información del último guardado, que no se modifica.
-                        Esta acción no se puede deshacer.
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-danger">
-                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
-                            <span data-texto-guardar>Descartar cambios</span>
-                        </button>
-                    </div>
-                </form>
+        @* US-001: un presupuesto que no se puede editar (por su estado o por los permisos del
+           usuario) se puede consultar igual. Avisamos por qué no aparecen las acciones. *@
+        <div class="alert mensaje mensaje-info" role="status">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <div class="mensaje-cuerpo">
+                Estás consultando este presupuesto. Por su estado o por tus permisos, no podés modificarlo.
             </div>
         </div>
     }
 
-    <section class="panel mb-4" aria-label="Conceptos registrados">
+    @if (Model.PuedeAgregar && Model.TieneCambiosPendientes)
+    {
+        <partial name="_IndicadorCambiosSinGuardar" />
+    }
+
+    <section class="panel mb-4" aria-labelledby="titulo-conceptos">
+        <div class="panel-encabezado">
+            <h2 id="titulo-conceptos">Conceptos del presupuesto</h2>
+            @if (Model.PuedeAgregar)
+            {
+                @* US-011: abre el modal para agregar un concepto. El formulario ya no está fijo
+                   debajo de la tabla: aparece solo cuando el usuario lo pide. *@
+                <button type="button" class="btn btn-outline-secondary"
+                        data-bs-toggle="modal" data-bs-target="#modalAgregarConcepto">
+                    <i class="bi bi-plus-lg me-1" aria-hidden="true"></i>Agregar concepto
+                </button>
+            }
+        </div>
+
         @if (Model.Filas.Count == 0)
         {
-            <div class="panel-cuerpo">Todavía no hay conceptos registrados.</div>
+            <div class="sin-resultados" role="status">
+                <i class="bi bi-inbox" aria-hidden="true"></i>
+                <h3>Todavía no hay conceptos registrados.</h3>
+                @if (Model.PuedeAgregar)
+                {
+                    <p>Usá «Agregar concepto» para incorporar materiales, mano de obra u otros conceptos.</p>
+                }
+            </div>
         }
         else
         {
@@ -146,7 +178,7 @@
                             <th scope="col" class="text-end">Subtotal</th>
                             @if (Model.PuedeAgregar)
                             {
-                                <th scope="col"><span class="visually-hidden">Acciones</span></th>
+                                <th scope="col" class="col-acciones"><span class="visually-hidden">Acciones</span></th>
                             }
                         </tr>
                     </thead>
@@ -184,13 +216,13 @@
                                     <td class="col-principal">@(fila.Concepto ?? "—")</td>
                                 }
                                 <td>@(fila.Proveedor ?? "—")</td>
-                                <td class="text-end">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
+                                <td class="text-end num">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
                                 <td>@(fila.Unidad?.ToString() ?? "—")</td>
-                                <td class="text-end">@(filaMaterial ? valor : "—")</td>
-                                <td class="text-end">@subtotalTexto</td>
+                                <td class="text-end num">@(filaMaterial ? valor : "—")</td>
+                                <td class="text-end num">@subtotalTexto</td>
                                 @if (Model.PuedeAgregar)
                                 {
-                                    <td class="text-end">
+                                    <td class="col-acciones">
                                         @if (filaMaterial)
                                         {
                                             string textoAccion = fila.MaterialProveedorId == null ? "Seleccionar material" : "Cambiar material";
@@ -222,237 +254,69 @@
         }
     </section>
 
-    @if (Model.PuedeAgregar)
+    @* Acciones de navegación y de descarte, al final de la pantalla. Volver al listado no obliga a
+       guardar ni a descartar: los cambios quedan en la sesión (S3-T15, navegación libre). *@
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <a asp-controller="Presupuestos" asp-action="Index" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Volver al listado
+        </a>
+
+        @* S3-T15: el descarte voluntario solo tiene sentido si hay algo para descartar.
+           El botón no descarta: abre el diálogo de confirmación (RNF-1, guía sección 18.1). *@
+        @if (Model.PuedeAgregar && Model.TieneCambiosPendientes)
+        {
+            <button type="button" class="btn btn-outline-danger"
+                    data-bs-toggle="modal" data-bs-target="#confirmarDescartarCambios">
+                Descartar cambios
+            </button>
+        }
+    </div>
+
+    @if (Model.PuedeAgregar && Model.TieneCambiosPendientes)
     {
-        <section class="panel" aria-labelledby="titulo-agregar-concepto">
-            <div class="seccion-form">
-                <h2 id="titulo-agregar-concepto">Agregar concepto</h2>
-                <form asp-action="Index" asp-route-id="@Model.PresupuestoId" method="get" class="row g-3 align-items-end">
-                    @if (Model.TieneCambiosPendientes)
-                    {
-                        <input type="hidden" name="esperabaCambiosPendientes" value="true" />
-                    }
-                    <div class="col-sm-7 col-lg-5">
-                        <label for="tipoId" class="form-label">
-                            Tipo de concepto <span class="obligatorio" aria-hidden="true">*</span>
-                        </label>
-                        <select id="tipoId" name="tipoId" class="form-select" required>
-                            <option value="">Seleccioná un tipo</option>
-                            @foreach (var tipo in Model.Tipos)
-                            {
-                                <option value="@tipo.Id" selected="@(tipo.Id == tipoElegido?.Id)">@tipo.Nombre</option>
-                            }
-                        </select>
+        @* S3-T15 (US-003, RF-05, RNF-1): confirmación del descarte voluntario. Manda el
+           identificador y la versión del borrador que ve esta pantalla: si otra pestaña lo cambió,
+           el servidor no descarta nada. "Cancelar" cierra el diálogo y los cambios siguen ahí. *@
+        <div class="modal fade" id="confirmarDescartarCambios" tabindex="-1"
+             aria-labelledby="confirmarDescartarCambiosTitulo" aria-hidden="true">
+            <div class="modal-dialog">
+                <form id="formulario-descartar-cambios" class="modal-content"
+                      asp-action="DescartarCambios" asp-route-id="@Model.PresupuestoId" method="post">
+                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
+                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
+
+                    <div class="modal-header">
+                        <h2 class="modal-title" id="confirmarDescartarCambiosTitulo">
+                            ¿Descartar los cambios sin guardar de @Model.Codigo?
+                        </h2>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancelar"></button>
                     </div>
-                    <div class="col-sm-auto">
-                        <button type="submit" class="btn btn-outline-primary">Continuar</button>
+
+                    <div class="modal-body">
+                        Se eliminan los conceptos y selecciones que todavía no guardaste en este presupuesto.
+                        El presupuesto vuelve a la información del último guardado, que no se modifica.
+                        Esta acción no se puede deshacer.
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">
+                            <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
+                            <span data-texto-guardar>Descartar cambios</span>
+                        </button>
                     </div>
                 </form>
             </div>
+        </div>
+    }
 
-            @if (esMaterial)
-            {
-                <form asp-action="Index" asp-route-id="@Model.PresupuestoId" method="get" class="seccion-form">
-                    <input type="hidden" name="tipoId" value="@TipoConcepto.MaterialId" />
-                    @if (Model.TieneCambiosPendientes)
-                    {
-                        <input type="hidden" name="esperabaCambiosPendientes" value="true" />
-                    }
-                    <div class="row g-3 align-items-end">
-                        <div class="col-sm-7 col-lg-5">
-                            <label for="busqueda" class="form-label">Buscar material por nombre</label>
-                            <input id="busqueda" name="busqueda" value="@Model.Busqueda" type="search"
-                                   class="form-control" maxlength="200" required />
-                        </div>
-                        <div class="col-sm-auto">
-                            <button class="btn btn-outline-primary" type="submit">Buscar</button>
-                        </div>
-                    </div>
-                    @if (!string.IsNullOrWhiteSpace(Model.Busqueda) && Model.Referencias.Count == 0)
-                    {
-                        <p class="form-text mt-2 mb-0" role="status">No se encontraron referencias para ese nombre.</p>
-                    }
-                </form>
-            }
-
-            @if (tipoElegido != null)
-            {
-                @* S3-T15: lo que se escribe acá NO forma parte del borrador hasta presionar «Agregar
-                   concepto». data-advertir-datos-no-enviados le pide al script que avise antes de
-                   salir con datos escritos. Si la página volvió del servidor con errores de
-                   validación, los datos ya vienen escritos pero no se agregaron: arrancamos marcados. *@
-                <form id="formulario-concepto" asp-action="Agregar" asp-route-id="@Model.PresupuestoId"
-                      asp-route-busqueda="@Model.Busqueda" method="post"
-                      data-advertir-datos-no-enviados
-                      data-datos-no-enviados="@(ViewData.ModelState.IsValid ? "false" : "true")">
-                    <input type="hidden" name="esperabaCambiosPendientes" value="@indicadorPendientes" />
-                    <input type="hidden" name="borradorId" value="@Model.BorradorId" />
-                    <input type="hidden" name="versionBorrador" value="@Model.VersionBorrador" />
-                    <input type="hidden" name="huellaEstadoBase" value="@Model.HuellaEstadoBase" />
-                    <div class="seccion-form">
-                        <div asp-validation-summary="All" class="resumen-errores" role="alert" tabindex="-1"></div>
-                        <input asp-for="Entrada.TipoId" type="hidden" />
-                        <h2>@tipoElegido.Nombre</h2>
-
-                        @if (esMaterial && Model.Referencias.Count > 0)
-                        {
-                            <div class="row g-3">
-                                <div class="col-lg-8">
-                                    <label asp-for="Entrada.ReferenciaId" class="form-label">
-                                        Concepto y referencia de proveedor <span class="obligatorio" aria-hidden="true">*</span>
-                                    </label>
-                                    <select asp-for="Entrada.ReferenciaId" asp-items="Model.Referencias" class="form-select" required>
-                                        <option value="">Seleccioná una referencia</option>
-                                    </select>
-                                </div>
-                                <div class="col-sm-5 col-lg-4">
-                                    <label asp-for="Entrada.Cantidad" class="form-label">
-                                        Cantidad <span class="obligatorio" aria-hidden="true">*</span>
-                                    </label>
-                                    <input asp-for="Entrada.Cantidad" inputmode="decimal" class="form-control" required />
-                                </div>
-                            </div>
-                        }
-                        else if (esMaterial)
-                        {
-                            <p class="descripcion mb-0">Buscá un material del catálogo para elegir su referencia.</p>
-                        }
-                        else if (esMargen)
-                        {
-                            @* S3-T07 (RF-27): el margen se calcula sobre los tipos de
-                               conceptos que el usuario selecciona expresamente.
-                               No se ingresa un importe ni se elige una moneda. *@
-
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <label asp-for="Entrada.PorcentajeMargen" class="form-label">
-                                        Porcentaje de margen
-                                        <span class="obligatorio" aria-hidden="true">*</span>
-                                    </label>
-
-                                    <input asp-for="Entrada.PorcentajeMargen"
-                                           class="form-control"
-                                           inputmode="decimal"
-                                           required />
-
-                                    <span asp-validation-for="Entrada.PorcentajeMargen"
-                                          class="text-danger"></span>
-                                </div>
-
-                                <div class="col-12">
-                                    <fieldset>
-                                        <legend class="form-label">
-                                            Tipos de conceptos para la base del margen
-                                        </legend>
-
-                                        <p class="form-text">
-                                            Seleccioná uno o más tipos de conceptos.
-                                            Los subtotales se muestran separados por moneda.
-                                        </p>
-
-                                        @foreach (var tipo in Model.TiposBaseMargen)
-                                        {
-                                            string identificador = $"base-margen-{tipo.TipoId}";
-
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input"
-                                                       type="checkbox"
-                                                       id="@identificador"
-                                                       name="Entrada.TiposBaseSeleccionados"
-                                                       value="@tipo.TipoId"
-                                                       checked="@(Model.Entrada.TiposBaseSeleccionados.Contains(tipo.TipoId))" />
-
-                                                <label class="form-check-label" for="@identificador">
-                                                    @tipo.Nombre —
-                                                    UYU @tipo.SubtotalUYU.ToString("0.##########", cultura)
-                                                    · USD @tipo.SubtotalUSD.ToString("0.##########", cultura)
-                                                </label>
-                                            </div>
-                                        }
-
-                                        <span asp-validation-for="Entrada.TiposBaseSeleccionados"
-                                              class="text-danger"></span>
-                                    </fieldset>
-                                </div>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="row g-3">
-                                <div class="col-lg-6">
-                                    <label asp-for="Entrada.Descripcion" class="form-label">Concepto</label>
-                                    <input asp-for="Entrada.Descripcion" class="form-control" maxlength="200" />
-                                </div>
-                                <div class="col-sm-6 col-lg-3">
-                                    <label asp-for="Entrada.Importe" class="form-label">
-                                        Importe <span class="obligatorio" aria-hidden="true">*</span>
-                                    </label>
-                                    <input asp-for="Entrada.Importe" inputmode="decimal" class="form-control" required />
-                                </div>
-                                <div class="col-sm-6 col-lg-3">
-                                    <label asp-for="Entrada.Moneda" class="form-label">
-                                        Moneda <span class="obligatorio" aria-hidden="true">*</span>
-                                    </label>
-                                    <select asp-for="Entrada.Moneda" class="form-select" required>
-                                        <option value="">Seleccioná una moneda</option>
-                                        <option value="@Moneda.UYU">UYU</option>
-                                        <option value="@Moneda.USD">USD</option>
-                                    </select>
-                                </div>
-                            </div>
-                        }
-                    </div>
-
-                    <div class="panel-pie d-flex justify-content-end gap-2">
-                        <a asp-action="Index" asp-route-id="@Model.PresupuestoId" class="btn btn-outline-secondary">Cancelar</a>
-                        @if (!esMaterial || Model.Referencias.Count > 0)
-                        {
-                            <button type="submit" class="btn btn-outline-primary">
-                                <span class="spinner-border spinner-border-sm me-1 d-none" aria-hidden="true"></span>
-                                <span data-texto-guardar>Agregar concepto</span>
-                            </button>
-                        }
-                    </div>
-                </form>
-
-                @* S3-T15: aviso de datos escritos y no enviados. Lo abre cambios-pendientes.js cuando
-                   el usuario intenta salir (o usar otro formulario) con datos en «Agregar concepto».
-                   Esos datos no están en el borrador, así que no se conservan si sigue. *@
-                <div class="modal fade" id="modalDatosNoEnviados" tabindex="-1"
-                     aria-labelledby="modalDatosNoEnviadosTitulo" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header">
-                                <h2 class="modal-title" id="modalDatosNoEnviadosTitulo">
-                                    Tenés datos escritos que todavía no agregaste
-                                </h2>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Volver al formulario"></button>
-                            </div>
-                            <div class="modal-body">
-                                Lo que escribiste en «@tipoElegido.Nombre» todavía no se agregó al borrador.
-                                Si seguís, esos datos se pierden. Los cambios que ya están en el borrador se conservan.
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal"
-                                        data-volver-al-formulario>
-                                    Volver al formulario
-                                </button>
-                                <button type="button" class="btn btn-danger" data-seguir-sin-agregar>
-                                    Seguir sin agregarlos
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            }
-            else if (!ViewData.ModelState.IsValid)
-            {
-                <div asp-validation-summary="All" class="resumen-errores seccion-form" role="alert" tabindex="-1"></div>
-            }
-        </section>
+    @if (Model.PuedeAgregar)
+    {
+        <partial name="_ModalAgregarConcepto" />
     }
 </div>
 
 @section Scripts {
+    <script src="~/js/selector-materiales.js" asp-append-version="true"></script>
     <script src="~/js/conceptos-presupuesto.js" asp-append-version="true"></script>
 }

@@ -1,0 +1,70 @@
+@using EOP.Gestion.WebApp.ViewModels.Presupuestos
+@model SelectorMaterialViewModel
+
+@{
+    // Ids únicos por si en el futuro hay más de un selector en la misma página.
+    string sufijo = Model.ParaFila ? "fila" : "modal";
+    string idBuscador = "buscador-material-" + sufijo;
+}
+
+@* UI-presupuestos (US-007, US-010A, US-011): selector de materiales del catálogo. Se usa igual en
+   el modal «Agregar concepto» y en la pantalla «Seleccionar material» de una fila.
+
+   Funciona en dos pasos, sin recargar la pantalla (selector-materiales.js):
+   1. Listado paginado del catálogo con búsqueda por nombre. El usuario elige un material.
+   2. Referencias de proveedor de ese material (proveedor, precio, moneda y fecha de
+      actualización). El usuario tiene que marcar una a propósito, aunque haya una sola.
+
+   Desde acá no se crean materiales, no se cambian precios ni se registran relaciones
+   material-proveedor: eso se hace solo en el Catálogo de Materiales (US-041, US-071, US-010B). *@
+<div class="selector-material" data-selector-material
+     data-url-listado="@Url.Action("CatalogoMateriales", "ConceptosPresupuesto", new { id = Model.PresupuestoId })"
+     data-url-referencias="@Url.Action("ReferenciasMaterial", "ConceptosPresupuesto", new { id = Model.PresupuestoId })"
+     data-para-fila="@(Model.ParaFila ? "true" : "false")"
+     data-carga-diferida="@(Model.CargaDiferida ? "true" : "false")"
+     data-referencia-elegida-id="@Model.ReferenciaElegidaId"
+     data-referencia-actual-id="@Model.ReferenciaActualId">
+
+    @* Guarda el material elegido solo para volver a mostrarlo si el envío vuelve con errores. *@
+    <input type="hidden" name="@Model.NombreCampoMaterial" value="@Model.MaterialElegidoId" data-campo-material />
+
+    @* Paso 1: elegir el material. *@
+    <div data-paso-selector="listado">
+        <label for="@idBuscador" class="form-label">Material del catálogo</label>
+        <div class="input-group" role="search">
+            <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+            @* Sin name: el texto de búsqueda no se envía con el formulario. *@
+            <input id="@idBuscador" type="search" class="form-control border-start-0" maxlength="200"
+                   placeholder="Buscar por nombre" autocomplete="off"
+                   aria-describedby="@(idBuscador)-ayuda"
+                   data-buscador-material data-excluir-de-datos-no-enviados />
+            <button type="button" class="btn btn-outline-secondary" data-buscar-material>Buscar</button>
+        </div>
+        <div id="@(idBuscador)-ayuda" class="form-text">
+            Elegí el material de la lista o buscalo por nombre. El sistema no elige ninguno por vos.
+        </div>
+
+        <div class="selector-material-zona mt-2" data-zona-listado aria-live="polite"></div>
+    </div>
+
+    @* Paso 2: elegir la referencia de proveedor del material elegido. *@
+    <div class="d-none" data-paso-selector="referencias">
+        <div data-zona-referencias aria-live="polite"></div>
+
+        @* Resumen de lo que se va a copiar al presupuesto (nombre, unidad, precio y moneda). Lo
+           completa el script con los datos de la referencia marcada; es solo para mostrar. *@
+        <div class="aviso mt-3 d-none" role="status" data-resumen-referencia>
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <div>
+                <strong class="d-block">Referencia elegida: <span data-resumen-proveedor></span></strong>
+                Unidad: <span data-resumen-unidad></span> ·
+                Precio unitario: <span class="num" data-resumen-precio></span> ·
+                Moneda: <span data-resumen-moneda></span>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-link text-decoration-none px-0 mt-2" data-elegir-otro-material>
+            <i class="bi bi-arrow-left me-1" aria-hidden="true"></i>Elegir otro material
+        </button>
+    </div>
+</div>
