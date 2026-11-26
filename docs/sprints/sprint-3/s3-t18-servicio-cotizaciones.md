@@ -4,9 +4,9 @@
 
 **Requerimientos:** US-012 · RF-029 (reglas de cotización), RF-031, RF-077, RF-103, RF-104 · RNF-011, RNF-012, RNF-013 · DT-12
 
-**Antecedentes:** [S3-T03 — prueba de concepto](./pruebas-concepto/S3-T03-datosuruguay.md) ·
-[S3-T25 — revisión de reglas de cálculo y cotización](./revision-reglas-calculo-cotizacion.md) ·
-[decisiones de dependencias del Sprint 3](./decisiones-dependencias-sprint-3.md)
+**Antecedentes:** [S3-T03 — prueba de concepto](../../pruebas-concepto/S3-T03-datosuruguay.md) ·
+[S3-T25 — revisión de reglas de cálculo y cotización](../../arquitectura/revision-reglas-calculo-cotizacion.md) ·
+[decisiones de dependencias del Sprint 3](decisiones-dependencias-sprint-3.md)
 
 Esta tarea deja un **servicio centralizado y reutilizable** que obtiene la cotización del dólar publicada por el
 BCU a través de datosUruguay. No la usa todavía ninguna pantalla ni caso de uso: lo van a consumir las tareas

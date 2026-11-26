@@ -98,12 +98,12 @@ Estos son escenarios a especificar y verificar; no constituyen resultados de pru
 
 ### 2.9. Referencias
 
-- [RF-005 y RF-069](./requerimientos-funcionales.md)
-- [US-003 y US-042](./user-stories.md)
-- [Requerimientos no funcionales](./requerimientos-no-funcionales.md)
-- [Decisiones técnicas](./decisiones-tecnicas.md)
-- [Decisiones y dependencias del Sprint 3](./decisiones-dependencias-sprint-3.md)
-- [Configuración de sesión en Program.cs](../src/EOP.Gestion.WebApp/Program.cs)
+- [RF-005 y RF-069](../../requerimientos/requerimientos-funcionales.md)
+- [US-003 y US-042](../../historias-de-usuario/user-stories.md)
+- [Requerimientos no funcionales](../../requerimientos/requerimientos-no-funcionales.md)
+- [Decisiones técnicas](../../arquitectura/decisiones-tecnicas.md)
+- [Decisiones y dependencias del Sprint 3](decisiones-dependencias-sprint-3.md)
+- [Configuración de sesión en Program.cs](../../../src/EOP.Gestion.WebApp/Program.cs)
 - [PR #99 — S3-T14](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/pull/99)
 - [Tarjeta S3-T15](https://trello.com/c/n159gvnC)
 
