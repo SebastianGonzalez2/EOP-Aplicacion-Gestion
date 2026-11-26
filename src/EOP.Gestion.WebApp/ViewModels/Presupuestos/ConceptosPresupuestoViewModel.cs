@@ -1,6 +1,7 @@
 using System.Globalization;
 using EOP.Gestion.Core.Comun;
 using EOP.Gestion.Core.DTOs.Presupuestos;
+using EOP.Gestion.Core.DTOs.Cotizaciones;
 
 namespace EOP.Gestion.WebApp.ViewModels.Presupuestos;
 
@@ -14,6 +15,8 @@ public class ConceptosPresupuestoViewModel
     public required PresupuestoDetalleDto Informacion { get; init; }
 
     public bool PuedeAgregar { get; init; }
+    public string? MensajeErrorCotizacion { get; init; }
+    public CotizacionUsd? CotizacionUtilizada { get; init; }
     public bool TieneCambiosPendientes { get; init; }
     public string? BorradorId { get; init; }
     public int VersionBorrador { get; init; }

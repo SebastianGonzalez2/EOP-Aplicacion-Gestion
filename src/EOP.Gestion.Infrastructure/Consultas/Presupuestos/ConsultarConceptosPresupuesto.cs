@@ -14,10 +14,9 @@ public class ConsultarConceptosPresupuesto
         _contexto = contexto;
     }
 
-    public Task<List<FilaConceptoDto>> ObtenerFilasAsync(int presupuestoId, CancellationToken cancellationToken)
+    public Task<List<FilaConceptoDto>> ObtenerFilasAsync(int presupuestoId,CancellationToken cancellationToken)
     {
-        var conceptosDelPresupuesto = _contexto.ConceptosPresupuesto.AsNoTracking()
-            .Where(concepto => concepto.PresupuestoId == presupuestoId);
+        var conceptosDelPresupuesto = _contexto.ConceptosPresupuesto.AsNoTracking().Where(concepto => concepto.PresupuestoId == presupuestoId);
 
         return ArmarFilas(conceptosDelPresupuesto).ToListAsync(cancellationToken);
     }
@@ -25,11 +24,10 @@ public class ConsultarConceptosPresupuesto
     // US-007: la pantalla de selección de material necesita mostrar una sola fila (su concepto
     // detectado y el material que tiene hoy). Se filtra también por presupuesto para que una
     // fila de otro presupuesto nunca aparezca bajo la URL de este.
-    public Task<FilaConceptoDto?> ObtenerFilaAsync(
-        int presupuestoId, int conceptoId, CancellationToken cancellationToken)
+    public Task<FilaConceptoDto?> ObtenerFilaAsync(int presupuestoId,int conceptoId,CancellationToken cancellationToken)
     {
-        var conceptoBuscado = _contexto.ConceptosPresupuesto.AsNoTracking()
-            .Where(concepto => concepto.PresupuestoId == presupuestoId && concepto.Id == conceptoId);
+        var conceptoBuscado = _contexto.ConceptosPresupuesto.AsNoTracking().Where(concepto => concepto.PresupuestoId == presupuestoId
+                && concepto.Id == conceptoId);
 
         return ArmarFilas(conceptoBuscado).FirstOrDefaultAsync(cancellationToken);
     }
@@ -40,23 +38,45 @@ public class ConsultarConceptosPresupuesto
         // La referencia sirve para identificar al proveedor, que no se copia al concepto.
         return
             from concepto in conceptos
-            join tipo in _contexto.TiposConcepto on concepto.TipoConceptoId equals tipo.Id
+            join tipo in _contexto.TiposConcepto
+                on concepto.TipoConceptoId equals tipo.Id
             orderby concepto.Id
             select new FilaConceptoDto(
-                concepto.Id, tipo.Id, tipo.Nombre, concepto.ConceptoDetectado, concepto.Concepto,
-                concepto.MaterialId, concepto.MaterialProveedorId,
+                concepto.Id,
+                tipo.Id,
+                tipo.Nombre,
+                concepto.ConceptoDetectado,
+                concepto.Concepto,
+                concepto.MaterialId,
+                concepto.MaterialProveedorId,
                 (from referencia in _contexto.MaterialProveedores
-                 join proveedor in _contexto.Proveedores on referencia.ProveedorId equals proveedor.Id
+                 join proveedor in _contexto.Proveedores
+                    on referencia.ProveedorId equals proveedor.Id
                  where referencia.Id == concepto.MaterialProveedorId
                  select proveedor.Nombre).FirstOrDefault(),
-                concepto.Cantidad, concepto.Unidad, concepto.PrecioUnitario, concepto.Moneda);
+                concepto.Cantidad,
+                concepto.Unidad,
+                concepto.PrecioUnitario,
+                concepto.Moneda)
+            {
+                PorcentajeMargen = concepto.PorcentajeMargen,
+
+                // Recuperamos los tipos que el usuario seleccionó
+                // como base de cálculo del margen.
+                TiposBaseMargen = _contexto.MargenesBaseTipo
+                    .Where(baseMargen =>
+                        baseMargen.ConceptoPresupuestoId == concepto.Id)
+                    .Select(baseMargen => baseMargen.TipoConceptoId)
+                    .ToList()
+            };
     }
 
     public Task<List<TipoConceptoOpcionDto>> ObtenerTiposAsync(CancellationToken cancellationToken)
     {
         return _contexto.TiposConcepto.AsNoTracking()
             .OrderBy(tipo => tipo.Id)
-            .Select(tipo => new TipoConceptoOpcionDto(tipo.Id, tipo.Nombre))
+            .Select(tipo => new TipoConceptoOpcionDto(
+                tipo.Id, tipo.Nombre))
             .ToListAsync(cancellationToken);
     }
 }

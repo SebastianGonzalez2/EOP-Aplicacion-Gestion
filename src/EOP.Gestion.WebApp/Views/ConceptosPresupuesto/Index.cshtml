@@ -57,6 +57,19 @@
 
     <partial name="_Mensajes" />
 
+    @* S3-T19: si no podemos obtener una cotización válida,
+       informamos al usuario sin impedir que continúe trabajando
+       o guardando el borrador del presupuesto. *@
+    @if (!string.IsNullOrWhiteSpace(Model.MensajeErrorCotizacion))
+    {
+        <div class="alert mensaje mensaje-info" role="status">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+            <div class="mensaje-cuerpo">
+                @Model.MensajeErrorCotizacion
+            </div>
+        </div>
+    }
+
     @* RNF-19 (docs/diseno-visual.md sección 19): indicador informativo de etapas del proceso. *@
     <section class="panel mb-4" aria-label="Etapas del presupuesto">
         <ol class="etapas">
@@ -174,7 +187,7 @@
                             <th scope="col">Proveedor</th>
                             <th scope="col" class="text-end">Cantidad</th>
                             <th scope="col">Unidad</th>
-                            <th scope="col" class="text-end">Precio unitario</th>
+                            <th scope="col" class="text-end">Precio / Valor</th>
                             <th scope="col" class="text-end">Subtotal</th>
                             @if (Model.PuedeAgregar)
                             {
@@ -192,10 +205,12 @@
                             }
 
                             bool filaMaterial = fila.TipoId == TipoConcepto.MaterialId;
+                            bool filaMargen = fila.TipoId == TipoConcepto.MargenId;
 
-                            // S3-T17: calculamos el subtotal usando los valores
+                            // S3-T17: calculamos el subtotal de los conceptos monetarios usando los valores
                             // históricos que ya tiene guardados el presupuesto.
                             // Conservamos su moneda original, sin hacer conversiones.
+                            // S3-T19: el margen tiene su propio cálculo y siempre se expresa en UYU.
                             string subtotalTexto = "—";
 
                             if (fila.Subtotal is decimal subtotal && fila.Moneda.HasValue)
@@ -203,9 +218,17 @@
                                 subtotalTexto = $"{fila.Moneda} {subtotal.ToString("0.##########", cultura)}";
                             }
 
+                            // Si no podemos calcular el margen, no mostramos
+                            // un cero que podría interpretarse como un importe válido.
+                            if (filaMargen && !fila.Subtotal.HasValue)
+                            {
+                                subtotalTexto = "No disponible";
+                            }
+
                             <tr>
                                 <td>@fila.Tipo</td>
                                 <td class="col-texto">@(fila.ConceptoDetectado ?? "—")</td>
+
                                 @* US-007: una fila Material sin Concepto todavía no tiene material elegido. *@
                                 @if (filaMaterial && fila.Concepto == null)
                                 {
@@ -215,11 +238,30 @@
                                 {
                                     <td class="col-principal">@(fila.Concepto ?? "—")</td>
                                 }
+
                                 <td>@(fila.Proveedor ?? "—")</td>
                                 <td class="text-end num">@(fila.Cantidad?.ToString("0.##########", cultura) ?? "—")</td>
                                 <td>@(fila.Unidad?.ToString() ?? "—")</td>
-                                <td class="text-end num">@(filaMaterial ? valor : "—")</td>
+
+                                @* S3-T19: mostramos el porcentaje elegido por el usuario
+                                   en lugar de un precio unitario cuando el concepto es Margen. *@
+                                <td class="text-end num">
+                                    @if (filaMargen && fila.PorcentajeMargen.HasValue)
+                                    {
+                                        @(fila.PorcentajeMargen.Value.ToString("0.##########", cultura) + "%")
+                                    }
+                                    else if (filaMaterial)
+                                    {
+                                        @valor
+                                    }
+                                    else
+                                    {
+                                        @("—")
+                                    }
+                                </td>
+
                                 <td class="text-end num">@subtotalTexto</td>
+
                                 @if (Model.PuedeAgregar)
                                 {
                                     <td class="col-acciones">
@@ -251,6 +293,35 @@
                     </tbody>
                 </table>
             </div>
+
+            @* S3-T19: identificamos la fuente de las cotizaciones
+               utilizadas para convertir los importes en dólares.
+               También mostramos el valor y la fecha de publicación
+               de la cotización que realmente utilizamos para calcular el margen.
+               Si el cálculo no necesitó convertir dólares, no mostramos esta información. *@
+            @if (Model.CotizacionUtilizada != null)
+            {
+                <div class="small text-body-secondary p-3">
+                    <p class="mb-1">
+                        <strong>Cotización utilizada:</strong>
+                        @Model.CotizacionUtilizada.Valor.ToString("0.##########", cultura)
+                        UYU/USD
+                    </p>
+
+                    <p class="mb-1">
+                        <strong>Fecha de publicación:</strong>
+                        @Model.CotizacionUtilizada.FechaPublicacion.ToString("dd/MM/yyyy")
+                    </p>
+
+                    <p class="mb-0">
+                        Fuente de cotizaciones: BCU —
+                        Datos de
+                        <a href="https://datosuruguay.com/dolar">
+                            datosUruguay.com
+                        </a>.
+                    </p>
+                </div>
+            }
         }
     </section>
 

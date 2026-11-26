@@ -126,6 +126,7 @@ builder.Services.AddScoped<ConsultarProveedores>();
 // para mostrarlos en el listado administrativo.
 builder.Services.AddScoped<ConsultarUsuarios>();
 
+builder.Services.AddScoped<CalcularMargenPresupuesto>();
 
 // Registramos la consulta que obtiene los presupuestos
 // existentes para mostrarlos en el listado.

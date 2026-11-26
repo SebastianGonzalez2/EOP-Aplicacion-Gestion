@@ -60,7 +60,11 @@ public class ConceptoBorradorDto
             Cantidad,
             Unidad,
             PrecioUnitario,
-            Moneda);
+            Moneda)
+        {
+            PorcentajeMargen = PorcentajeMargen,
+            TiposBaseMargen = new List<int>(TiposBaseMargen)
+        };
     }
 
     // Copia los cuatro valores históricos del catálogo (DT-11) junto con la referencia elegida.
