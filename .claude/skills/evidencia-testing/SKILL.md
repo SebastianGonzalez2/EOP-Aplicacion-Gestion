@@ -26,7 +26,7 @@ Leé primero `AGENTS.md` vigente y seguí sus reglas de arquitectura, seguridad,
 5. Si el título del informe está mal numerado (por ejemplo, «Sprint #»), identificá la sección por orden, fechas y tareas y dejá constancia de la discrepancia, sin descartarla ni inventar su alcance.
 6. Las tareas de análisis, planificación o documentación solo generan casos de **testing** cuando existe una verificación pertinente; no fabriques un test por cada tarjeta Done.
 
-Fuentes prioritarias: anteproyecto e informe proporcionados; `docs/user-stories.md`, `docs/requerimientos-funcionales.md`, `docs/requerimientos-no-funcionales.md`, `docs/alcance.md` y decisiones técnicas aplicables; Trello; historial Git; tests y resultados disponibles. Leé solo las secciones pertinentes. Si las fuentes contradicen una regla de negocio, señalalo: no la resuelvas por cuenta propia.
+Fuentes prioritarias: anteproyecto e informe proporcionados; `docs/historias-de-usuario/user-stories.md`, `docs/requerimientos/requerimientos-funcionales.md`, `docs/requerimientos/requerimientos-no-funcionales.md`, `docs/requerimientos/alcance.md` y decisiones técnicas aplicables; Trello; historial Git; tests y resultados disponibles. Leé solo las secciones pertinentes. Si las fuentes contradicen una regla de negocio, señalalo: no la resuelvas por cuenta propia.
 
 ## 2. Verificar la relación requisito → prueba → ejecución
 

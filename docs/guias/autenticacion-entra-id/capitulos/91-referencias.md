@@ -20,7 +20,7 @@
 |---|---|
 | PR #10 — *S1-T08: Configurar autenticación con Microsoft Entra ID* (commits `a805cba`, `602289a`) | Paquete, `appsettings.json`, `Program.cs` inicial, uso de User Secrets |
 | PR #13 — *S1-T09: implementar inicio y cierre de sesión* (commit `f7a0ec3`, merge `fdc9e78`) | Controller, vistas, política de respaldo, cookie, manejo de fallos, pruebas |
-| `docs/user-stories.md` — US-042 | Escenarios de aceptación |
-| `docs/requerimientos-funcionales.md` — RF-069, RF-071 | Reglas de inicio y cierre de sesión y MFA |
-| `docs/requerimientos-no-funcionales.md` — RNF-2, 3, 4, 9, 11, 12, 14 | Restricciones de seguridad e interfaz |
+| `docs/historias-de-usuario/user-stories.md` — US-042 | Escenarios de aceptación |
+| `docs/requerimientos/requerimientos-funcionales.md` — RF-069, RF-071 | Reglas de inicio y cierre de sesión y MFA |
+| `docs/requerimientos/requerimientos-no-funcionales.md` — RNF-2, 3, 4, 9, 11, 12, 14 | Restricciones de seguridad e interfaz |
 | `AGENTS.md` | Arquitectura y reglas de seguridad del proyecto |

@@ -8,7 +8,7 @@ Manual de capacitación paso a paso, basado en lo implementado en EOP (S1-T08 y 
 ## Estructura
 
 ```text
-guias/autenticacion-entra-id/
+docs/guias/autenticacion-entra-id/
 ├── guia.json              ← título, versión, tareas documentadas y ORDEN de los capítulos
 ├── capitulos/             ← un archivo Markdown por capítulo (fuente editable)
 ├── imagenes/
@@ -27,7 +27,7 @@ guias/autenticacion-entra-id/
 Requisitos: Node.js 20 o superior y Google Chrome o Microsoft Edge instalados.
 
 ```bash
-cd guias/autenticacion-entra-id/herramientas
+cd docs/guias/autenticacion-entra-id/herramientas
 npm install          # solo la primera vez
 npm run construir
 ```

@@ -139,7 +139,7 @@ const portada = `
       <tr><th>Versión</th><td>${config.version}</td></tr>
       <tr><th>Fecha</th><td>${config.fecha}</td></tr>
       <tr><th>Stack</th><td>ASP.NET Core MVC · .NET 10 · Microsoft.Identity.Web 4.16.1</td></tr>
-      <tr><th>Fuente editable</th><td><code>guias/autenticacion-entra-id/</code> (Markdown)</td></tr>
+      <tr><th>Fuente editable</th><td><code>docs/guias/autenticacion-entra-id/</code> (Markdown)</td></tr>
     </table>
   </div>
 </section>`;

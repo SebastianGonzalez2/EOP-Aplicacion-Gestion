@@ -214,12 +214,12 @@ Editables: Borrador, Para revisión interna, Solicitud de modificación del clie
 ## Diseño visual
 
 Toda vista, componente o estilo nuevo o modificado sigue la guía aprobada en
-[`docs/diseno-visual.md`](./docs/diseno-visual.md) (alternativa A — Corporativa moderna).
+[`docs/diseno-visual/diseno-visual.md`](./docs/diseno-visual/diseno-visual.md) (alternativa A — Corporativa moderna).
 Antes de tocar la interfaz, leé las secciones de los componentes que vas a usar y
 reutilizá sus tokens, clases y patrones; no inventes colores, tipografías ni componentes
 que la guía ya resuelve. Si algo no está cubierto, resolvelo con los tokens existentes y
 proponé el agregado a la guía. La Skill `frontend-design` puede usarse como apoyo, pero
-ante cualquier diferencia prevalece `docs/diseno-visual.md`.
+ante cualquier diferencia prevalece `docs/diseno-visual/diseno-visual.md`.
 
 ---
 
@@ -372,7 +372,7 @@ En las pruebas:
 La documentación ya está cargada en `docs/`. Para implementar una tarea, seguí este procedimiento:
 
 1. Identificá la User Story (US), los requerimientos funcionales (RF), los no funcionales (RNF) y las restricciones de alcance relacionados.
-2. Leé las **secciones aplicables** de `docs/user-stories.md`, `docs/requerimientos-funcionales.md`, `docs/requerimientos-no-funcionales.md` y `docs/alcance.md`. No es necesario cargar completos todos los documentos en cada tarea.
+2. Leé las **secciones aplicables** de `docs/historias-de-usuario/user-stories.md`, `docs/requerimientos/requerimientos-funcionales.md`, `docs/requerimientos/requerimientos-no-funcionales.md` y `docs/requerimientos/alcance.md`. No es necesario cargar completos todos los documentos en cada tarea.
 3. Inspeccioná el código y la configuración existentes para reutilizar lo ya implementado y evitar duplicaciones.
 4. Respetá el alcance concreto de la tarea y sus dependencias. No adelantes tareas posteriores ni inventes requisitos o reglas.
 5. Si detectás contradicciones entre documentación, instrucciones, pedido actual o código, **informalas antes de modificar el comportamiento**; no resuelvas diferencias de negocio por tu cuenta.
@@ -410,4 +410,4 @@ La planificación y la implementación deben basarse en los requerimientos (RF/R
 
 - Convención de nombres de las pruebas
 
-La integración continua ya está implementada en [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) y se explica en [`docs/integracion-continua.md`](./docs/integracion-continua.md) (S2-T36).
+La integración continua ya está implementada en [`.github/workflows/ci.yml`](./.github/workflows/ci.yml) y se explica en [`docs/infraestructura/integracion-continua.md`](./docs/infraestructura/integracion-continua.md) (S2-T36).
