@@ -162,7 +162,7 @@ Se suben **solo** los archivos TRX y de cobertura, con el nombre `informes-de-pr
 
 ### Caché de NuGet
 
-Se guardan los paquetes descargados (`~/.nuget/packages`). La clave depende de los archivos `.csproj` de `src/` y `tests/`: si cambian las dependencias, se genera una caché nueva. `dotnet restore` se ejecuta siempre; la caché solo evita volver a descargar.
+Se guardan los paquetes descargados (`~/.nuget/packages`). La clave depende de los archivos `.csproj` de `src/` y `tests/`: si cambian las dependencias, se genera una caché nueva. `dotnet restore` se ejecuta siempre; la caché solo evita volver a descargar. Se guarda únicamente cuando el trabajo termina bien.
 
 ### Cancelación de ejecuciones obsoletas
 
@@ -228,6 +228,32 @@ En esa ejecución terminaron correctamente las etapas de instalación, descarga 
 **Qué demuestra:** el workflow pudo completar esos controles para ese cambio concreto. **Qué no demuestra:** que Azure SQL de producción funciona, que EOP ya está desplegada o que no pueda existir ningún otro error.
 
 También se verificó una ejecución del PR de documentación S2-T36: [GitHub Actions — PR #75](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/43882013526), con resultado correcto para el commit inicial del PR. **Si hacemos nuevos commits, hay que comprobar las ejecuciones nuevas**, no dar por válido automáticamente el resultado anterior.
+
+### Evidencia de S3-T01 (26/11/2026)
+
+Ejecuciones del [PR #105](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/pull/105) y de dos ramas temporales creadas solo para provocar fallos. Esos cambios temporales **no forman parte de S3-T01 y no se deben integrar**.
+
+| Qué se comprobó | Ejecución | Resultado observado |
+|---|---|---|
+| Ejecución completa del PR (commit `46686f9`) | [#91](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/45839580322) | **success**. 1892 pruebas: 1890 aprobadas, 0 fallidas y 2 omitidas permitidas; 403 ejecutadas de clases `*SqlServerTests`. Se subió el artefacto y se guardó la caché de NuGet, que todavía no existía. |
+| Cancelación de una ejecución obsoleta | [#88](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/45839476835) | **cancelled** mientras restauraba dependencias, al subir un commit nuevo al mismo PR. |
+| Una prueba que falla a propósito | [#89](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/45839548405) | **failure** en «Ejecutar pruebas automatizadas» (1 fallida de 1893). Los pasos siguientes corrieron igual y el artefacto incluye el fallo. |
+| SQL Server inalcanzable para las pruebas | [#90](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/45839553461) | `dotnet test` terminó bien con 280 omitidas, y la ejecución quedó en **failure** en «Verificar pruebas omitidas»: 278 omisiones no permitidas y ninguna prueba `*SqlServerTests` ejecutada. |
+
+Cobertura de la ejecución #91, sin migraciones:
+
+| Proyecto | Líneas | Ramas |
+|---|---:|---:|
+| `EOP.Gestion.Core` | 95,0 % | 88,8 % |
+| `EOP.Gestion.Infrastructure` | 98,4 % | 93,9 % |
+| `EOP.Gestion.WebApp` | 91,5 % | 76,7 % |
+| **Total** | **94,7 %** (5544 de 5854) | **82,5 %** (2384 de 2891) |
+
+Es una foto de ese día, no un objetivo a mantener.
+
+También se descargaron los artefactos de las ejecuciones #89, #90 y #91: contenían solamente un TRX y un informe de cobertura, sin migraciones y sin la contraseña temporal. En los logs de esas tres ejecuciones la contraseña aparece como `***`.
+
+**Límite de esta evidencia:** no se probó un PR enviado desde un fork. Su funcionamiento sin secretos se deduce de que el workflow ya no usa ninguno.
 
 ## 8. ¿Cómo lo usamos al terminar una tarea?
 
