@@ -1,6 +1,8 @@
 
 name: Integración continua EOP
 
+# No usamos pull_request_target a propósito: con pull_request, el código de un fork corre sin acceso
+# a los secretos del repositorio y con un token de solo lectura.
 on:
   push:
     branches: [main]
@@ -11,28 +13,62 @@ on:
 permissions:
   contents: read
 
+# Si subimos un commit nuevo a un PR, la ejecución anterior ya no sirve y se cancela.
+# En main y en las ejecuciones manuales el grupo es distinto cada vez (run_id), así que ahí no se cancela nada.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   compilar-y-probar:
     runs-on: ubuntu-24.04
-
-    services:
-      sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest
-        env:
-          ACCEPT_EULA: "Y"
-          MSSQL_SA_PASSWORD: ${{ secrets.EOP_CI_SQLSERVER_PASSWORD }}
-          MSSQL_PID: "Developer"
-        ports:
-          - 1433:1433
+    # Una ejecución normal tarda unos pocos minutos. Si algo queda colgado, lo cortamos acá
+    # en vez de esperar las 6 horas que GitHub permite por defecto.
+    timeout-minutes: 20
 
     steps:
       - name: Descargar el código
         uses: actions/checkout@v7
+        with:
+          # El workflow no necesita escribir en el repositorio, así que no dejamos el token guardado
+          # en la carpeta donde después corre el código del PR.
+          persist-credentials: false
+
+      # La base de pruebas nace y muere con esta ejecución, así que su contraseña también: se genera
+      # en el momento y no hace falta guardar ningún secreto en GitHub. Por eso los PR desde forks
+      # pueden correr las pruebas completas sin recibir nada privado.
+      - name: Iniciar SQL Server de pruebas
+        timeout-minutes: 5
+        run: |
+          # El prefijo agrega la mayúscula que exige la política de contraseñas de SQL Server.
+          contrasena="Ci1$(openssl rand -hex 24)"
+          # add-mask hace que GitHub la reemplace por *** en los logs.
+          echo "::add-mask::$contrasena"
+          echo "EOP_CI_SQL_CONTRASENA=$contrasena" >> "$GITHUB_ENV"
+
+          # La contraseña viaja como variable de entorno, no como argumento del comando.
+          # El puerto queda accesible solamente desde la propia máquina del runner.
+          MSSQL_SA_PASSWORD="$contrasena" docker run --detach --name eop-sql-pruebas \
+            --env ACCEPT_EULA=Y \
+            --env MSSQL_PID=Developer \
+            --env MSSQL_SA_PASSWORD \
+            --publish 127.0.0.1:1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
 
       - name: Instalar .NET 10
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+
+      # Guarda los paquetes NuGet ya descargados para no bajarlos de nuevo en cada ejecución.
+      # Si cambia algún .csproj, cambia la clave y se genera una caché nueva.
+      - name: Recuperar la caché de paquetes NuGet
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('src/**/*.csproj', 'tests/**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
 
       - name: Restaurar dependencias
         run: dotnet restore EOP.Gestion.slnx
@@ -41,13 +77,12 @@ jobs:
         run: dotnet build EOP.Gestion.slnx --configuration Release --no-restore
 
       - name: Esperar a que SQL Server esté disponible
-        env:
-          SQL_PASSWORD: ${{ secrets.EOP_CI_SQLSERVER_PASSWORD }}
+        timeout-minutes: 4
         run: |
           for intento in {1..40}; do
-            if docker exec "${{ job.services.sqlserver.id }}" \
+            if SQLCMDPASSWORD="$EOP_CI_SQL_CONTRASENA" docker exec --env SQLCMDPASSWORD eop-sql-pruebas \
               /opt/mssql-tools18/bin/sqlcmd \
-              -S localhost -U sa -P "$SQL_PASSWORD" -C \
+              -S localhost -U sa -C \
               -Q "SELECT 1" -b -o /dev/null 2>/dev/null; then
               echo "SQL Server está listo"
               exit 0
@@ -57,10 +92,49 @@ jobs:
             sleep 3
           done
 
-          echo "ERROR: SQL Server no está disponible"
+          echo "ERROR: SQL Server no está disponible. Últimas líneas del contenedor:"
+          docker logs --tail 30 eop-sql-pruebas
           exit 1
 
+      # Genera un informe TRX (resultado de cada prueba) y uno de cobertura en formato Cobertura.
       - name: Ejecutar pruebas automatizadas
+        id: pruebas
+        timeout-minutes: 12
         env:
-          EOP_PRUEBAS_SQLSERVER: "Server=localhost,1433;User ID=sa;Password=${{ secrets.EOP_CI_SQLSERVER_PASSWORD }};Encrypt=True;TrustServerCertificate=True"
-        run: dotnet test EOP.Gestion.slnx --configuration Release --no-build --no-restore --logger "console;verbosity=normal"
+          EOP_PRUEBAS_SQLSERVER: "Server=127.0.0.1,1433;User ID=sa;Password=${{ env.EOP_CI_SQL_CONTRASENA }};Encrypt=True;TrustServerCertificate=True"
+        run: >
+          dotnet test EOP.Gestion.slnx --configuration Release --no-build --no-restore
+          --logger "console;verbosity=normal"
+          --logger "trx;LogFilePrefix=pruebas"
+          --collect "XPlat Code Coverage"
+          --settings tests/cobertura.runsettings
+          --results-directory TestResults
+
+      # Los pasos que siguen corren también cuando las pruebas fallan, que es cuando más
+      # necesitamos los informes. Si no se llegó a probar (por ejemplo, no compiló), se saltean.
+      - name: Verificar pruebas omitidas y resumir resultados
+        if: ${{ !cancelled() && steps.pruebas.outcome != 'skipped' }}
+        shell: pwsh
+        run: ./.github/scripts/Verificar-ResultadosPruebas.ps1 -CarpetaResultados TestResults
+
+      # GitHub oculta los valores en los logs, pero no dentro de los archivos que subimos.
+      - name: Quitar la contraseña temporal de los informes
+        id: limpiar_informes
+        if: ${{ !cancelled() && steps.pruebas.outcome != 'skipped' }}
+        run: |
+          if [ -d TestResults ]; then
+            grep -rlF "$EOP_CI_SQL_CONTRASENA" TestResults \
+              | xargs --no-run-if-empty sed -i "s/$EOP_CI_SQL_CONTRASENA/***/g"
+          fi
+
+      # Solo subimos los informes TRX y de cobertura, y solo si la limpieza anterior terminó bien.
+      - name: Guardar informes de pruebas y cobertura
+        if: ${{ !cancelled() && steps.limpiar_informes.outcome == 'success' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: informes-de-pruebas-intento-${{ github.run_attempt }}
+          path: |
+            TestResults/*.trx
+            TestResults/*/coverage.cobertura.xml
+          retention-days: 7
+          if-no-files-found: warn

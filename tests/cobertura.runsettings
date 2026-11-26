@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Configuración de la medición de cobertura (S3-T01). La usa la integración continua. -->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat Code Coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+          <!-- Las migraciones las genera EF Core y las pruebas de SQL Server las ejecutan enteras:
+               si se contaran, el porcentaje daría más alto de lo que realmente probamos. -->
+          <ExcludeByFile>**/Persistencia/Migraciones/*.cs</ExcludeByFile>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>
