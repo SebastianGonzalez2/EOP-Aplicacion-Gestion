@@ -1,38 +1,87 @@
 # Documentación del proyecto
 
-Copia de trabajo de la documentación del Sistema de Gestión EOP, para consulta durante
-el desarrollo. **El anteproyecto en Word es el documento original**; estos archivos se
-regeneran a partir de él cuando cambia.
+Acá está la documentación de trabajo de EOP, organizada por tema. **El anteproyecto en Word es la fuente original de la especificación**; sus copias de trabajo deben mantenerse sincronizadas.
 
-| Archivo | Contenido |
+| Carpeta | Qué contiene |
 |---|---|
-| [`necesidades-y-objetivos.md`](./necesidades-y-objetivos.md) | Necesidades del cliente (N-xx) y objetivos académicos y de producto |
-| [`requerimientos-funcionales.md`](./requerimientos-funcionales.md) | Los 109 RF con sus reglas de negocio, dependencias y prioridad |
-| [`requerimientos-no-funcionales.md`](./requerimientos-no-funcionales.md) | Los 21 RNF |
-| [`user-stories.md`](./user-stories.md) | Las 76 US con criterios de aceptación; las excluidas llevan aviso |
-| [`alcance.md`](./alcance.md) | Funcionalidades incluidas y excluidas de la primera versión |
-| [`decisiones-tecnicas.md`](./decisiones-tecnicas.md) | Decisiones de diseño con su motivo y alternativas descartadas |
-| [`azure-sql-database.md`](./azure-sql-database.md) | Explicación de Azure SQL: para qué lo usamos, cómo se conecta EOP, cambios de tablas, seguridad y comprobaciones pendientes (S2-T36) |
-| [`integracion-continua.md`](./integracion-continua.md) | Explicación de GitHub Actions: cómo se configura, cómo prueba el código y cómo revisar los resultados (S2-T36) |
-| [`azure-blob-storage.md`](./azure-blob-storage.md) | Configuración de almacenamiento privado Azure Blob Storage, verificaciones, servicio de la aplicación y pendientes (S2-T02, S2-T03) |
-| [`revision-integracion-tecnica.md`](./revision-integracion-tecnica.md) | Revisión de diseño de Azure SQL, Azure Blob Storage y GitHub Actions; evidencias, riesgos y pendientes (S2-T31) |
-| [`uso-de-ia.md`](./uso-de-ia.md) | Registro de uso de IA generativa |
+| [`requerimientos/`](./requerimientos/) | Necesidades, objetivos, alcance y RF/RNF. |
+| [`historias-de-usuario/`](./historias-de-usuario/) | Historias y criterios de aceptación. |
+| [`arquitectura/`](./arquitectura/) | Decisiones técnicas y revisiones del modelo y cálculo. |
+| [`infraestructura/`](./infraestructura/) | Azure SQL, Blob Storage e integración continua. |
+| [`diseno-visual/`](./diseno-visual/) | Diseño de pantallas, flujos y referencias visuales. |
+| [`guias/`](./guias/) | Manuales de capacitación. |
+| [`testing/`](./testing/) | Evidencias y matrices de trazabilidad por sprint. |
+| [`pruebas-concepto/`](./pruebas-concepto/) | Resultados y evaluaciones de experimentos; el código experimental queda fuera de docs. |
+| [`sprints/`](./sprints/) | Seguimiento y documentación de tareas por sprint. |
+| [`gestion-proyecto/`](./gestion-proyecto/) | Registros y documentación de gestión. |
 
-## Cómo usarlos
+## Archivos principales
 
-Al implementar una tarea, consultá el requerimiento real antes de asumir el
-comportamiento. Las reglas transversales están en [`AGENTS.md`](../AGENTS.md).
+### requerimientos
 
-Ejemplo de referencia en un prompt:
+- [alcance.md](./requerimientos/alcance.md)
+- [necesidades-y-objetivos.md](./requerimientos/necesidades-y-objetivos.md)
+- [requerimientos-funcionales.md](./requerimientos/requerimientos-funcionales.md)
+- [requerimientos-no-funcionales.md](./requerimientos/requerimientos-no-funcionales.md)
 
-    Implementá S1-T19 según el RF-085 de docs/requerimientos-funcionales.md
+### historias-de-usuario
 
-## Trazabilidad
+- [user-stories.md](./historias-de-usuario/user-stories.md)
+
+### arquitectura
+
+- [decisiones-tecnicas.md](./arquitectura/decisiones-tecnicas.md)
+- [revision-modelo-economico.md](./arquitectura/revision-modelo-economico.md)
+- [revision-reglas-calculo-cotizacion.md](./arquitectura/revision-reglas-calculo-cotizacion.md)
+
+### infraestructura
+
+- [azure-blob-storage.md](./infraestructura/azure-blob-storage.md)
+- [azure-sql-database.md](./infraestructura/azure-sql-database.md)
+- [integracion-continua.md](./infraestructura/integracion-continua.md)
+- [revision-integracion-tecnica.md](./infraestructura/revision-integracion-tecnica.md)
+
+### diseno-visual
+
+- [diseno-visual.md](./diseno-visual/diseno-visual.md)
+- [flujo-pantallas-presupuesto.md](./diseno-visual/flujo-pantallas-presupuesto.md)
+
+### guias
+
+- [Guía de autenticación con Microsoft Entra ID](./guias/autenticacion-entra-id/README.md) · [PDF](./guias/autenticacion-entra-id/salida/Guia-Autenticacion-Entra-ID.pdf)
+
+### testing
+
+- [evidencia-testing-sprint-1.md](./testing/evidencia-testing-sprint-1.md)
+- [evidencia-testing-sprint-2.md](./testing/evidencia-testing-sprint-2.md)
+- [matriz-trazabilidad-sprint-1.md](./testing/matriz-trazabilidad-sprint-1.md)
+- [matriz-trazabilidad-sprint-2.md](./testing/matriz-trazabilidad-sprint-2.md)
+
+### pruebas-concepto
+
+- [evaluacion-ia-s3-t04.md](./pruebas-concepto/evaluacion-ia-s3-t04.md)
+- [S3-T03-datosuruguay.md](./pruebas-concepto/S3-T03-datosuruguay.md)
+
+### sprints
+
+- [consideraciones-documentacion-sprint-3.md](./sprints/sprint-3/consideraciones-documentacion-sprint-3.md)
+- [decisiones-dependencias-sprint-3.md](./sprints/sprint-3/decisiones-dependencias-sprint-3.md)
+- [s3-t09-buscador-materiales.md](./sprints/sprint-3/s3-t09-buscador-materiales.md)
+- [s3-t11-consulta-precios.md](./sprints/sprint-3/s3-t11-consulta-precios.md)
+- [s3-t12-seleccion-conservacion-precio.md](./sprints/sprint-3/s3-t12-seleccion-conservacion-precio.md)
+- [s3-t18-servicio-cotizaciones.md](./sprints/sprint-3/s3-t18-servicio-cotizaciones.md)
+- [seguimiento-sprint-3.md](./sprints/sprint-3/seguimiento-sprint-3.md)
+
+### gestion-proyecto
+
+- [uso-de-ia.md](./gestion-proyecto/uso-de-ia.md)
+
+## Cómo usar esta documentación
+
+Antes de implementar una tarea, leé [AGENTS.md](../AGENTS.md) y las secciones de requerimientos, alcance e historias de usuario que correspondan. La trazabilidad se mantiene con los identificadores existentes:
 
     Necesidad (N-xx) → Objetivo (OA/OP-xx) → RF-xxx → US-xxx → tarea de sprint → prueba
 
 ## Pendiente
 
-Las 18 user stories excluidas están marcadas en `user-stories.md`, pero en el anexo del
-documento Word todavía no llevan esa aclaración. Conviene incorporarla antes de la
-próxima entrega.
+Las 18 historias excluidas están marcadas en el archivo de historias de usuario, pero en el anexo del documento Word todavía no llevan esa aclaración. Conviene incorporarla antes de la próxima entrega.
