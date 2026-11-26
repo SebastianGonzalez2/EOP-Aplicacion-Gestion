@@ -32,6 +32,7 @@ public class ConceptosPresupuestoController : Controller
     private readonly CambiarProveedorDeConcepto _cambiarProveedor;
     private readonly ActualizarReferenciaDeConcepto _actualizarReferencia;
     private readonly RegistrarMargen _registrarMargen;
+    private readonly CalcularMargenPresupuesto _calcularMargen;
     private readonly GuardarBorradorPresupuesto _guardarBorrador;
     private readonly DescartarCambiosPresupuesto _descartarCambios;
     private readonly ILogger<ConceptosPresupuestoController> _logger;
@@ -51,6 +52,7 @@ public class ConceptosPresupuestoController : Controller
         RegistrarMargen registrarMargen,
         GuardarBorradorPresupuesto guardarBorrador,
         DescartarCambiosPresupuesto descartarCambios,
+        CalcularMargenPresupuesto calcularMargen,
         ILogger<ConceptosPresupuestoController> logger)
     {
         _usuarios = usuarios;
@@ -67,6 +69,7 @@ public class ConceptosPresupuestoController : Controller
         _registrarMargen = registrarMargen;
         _guardarBorrador = guardarBorrador;
         _descartarCambios = descartarCambios;
+        _calcularMargen = calcularMargen;
         _logger = logger;
     }
 
@@ -955,6 +958,10 @@ public class ConceptosPresupuestoController : Controller
         // Los importes en USD y UYU se mantienen separados.
         var tiposBaseMargen = AgrupadorSubtotalesPorTipo.Agrupar(filas);
 
+        // Calculamos el margen utilizando los subtotales actuales
+        // y la cotización vigente cuando sea necesaria.
+        var resultadoMargen = await _calcularMargen.EjecutarAsync(filas, cancellationToken);
+
         // RF-27: un presupuesto puede tener como máximo un concepto Margen.
         // Si ya existe uno, no mostramos la opción de agregar otro.
         bool tieneMargen = filas.Any(fila =>
@@ -983,6 +990,8 @@ public class ConceptosPresupuestoController : Controller
             Codigo = presupuesto.Codigo,
             Informacion = informacion,
             PuedeAgregar = puedeAgregar,
+            MensajeErrorCotizacion = resultadoMargen.MensajeError,
+            CotizacionUtilizada = resultadoMargen.Cotizacion,
             TieneCambiosPendientes = tieneCambiosPendientes,
             BorradorId = borradorId,
             VersionBorrador = versionBorrador,

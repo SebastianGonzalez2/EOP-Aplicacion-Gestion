@@ -14,7 +14,8 @@ using EOP.Gestion.Infrastructure.Persistencia.Repositorios.Presupuestos;
 using EOP.Gestion.Tests.Compartido;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
-
+using EOP.Gestion.Core.DTOs.Cotizaciones;
+using EOP.Gestion.Core.Interfaces.Cotizaciones;
 namespace EOP.Gestion.Tests.Integracion;
 
 // S3-T05 (US-011): los conceptos del presupuesto contra un SQL Server real. Las reglas que más
@@ -1165,4 +1166,129 @@ public class ConceptosPresupuestoSqlServerTests : IAsyncLifetime
 
         Assert.Empty(await contexto.MargenesBaseTipo.ToListAsync());
     }
+
+    // S3-T19: aunque no podamos obtener la cotización,
+    // el usuario debe poder guardar los conceptos del borrador.
+    [FactConSqlServer]
+    public async Task Margen_SinCotizacion_PermiteGuardarBorrador()
+    {
+        var concepto = CrearConceptoManual();
+        concepto.PrecioUnitario = 100m;
+        concepto.Moneda = Moneda.USD;
+
+        await GuardarAsync(concepto);
+
+        using EopDbContext contexto = CrearContexto();
+
+        Usuario usuario = await contexto.Usuarios
+            .AsNoTracking()
+            .SingleAsync();
+
+        var repositorio = new RepositorioConceptosPresupuesto(contexto);
+        var almacen = new AlmacenBorradorEnMemoria();
+        var sincronizador = new SincronizadorBorradorPresupuesto();
+
+        var registrarMargen = new RegistrarMargen(
+            repositorio, almacen, sincronizador);
+
+        string? errorRegistro = await registrarMargen.EjecutarAsync(
+            _presupuestoId,
+            10m,
+            [TipoConcepto.ManoDeObraId],
+            usuario,
+            CancellationToken.None);
+
+        Assert.Null(errorRegistro);
+
+        var borradorActual = almacen.Obtener(
+            _presupuestoId, usuario.Id)!;
+
+        var filas = borradorActual.Conceptos
+            .Select(concepto => concepto.AFilaDto())
+            .ToList();
+
+        // Simulamos una falla del proveedor de cotizaciones.
+        var calcularMargen = new CalcularMargenPresupuesto(
+            new ServicioCotizacionesNoDisponible());
+
+        var resultadoCalculo = await calcularMargen.EjecutarAsync(filas);
+
+        Assert.NotNull(resultadoCalculo.MensajeError);
+        Assert.Null(resultadoCalculo.Cotizacion);
+
+        var filaMargen = Assert.Single(
+            filas, fila => fila.TipoId == TipoConcepto.MargenId);
+
+        Assert.Null(filaMargen.Subtotal);
+
+        // A pesar del error, el borrador se debe poder guardar.
+        var guardar = new GuardarBorradorPresupuesto(
+            repositorio, almacen, sincronizador);
+
+        var resultadoGuardado = await guardar.EjecutarAsync(
+            _presupuestoId,
+            new ContextoEdicionBorrador(
+                true,
+                borradorActual.Version,
+                borradorActual.HuellaEstadoBase,
+                borradorActual.BorradorId),
+            usuario,
+            CancellationToken.None);
+
+        Assert.True(resultadoGuardado.GuardadoCorrectamente);
+
+        // Verificamos que los datos quedaron guardados en SQL Server.
+        var conceptosGuardados = await contexto.ConceptosPresupuesto
+            .AsNoTracking()
+            .Where(c => c.PresupuestoId == _presupuestoId)
+            .ToListAsync();
+
+        Assert.Equal(2, conceptosGuardados.Count);
+
+        var margenGuardado = Assert.Single(
+            conceptosGuardados,
+            c => c.TipoConceptoId == TipoConcepto.MargenId);
+
+        Assert.Equal(10m, margenGuardado.PorcentajeMargen);
+
+        var manoDeObra = Assert.Single(
+            conceptosGuardados,
+            c => c.TipoConceptoId == TipoConcepto.ManoDeObraId);
+
+        Assert.Equal(100m, manoDeObra.PrecioUnitario);
+        Assert.Equal(Moneda.USD, manoDeObra.Moneda);
+
+        var tipoBase = await contexto.MargenesBaseTipo
+            .AsNoTracking()
+            .SingleAsync(t =>
+                t.ConceptoPresupuestoId == margenGuardado.Id);
+
+        Assert.Equal(TipoConcepto.ManoDeObraId, tipoBase.TipoConceptoId);
+
+        // El margen no guarda un importe inventado ni una conversión pendiente.
+        Assert.Null(margenGuardado.PrecioUnitario);
+        Assert.Null(margenGuardado.Moneda);
+    }
+
+    private class ServicioCotizacionesNoDisponible
+        : IServicioCotizaciones
+    {
+        public Task<CotizacionUsd?> ObtenerCotizacionVigenteAsync(
+            CancellationToken cancellationToken = default)
+        {
+            throw new CotizacionNoDisponibleException(
+                MotivoCotizacionNoDisponible.FallaDeConexion,
+                null);
+        }
+
+        public Task<CotizacionUsd?> ObtenerCotizacionHistoricaAsync(
+            DateOnly fecha,
+            CancellationToken cancellationToken = default)
+        {
+            throw new CotizacionNoDisponibleException(
+                MotivoCotizacionNoDisponible.FallaDeConexion,
+                null);
+        }
+    }
+
 }
