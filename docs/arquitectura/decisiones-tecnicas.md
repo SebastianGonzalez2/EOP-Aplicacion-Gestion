@@ -363,7 +363,7 @@ S2-T30 volvió sobre lo anterior con otra pregunta: ¿las reglas compartidas se 
 **Limitaciones.**
 
 - La caché es por instancia: si algún día se escalara a varias instancias, cada una tendría la suya y podría consultar al proveedor por separado. Las reglas de negocio no se ven afectadas, solo la cantidad de consultas.
-- Si se pide la cotización de un día anterior antes de que el proveedor la haya publicado, se devuelve la publicación previa y queda hasta 24 horas en caché aunque mientras tanto se publique la de ese día. Está detallado como decisión pendiente en [`s3-t18-servicio-cotizaciones.md`](../sprints/sprint-3/s3-t18-servicio-cotizaciones.md), sección 9.
+- Si se pide la cotización de un día anterior antes de que el proveedor la haya publicado, se devuelve la publicación previa y queda hasta 24 horas en caché aunque mientras tanto se publique la de ese día. Está detallado como decisión pendiente en [`s3-t18-servicio-cotizaciones.md`](../sprints/sprint-3/implementaciones/s3-t18-servicio-cotizaciones.md), sección 9.
 - El diccionario de turnos conserva un `SemaphoreSlim` por cada fecha consultada mientras la aplicación está en marcha. Para el volumen de EOP es despreciable.
 - La búsqueda hacia atrás tiene un tope de 10 páginas por consulta; si se alcanza sin encontrar una cotización válida, se informa como falla (`BusquedaIncompleta`) y no como ausencia de publicación.
 
