@@ -7,7 +7,7 @@ namespace EOP.Gestion.Tests.Integracion;
 
 // S3-T18 — Prueba de conexión REAL con datosUruguay. No forma parte de la suite habitual: depende de
 // internet y de un servicio externo, así que solo corre si se define EOP_PRUEBAS_DATOSURUGUAY=1.
-// El resultado de la ejecución manual queda documentado en docs/s3-t18-servicio-cotizaciones.md.
+// El resultado de la ejecución manual queda documentado en docs/sprints/sprint-3/s3-t18-servicio-cotizaciones.md.
 public sealed class DatosUruguayRealTests
 {
     private static ServicioCotizacionesDatosUruguay CrearServicio(IMemoryCache cache)

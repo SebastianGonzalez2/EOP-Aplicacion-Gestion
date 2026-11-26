@@ -1,7 +1,7 @@
 /* ============================================================
    EOP — Hoja de estilos propia (alternativa A aprobada)
 
-   Es la hoja del Apéndice de docs/diseno-visual.md, más lo que necesita la aplicación
+   Es la hoja del Apéndice de docs/diseno-visual/diseno-visual.md, más lo que necesita la aplicación
    real (fuentes locales, mensajes de validación de ASP.NET y pantallas sin sesión).
    Se carga DESPUÉS de bootstrap.min.css y bootstrap-icons.min.css: Bootstrap pone la
    base y acá solo cambiamos colores, tipografías y algunos componentes propios.

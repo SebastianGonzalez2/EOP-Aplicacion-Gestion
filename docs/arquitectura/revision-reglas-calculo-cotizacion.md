@@ -11,9 +11,9 @@ Esta tarea corresponde al Sprint 3 y es de análisis. No implica implementar nue
 Se revisaron las siguientes fuentes:
 
 - `AGENTS.md`: reglas generales de arquitectura y negocio.
-- `docs/requerimientos-funcionales.md`: RF-27, RF-28, RF-29, RF-30 y RF-31.
-- `docs/user-stories.md`: US-012 y US-013.
-- `docs/decisiones-tecnicas.md`: decisiones de persistencia y conservación de valores económicos.
+- `docs/requerimientos/requerimientos-funcionales.md`: RF-27, RF-28, RF-29, RF-30 y RF-31.
+- `docs/historias-de-usuario/user-stories.md`: US-012 y US-013.
+- `docs/arquitectura/decisiones-tecnicas.md`: decisiones de persistencia y conservación de valores económicos.
 
 ## 3. Cálculo de subtotales
 

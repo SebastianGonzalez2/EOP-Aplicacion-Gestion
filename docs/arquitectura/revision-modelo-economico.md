@@ -11,9 +11,9 @@ Esta tarea corresponde al Sprint 3 y es de análisis. No implica implementar nue
 Se consideran los siguientes documentos:
 
 - `AGENTS.md`: reglas de arquitectura y desarrollo.
-- `docs/user-stories.md`: historias US-011, US-012 y US-013.
-- `docs/requerimientos-funcionales.md`: requisitos económicos, especialmente RF-27, RF-28, RF-29 y RF-30.
-- `docs/decisiones-tecnicas.md`: decisiones sobre persistencia y conservación de precios históricos.
+- `docs/historias-de-usuario/user-stories.md`: historias US-011, US-012 y US-013.
+- `docs/requerimientos/requerimientos-funcionales.md`: requisitos económicos, especialmente RF-27, RF-28, RF-29 y RF-30.
+- `docs/arquitectura/decisiones-tecnicas.md`: decisiones sobre persistencia y conservación de precios históricos.
 
 ## 3. Entidades del modelo económico
 

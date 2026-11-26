@@ -31,7 +31,7 @@ Si una fuente esencial no está disponible, comprobá alternativas legítimas y 
 Para **cada identificador** de la tabla:
 
 1. **Alcance:** verificá la tarea real del sprint; identificador original, fecha de realización y posibles duplicaciones con otro sprint.
-2. **Criterio:** rastreá US, RF, RNF y criterio de aceptación en `docs/user-stories.md`, `docs/requerimientos-funcionales.md`, `docs/requerimientos-no-funcionales.md`, `docs/alcance.md` y decisiones pertinentes.
+2. **Criterio:** rastreá US, RF, RNF y criterio de aceptación en `docs/historias-de-usuario/user-stories.md`, `docs/requerimientos/requerimientos-funcionales.md`, `docs/requerimientos/requerimientos-no-funcionales.md`, `docs/requerimientos/alcance.md` y decisiones pertinentes.
 3. **Código de prueba:** abrí **cada archivo** enlazado; confirmá clase y método, código de configuración, datos, mocks/fixtures, condiciones y aserciones.
 4. **Datos de entrada:** compará literalmente valores, combinaciones y precondiciones con el caso documentado.
 5. **Esperado:** evaluá lo que obliga el requisito y lo que realmente comprueba el test; señalá si hay brecha.

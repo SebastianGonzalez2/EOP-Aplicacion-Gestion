@@ -70,7 +70,7 @@ Figura 9. Mockup US-003 — Guardar avances del presupuesto
 
 Tabla 13. Historia de usuario US-003 — Guardar avances del presupuesto
 
-> **Modificación aprobada el 25/11/2026 (S3-T15, cambio de navegación libre).** Se reemplazó la advertencia obligatoria al abandonar la pantalla por la navegación libre con conservación temporal, el indicador de cambios sin guardar, el descarte voluntario y la advertencia al cerrar sesión. Detalle y motivo en [consideraciones-documentacion-sprint-3.md](./consideraciones-documentacion-sprint-3.md). **Esta copia Markdown ya refleja el cambio; el anteproyecto original en Word todavía no.** El mockup de la Figura 9 no se actualizó.
+> **Modificación aprobada el 25/11/2026 (S3-T15, cambio de navegación libre).** Se reemplazó la advertencia obligatoria al abandonar la pantalla por la navegación libre con conservación temporal, el indicador de cambios sin guardar, el descarte voluntario y la advertencia al cerrar sesión. Detalle y motivo en [consideraciones-documentacion-sprint-3.md](../sprints/sprint-3/consideraciones-documentacion-sprint-3.md). **Esta copia Markdown ya refleja el cambio; el anteproyecto original en Word todavía no.** El mockup de la Figura 9 no se actualizó.
 
 
 | COMO: | Como Operador Responsable del Presupuesto, Supervisor o Administrador |

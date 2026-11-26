@@ -30,8 +30,8 @@ nueva con la misma apariencia que el resto.
   (sección 3) y proponé el agregado a esta guía para que el equipo lo apruebe.
 - **Los requerimientos mandan.** Esta guía define *cómo se ve* algo, nunca *qué hace* ni
   *quién puede hacerlo*. Qué datos, columnas, filtros, acciones y permisos tiene cada
-  pantalla sale de `docs/user-stories.md`, `docs/requerimientos-funcionales.md` y
-  `docs/alcance.md`. Si una captura muestra algo que los requerimientos no piden, no se implementa.
+  pantalla sale de `docs/historias-de-usuario/user-stories.md`, `docs/requerimientos/requerimientos-funcionales.md` y
+  `docs/requerimientos/alcance.md`. Si una captura muestra algo que los requerimientos no piden, no se implementa.
 - Ocultar un botón según el rol es solo comodidad visual. El control de acceso siempre se
   verifica en el servidor (RNF-4, RF-73, ver `AGENTS.md`).
 - La Skill `frontend-design` puede usarse como apoyo de criterio general, pero **las
@@ -53,22 +53,22 @@ secciones 7, 8, 13 y 14 y tienen prioridad sobre lo que se ve en las imágenes.
 
 **Listado con filtros** (US-025)
 
-![Listado de proyectos de la alternativa A](diseno-visual/referencias/alternativa-a-listado.png)
+![Listado de proyectos de la alternativa A](referencias/alternativa-a-listado.png)
 
 **Formulario de registro** (US-053), con un error de validación a la vista
 
-![Formulario de registro de cliente de la alternativa A](diseno-visual/referencias/alternativa-a-formulario.png)
+![Formulario de registro de cliente de la alternativa A](referencias/alternativa-a-formulario.png)
 
 **Ficha de un registro con secciones** (US-028)
 
-![Ficha de proyecto de la alternativa A](diseno-visual/referencias/alternativa-a-proyecto.png)
+![Ficha de proyecto de la alternativa A](referencias/alternativa-a-proyecto.png)
 
-Archivos en [`docs/diseno-visual/referencias/`](diseno-visual/referencias/):
+Archivos en [`docs/diseno-visual/referencias/`](referencias/):
 
-- [`alternativa-a-listado.png`](diseno-visual/referencias/alternativa-a-listado.png)
-- [`alternativa-a-formulario.png`](diseno-visual/referencias/alternativa-a-formulario.png)
-- [`alternativa-a-proyecto.png`](diseno-visual/referencias/alternativa-a-proyecto.png)
-- [`alternativa-a-inicio.png`](diseno-visual/referencias/alternativa-a-inicio.png) — pantalla de inicio, ver [Parte C](#parte-c--pantalla-de-inicio)
+- [`alternativa-a-listado.png`](referencias/alternativa-a-listado.png)
+- [`alternativa-a-formulario.png`](referencias/alternativa-a-formulario.png)
+- [`alternativa-a-proyecto.png`](referencias/alternativa-a-proyecto.png)
+- [`alternativa-a-inicio.png`](referencias/alternativa-a-inicio.png) — pantalla de inicio, ver [Parte C](#parte-c--pantalla-de-inicio)
 
 ---
 
@@ -967,7 +967,7 @@ No queda nada pendiente de validar con el cliente.
 | **Colores (RNF-16)** | Verde y blanco como colores principales, con la paleta de la sección 3 | Pedido del cliente, respetado por la paleta |
 
 RNF-15 todavía dice «PENDIENTE DE DEFINIR/VALIDAR» en el anteproyecto y en
-`docs/requerimientos-no-funcionales.md`. Hay que actualizarlo primero en el documento Word y
+`docs/requerimientos/requerimientos-no-funcionales.md`. Hay que actualizarlo primero en el documento Word y
 después en su copia Markdown, como indica `AGENTS.md`.
 
 ---
@@ -978,7 +978,7 @@ después en su copia Markdown, como indica `AGENTS.md`.
 el enlace «Inicio» del menú. Es deliberadamente simple: un saludo y la marca. La navegación
 queda a cargo del menú lateral.
 
-![Pantalla de inicio aprobada: panel de bienvenida](diseno-visual/referencias/alternativa-a-inicio.png)
+![Pantalla de inicio aprobada: panel de bienvenida](referencias/alternativa-a-inicio.png)
 
 ### Qué muestra (y qué no)
 

@@ -1,6 +1,6 @@
 # Matriz de trazabilidad de pruebas del Sprint 2
 
-El [anexo de testing](./evidencia-testing-sprint-2.md) contiene 72 casos. El informe consolidado *Informe de avance 1* identifica las tareas y sus cambios de sprint en §3.1.5.6 (pág. 85) y §3.2.1 a §3.2.5.6 (págs. 85–94). En ese informe la sección del Sprint 2 aparece con el título «3.2. Sprint #»; se identificó por su ubicación, sus fechas (9-11-2026 / 17-11-2026) y sus tareas. Cada método se identifica en el archivo fuente del cierre, commit [93a7cca][cierre]. Los criterios se contrastaron con las [historias de usuario][us], los [RF][rf], los [RNF][rnf] y el [alcance][alcance] de esa misma revisión.
+El [anexo de testing](evidencia-testing-sprint-2.md) contiene 72 casos. El informe consolidado *Informe de avance 1* identifica las tareas y sus cambios de sprint en §3.1.5.6 (pág. 85) y §3.2.1 a §3.2.5.6 (págs. 85–94). En ese informe la sección del Sprint 2 aparece con el título «3.2. Sprint #»; se identificó por su ubicación, sus fechas (9-11-2026 / 17-11-2026) y sus tareas. Cada método se identifica en el archivo fuente del cierre, commit [93a7cca][cierre]. Los criterios se contrastaron con las [historias de usuario][us], los [RF][rf], los [RNF][rnf] y el [alcance][alcance] de esa misma revisión.
 
 ## Qué acredita cada ejecución
 
@@ -157,13 +157,13 @@ Estas pruebas conservan evidencia técnica que excede el resultado concreto de l
 | S2-T22 | El máximo del validador coincide con la columna decimal(28,10). | [ValidadorPrecioUnitarioTests.cs][t-vprecio] `ValorMaximo_CoincideConLaColumna` · [PR #65][pr65] · [CI 12/11][ci-1211] |
 
 [cierre]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/commit/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb
-[us]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/user-stories.md
-[rf]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/requerimientos-funcionales.md
-[rnf]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/requerimientos-no-funcionales.md
-[alcance]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/alcance.md
-[doc-sql]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/azure-sql-database.md
-[doc-blob]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/azure-blob-storage.md
-[doc-ci]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/integracion-continua.md
+[us]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/historias-de-usuario/user-stories.md
+[rf]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/requerimientos/requerimientos-funcionales.md
+[rnf]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/requerimientos/requerimientos-no-funcionales.md
+[alcance]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/requerimientos/alcance.md
+[doc-sql]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/infraestructura/azure-sql-database.md
+[doc-blob]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/infraestructura/azure-blob-storage.md
+[doc-ci]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/docs/infraestructura/integracion-continua.md
 [ci-yml]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/blob/93a7ccaed4aa916d2359b2841b8b0e3a85aa47fb/.github/workflows/ci.yml
 [ci-t04]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/43272003084
 [ci-1211]: https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/actions/runs/43272921618

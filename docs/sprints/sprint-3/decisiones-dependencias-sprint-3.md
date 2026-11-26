@@ -15,10 +15,10 @@ Este documento no introduce decisiones nuevas ni modifica los requerimientos apr
 ## 2. Documentación de referencia
 
 - `AGENTS.md`: arquitectura y reglas transversales.
-- `docs/decisiones-tecnicas.md`: decisiones técnicas previamente registradas.
-- `docs/requerimientos-funcionales.md`: RF-20, RF-27, RF-28, RF-29, RF-30 y RF-31.
-- `docs/user-stories.md`: US-010A, US-011, US-012 y US-013.
-- `docs/integracion-continua.md`: configuración y estado de GitHub Actions.
+- `docs/arquitectura/decisiones-tecnicas.md`: decisiones técnicas previamente registradas.
+- `docs/requerimientos/requerimientos-funcionales.md`: RF-20, RF-27, RF-28, RF-29, RF-30 y RF-31.
+- `docs/historias-de-usuario/user-stories.md`: US-010A, US-011, US-012 y US-013.
+- `docs/infraestructura/integracion-continua.md`: configuración y estado de GitHub Actions.
 
 ## 3. Decisiones sobre persistencia
 
@@ -109,7 +109,7 @@ Esta diferencia queda pendiente de aclaración por el equipo. No se modifica nin
 
 El proyecto utiliza xUnit para las pruebas automatizadas.
 
-La documentación `docs/integracion-continua.md` registra que GitHub Actions fue desactivado temporalmente el 16/11/2026 por una limitación del uso gratuito disponible.
+La documentación `docs/infraestructura/integracion-continua.md` registra que GitHub Actions fue desactivado temporalmente el 16/11/2026 por una limitación del uso gratuito disponible.
 
 Mientras esa situación continúe, las verificaciones locales y la revisión de Pull Requests son especialmente importantes.
 
@@ -126,7 +126,7 @@ Las siguientes funcionalidades corresponden a tareas del Sprint 3 y deben verifi
 - Selección de referencias de precios por proveedor.
 - Conservación de valores históricos.
 - Guardado y recuperación de borradores.
-- Gestión de cambios sin guardar con navegación libre (S3-T15; cambio aprobado el 25/11/2026, ver [consideraciones-documentacion-sprint-3.md](./consideraciones-documentacion-sprint-3.md)).
+- Gestión de cambios sin guardar con navegación libre (S3-T15; cambio aprobado el 25/11/2026, ver [consideraciones-documentacion-sprint-3.md](consideraciones-documentacion-sprint-3.md)).
 - Cálculo de subtotales y margen.
 - Conversión monetaria y redondeos.
 - Integración con datosUruguay.
