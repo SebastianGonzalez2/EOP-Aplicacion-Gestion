@@ -161,7 +161,7 @@ Prioridad: Alta.
 
 ## RF-005 — Continuar la elaboración o modificación de un presupuesto editable
 
-> **Modificación aprobada el 25/11/2026 (S3-T15, cambio de navegación libre).** Se sustituyó la advertencia obligatoria al acceder a otra sección por la navegación libre con conservación temporal, el indicador de cambios sin guardar, el descarte voluntario y la advertencia al cerrar sesión. Detalle y motivo en [consideraciones-documentacion-sprint-3.md](./consideraciones-documentacion-sprint-3.md). **Esta copia Markdown ya refleja el cambio; el anteproyecto original en Word todavía no.**
+> **Modificación aprobada el 25/11/2026 (S3-T15, cambio de navegación libre).** Se sustituyó la advertencia obligatoria al acceder a otra sección por la navegación libre con conservación temporal, el indicador de cambios sin guardar, el descarte voluntario y la advertencia al cerrar sesión. Detalle y motivo en [consideraciones-documentacion-sprint-3.md](../sprints/sprint-3/consideraciones-documentacion-sprint-3.md). **Esta copia Markdown ya refleja el cambio; el anteproyecto original en Word todavía no.**
 
 **Descripción**
 
