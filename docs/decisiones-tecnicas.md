@@ -328,6 +328,58 @@ S2-T30 volvió sobre lo anterior con otra pregunta: ¿las reglas compartidas se 
 
 ---
 
+## DT-12 — Consulta bajo demanda y caché en memoria de las cotizaciones USD/UYU
+
+**Fecha:** 25/11/2026 · **Sprint:** 3 · **Tarea:** S3-T18 (US-012)
+
+**Qué ya estaba decidido y no se decide acá.** Las reglas de negocio de la cotización vienen de los requerimientos y no cambian con esta decisión: la fuente es el BCU a través de datosUruguay, en UYU/USD y mayor que cero; si un día no hay publicación se usa la última válida anterior, nunca una posterior, un promedio ni una estimación; y una falla temporal del servicio no equivale a ausencia de publicación (RF-029, RF-077, RF-103, RF-104, RNF-013). Qué se guarda al confirmar un presupuesto o registrar una factura o un costo está en RF-029, RF-031 y RF-103 y en el MER (`CotizacionConfirmada`, `FechaCotizacionConfirmada`, `CotizacionAplicada`, `FechaCotizacionAplicada`), sin tabla independiente de cotizaciones. La viabilidad de la API se comprobó en la [prueba de concepto S3-T03](./pruebas-concepto/S3-T03-datosuruguay.md), y las reglas de cálculo se revisaron en [S3-T25](./revision-reglas-calculo-cotizacion.md). DT-12 solo decide **cómo y cuándo** se consulta el proveedor y cuánto tiempo se reutiliza una respuesta.
+
+**Decisión.**
+
+1. **Consulta bajo demanda.** El servicio (`ServicioCotizacionesDatosUruguay`) llama a la API solamente cuando un módulo pide una cotización que no está en una entrada vigente de la caché. No hay procesos programados, tareas en segundo plano ni consultas periódicas.
+2. **Caché en memoria con `IMemoryCache`.** Las cotizaciones obtenidas se guardan en la caché en memoria de ASP.NET Core. El servicio se registra como Singleton y la caché es única por instancia de la aplicación, así que la comparten todos los usuarios: si un usuario ya pidió la cotización de hoy, el siguiente la recibe sin otra consulta.
+3. **Expiración absoluta.** 15 minutos para la cotización vigente (la fecha pedida es hoy en Uruguay) y 24 horas para las históricas (la fecha pedida es anterior a hoy). Es absoluta y no deslizante: una entrada vence a ese plazo desde que se guardó, aunque se siga usando.
+4. **Clave por fecha solicitada.** La entrada se identifica por la fecha pedida (`cotizacion-usd:AAAA-MM-DD`). El valor guardado es la `CotizacionUsd` completa, que conserva por separado la fecha efectiva de publicación; así, el sábado y el domingo tienen entradas propias aunque los dos usen la publicación del viernes, y quien consume el servicio siempre sabe qué fecha tiene el valor que usa.
+5. **Una sola consulta por fecha ante pedidos simultáneos.** Cada fecha tiene un turno (`SemaphoreSlim`). Si dos pedidos de la misma fecha llegan sin la entrada en caché, el primero consulta y el segundo espera; al entrar vuelve a mirar la caché y la encuentra. Pedidos de fechas distintas no se esperan entre sí. La espera respeta la cancelación del pedido.
+6. **Solo se guardan cotizaciones válidas.** Una falla del proveedor (`CotizacionNoDisponibleException`), una respuesta inválida o la ausencia de publicación (`null`) no se guardan: la siguiente consulta vuelve a preguntarle al proveedor.
+
+**Comportamiento en situaciones particulares.**
+
+- *Cuando una entrada vence* no pasa nada: la caché deja de considerarla, y recién la próxima vez que un módulo necesite esa fecha se consulta la API.
+- *Cuando la aplicación se reinicia* (despliegue, reciclado del App Service) la caché arranca vacía y las primeras consultas de cada fecha van a la API. No se pierde nada, porque la caché nunca es la fuente de los valores aplicados (ver más abajo).
+- *Cuando el proveedor falla*: si hay una entrada vigente se sigue usando hasta que vence, porque es una cotización válida obtenida hace menos de su plazo; si no la hay o ya venció, el servicio informa la falla. **Nunca se usa una entrada vencida para ocultar una falla del proveedor**: `MemoryCache` no devuelve entradas vencidas y el servicio no guarda copias aparte.
+
+**Caché temporal frente a conservación permanente.** La caché es solamente una forma de no repetir consultas; puede vaciarse en cualquier momento y no es un registro. La cotización que se aplica a una operación económica se conserva en la base, en la propia entidad, cuando la tarea responsable la confirma o la registra: al confirmar los datos económicos del presupuesto (RF-029, RF-031) y al guardar una factura o un costo adicional (RF-077, RF-103, RF-104). Desde ese momento manda el valor guardado, aunque datosUruguay esté caído o la caché tenga otro valor. S3-T18 no implementa esa persistencia: deja el servicio listo y devuelve el valor y la fecha efectiva que esas tareas deberán guardar.
+
+**Motivo.**
+
+- *Bajo demanda:* la cotización solo hace falta cuando alguien trabaja en un presupuesto, una factura o un costo. Un proceso periódico consultaría aunque nadie la use, sumaría una pieza más para mantener y probar, y AGENTS.md ya excluye los procesos programados para otros casos parecidos (vencimiento de presupuestos). Además, el proveedor limita las consultas por IP (20 cada 10 segundos y 300 por hora).
+- *`IMemoryCache`:* viene con ASP.NET Core, no necesita servidores ni configuración, es segura para usar desde varios hilos y maneja sola la expiración. Los datos que guarda son pocos (un valor y dos fechas por día consultado), públicos y fáciles de volver a obtener.
+- *15 minutos para la vigente:* durante el día el BCU todavía puede publicar el valor de hoy (en la prueba real del 25/11/2026, la publicación del 24/11 apareció ese mismo día a las 17:11), y RF-030 pide recalcular cuando cambia la cotización actual. Un plazo corto permite tomar la nueva publicación sin consultar en cada recálculo. Coincide además con los 15 minutos que el propio proveedor indica en `Cache-Control`.
+- *24 horas para las históricas:* la publicación de un día que ya pasó no debería cambiar, así que puede reutilizarse más tiempo; aun así vence, por si el proveedor corrigiera un dato.
+- *Turno por fecha:* sin él, varios usuarios que abren presupuestos al mismo tiempo dispararían la misma consulta varias veces, gastando el límite del proveedor. `GetOrCreate` de `IMemoryCache` no lo evita, porque puede ejecutar la función de creación más de una vez en paralelo.
+- *Sin Redis ni otra infraestructura:* EOP es un monolito que corre en un único App Service. Una caché distribuida solo aporta cuando hay varias instancias que deban compartirla, y agregaría un servicio de Azure más para configurar, pagar, proteger y mantener disponible, que además podría fallar. Para datos públicos que se vuelven a obtener en una consulta, no se justifica.
+
+**Limitaciones.**
+
+- La caché es por instancia: si algún día se escalara a varias instancias, cada una tendría la suya y podría consultar al proveedor por separado. Las reglas de negocio no se ven afectadas, solo la cantidad de consultas.
+- Si se pide la cotización de un día anterior antes de que el proveedor la haya publicado, se devuelve la publicación previa y queda hasta 24 horas en caché aunque mientras tanto se publique la de ese día. Está detallado como decisión pendiente en [`s3-t18-servicio-cotizaciones.md`](./s3-t18-servicio-cotizaciones.md), sección 9.
+- El diccionario de turnos conserva un `SemaphoreSlim` por cada fecha consultada mientras la aplicación está en marcha. Para el volumen de EOP es despreciable.
+- La búsqueda hacia atrás tiene un tope de 10 páginas por consulta; si se alcanza sin encontrar una cotización válida, se informa como falla (`BusquedaIncompleta`) y no como ausencia de publicación.
+
+**Alternativas descartadas.**
+
+- *Actualización programada* (por ejemplo, un servicio en segundo plano que consulte cada X minutos): consulta aunque nadie la necesite y agrega una pieza más, sin resolver las cotizaciones históricas de fechas arbitrarias.
+- *Sin caché:* cada recálculo del presupuesto consultaría la API, sumando demora y acercándose al límite de solicitudes; ante una caída momentánea fallarían todos los recálculos.
+- *Guardar las cotizaciones consultadas en una tabla de la base:* el MER no prevé una tabla de cotizaciones (RF-103 lo excluye expresamente) y mezclaría datos temporales con los valores aplicados, que pertenecen a cada operación.
+- *Caché distribuida (Redis, `IDistributedCache`):* ver el motivo; no aporta con una sola instancia.
+- *Expiración deslizante:* una cotización consultada seguido no vencería nunca y la vigente no tomaría la nueva publicación del día.
+- *Usar la última entrada conocida cuando el proveedor falla:* ocultaría la falla y podría aplicar una cotización de otra fecha, que RF-103 prohíbe.
+
+**Dónde está.** `src/EOP.Gestion.Infrastructure/Integraciones/DatosUruguay/` (`ServicioCotizacionesDatosUruguay`, `BuscadorCotizacionesDatosUruguay`, `ClienteDatosUruguay`), el registro en `InyeccionDeDependencias` y las pruebas `ServicioCotizacionesDatosUruguayTests` (caché, expiración, aislamiento entre fechas y concurrencia).
+
+---
+
 <!--
 Formato para las próximas:
 

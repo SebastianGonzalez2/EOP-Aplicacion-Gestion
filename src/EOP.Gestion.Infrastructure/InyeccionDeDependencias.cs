@@ -20,6 +20,9 @@ using EOP.Gestion.Infrastructure.Consultas.Presupuestos;
 using EOP.Gestion.Core.Interfaces.Almacenamiento;
 using EOP.Gestion.Infrastructure.Almacenamiento;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using EOP.Gestion.Core.Interfaces.Cotizaciones;
+using EOP.Gestion.Infrastructure.Integraciones.DatosUruguay;
 namespace EOP.Gestion.Infrastructure;
 
 /// <summary>
@@ -112,6 +115,44 @@ public static class InyeccionDeDependencias
             return new ServicioAlmacenamientoBlob(contenedor, logger);
         });
 
+        AgregarServicioCotizaciones(services);
+
         return services;
+    }
+
+    // S3-T18: servicio de cotizaciones USD/UYU con datosUruguay (DT-12).
+    private static void AgregarServicioCotizaciones(IServiceCollection services)
+    {
+        // La caché en memoria de ASP.NET Core. Es una sola para toda la instancia de la aplicación,
+        // así que la comparten todos los usuarios. Llamarla dos veces no crea otra.
+        services.AddMemoryCache();
+
+        // El reloj del sistema. WebApp ya lo registra; TryAdd no lo duplica si ya está.
+        services.TryAddSingleton(TimeProvider.System);
+
+        // AddHttpClient registra ClienteDatosUruguay y le pasa un HttpClient ya configurado,
+        // creado por IHttpClientFactory (no hacemos "new HttpClient()" a mano en cada consulta,
+        // que puede agotar las conexiones del servidor).
+        services.AddHttpClient<ClienteDatosUruguay>(cliente =>
+            {
+                cliente.BaseAddress = new Uri(ClienteDatosUruguay.UrlBase);
+                cliente.Timeout = ClienteDatosUruguay.TiempoMaximoDeEspera;
+                cliente.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            })
+            // El servicio es Singleton, así que se queda con el mismo HttpClient toda la vida de la
+            // aplicación. Para que igual se entere si cambia la dirección IP del proveedor (DNS),
+            // le pedimos al manejador que renueve sus conexiones cada 15 minutos. Es la forma que
+            // recomienda Microsoft para usar un cliente tipado dentro de un Singleton.
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+            })
+            .SetHandlerLifetime(Timeout.InfiniteTimeSpan);
+
+        services.AddSingleton<BuscadorCotizacionesDatosUruguay>();
+
+        // Singleton a propósito: la caché y los "turnos" por fecha tienen que ser los mismos para
+        // todos los pedidos; si hubiera una instancia por pedido, cada una tendría sus propios turnos.
+        services.AddSingleton<IServicioCotizaciones, ServicioCotizacionesDatosUruguay>();
     }
 }
