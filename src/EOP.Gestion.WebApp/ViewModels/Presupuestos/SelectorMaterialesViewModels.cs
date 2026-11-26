@@ -48,7 +48,7 @@ public class ListadoMaterialesSelectorViewModel
     }
 
     // Número del primer y del último material que se muestran, para el texto
-    // «Mostrando 1 a 10 de 24 materiales» (docs/diseno-visual.md, sección 13.3).
+    // «Mostrando 1 a 10 de 24 materiales» (docs/diseno-visual/diseno-visual.md, sección 13.3).
     public int PrimeroMostrado
     {
         get

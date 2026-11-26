@@ -147,7 +147,7 @@
             </table>
         </div>
 
-        @* Diálogos de confirmación para inactivar (RNF-1, docs/diseno-visual.md sección 18.1).
+        @* Diálogos de confirmación para inactivar (RNF-1, docs/diseno-visual/diseno-visual.md sección 18.1).
            Hay uno por cada usuario activo. «Cancelar» y la X solo cierran el diálogo: no se envía
            nada y el estado no cambia. Recién «Inactivar usuario» manda el POST al Controller. *@
         @foreach (var usuario in Model.Where(u => u.Activo))

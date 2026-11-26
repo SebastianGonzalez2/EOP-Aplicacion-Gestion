@@ -196,7 +196,7 @@ formulariosSeleccionMaterial.forEach((formulario) => {
             pasoConfirmarSalida.classList.remove("d-none");
             pieConfirmarSalida.classList.remove("d-none");
 
-            // Foco inicial en la opción que no pierde nada (docs/diseno-visual.md, sección 20.2).
+            // Foco inicial en la opción que no pierde nada (docs/diseno-visual/diseno-visual.md, sección 20.2).
             pieConfirmarSalida.querySelector("[data-volver-al-formulario]").focus();
         }
 
