@@ -75,7 +75,7 @@ namespace EOP.Gestion.Core.ServiciosDominio.Clientes
         //
         // Sin esto, 000000000000 pasaba como válido, porque la cuenta del dígito verificador da justo 0.
         // La DGI explicó qué es cada parte pero no publica los valores válidos, por eso estos
-        // rangos salen de fuentes públicas. El detalle está en DT-04 de docs/decisiones-tecnicas.md.
+        // rangos salen de fuentes públicas. El detalle está en DT-04 de docs/arquitectura/decisiones-tecnicas.md.
         private static bool TieneEstructuraValida(string rut)
         {
             // Acá ya sabemos que son 12 dígitos, así que estos cortes y el Parse no pueden fallar.

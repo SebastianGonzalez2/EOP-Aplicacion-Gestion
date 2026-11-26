@@ -1,7 +1,7 @@
 ﻿// Funciones de JavaScript compartidas por todas las pantallas. Se carga en el _Layout,
 // antes de los scripts propios de cada vista, así que estas funciones ya están disponibles ahí.
 
-// Indicador de procesamiento de la guía (sección 18.2 de docs/diseno-visual.md, RNF-20):
+// Indicador de procesamiento de la guía (sección 18.2 de docs/diseno-visual/diseno-visual.md, RNF-20):
 // deshabilita el botón y le pone un circulito girando delante del texto, por ejemplo
 // "Registrando...". Así el usuario ve que la operación está en curso y no puede apretar dos veces.
 //
