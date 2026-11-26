@@ -101,7 +101,7 @@ jobs:
         id: pruebas
         timeout-minutes: 12
         env:
-          EOP_PRUEBAS_SQLSERVER: "Server=127.0.0.1,1433;User ID=sa;Password=${{ env.EOP_CI_SQL_CONTRASENA }};Encrypt=True;TrustServerCertificate=True"
+          EOP_PRUEBAS_SQLSERVER: "Server=127.0.0.1,1;Connect Timeout=2;User ID=sa;Password=${{ env.EOP_CI_SQL_CONTRASENA }};Encrypt=True;TrustServerCertificate=True"
         run: >
           dotnet test EOP.Gestion.slnx --configuration Release --no-build --no-restore
           --logger "console;verbosity=normal"
