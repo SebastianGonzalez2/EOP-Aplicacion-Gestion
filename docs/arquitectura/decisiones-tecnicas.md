@@ -4,7 +4,7 @@ Registro de las decisiones de diseño tomadas durante el desarrollo, con su moti
 
 Alimenta la sección «Diseño final de la solución» del documento y la tarea de documentación de decisiones técnicas de cada sprint. Cada decisión debe poder explicarse en la defensa.
 
-Las reglas vigentes que se derivan de estas decisiones están en [`AGENTS.md`](../AGENTS.md); este archivo guarda el **porqué**.
+Las reglas vigentes que se derivan de estas decisiones están en [`AGENTS.md`](../../AGENTS.md); este archivo guarda el **porqué**.
 
 ---
 
@@ -332,7 +332,7 @@ S2-T30 volvió sobre lo anterior con otra pregunta: ¿las reglas compartidas se 
 
 **Fecha:** 25/11/2026 · **Sprint:** 3 · **Tarea:** S3-T18 (US-012)
 
-**Qué ya estaba decidido y no se decide acá.** Las reglas de negocio de la cotización vienen de los requerimientos y no cambian con esta decisión: la fuente es el BCU a través de datosUruguay, en UYU/USD y mayor que cero; si un día no hay publicación se usa la última válida anterior, nunca una posterior, un promedio ni una estimación; y una falla temporal del servicio no equivale a ausencia de publicación (RF-029, RF-077, RF-103, RF-104, RNF-013). Qué se guarda al confirmar un presupuesto o registrar una factura o un costo está en RF-029, RF-031 y RF-103 y en el MER (`CotizacionConfirmada`, `FechaCotizacionConfirmada`, `CotizacionAplicada`, `FechaCotizacionAplicada`), sin tabla independiente de cotizaciones. La viabilidad de la API se comprobó en la [prueba de concepto S3-T03](./pruebas-concepto/S3-T03-datosuruguay.md), y las reglas de cálculo se revisaron en [S3-T25](./revision-reglas-calculo-cotizacion.md). DT-12 solo decide **cómo y cuándo** se consulta el proveedor y cuánto tiempo se reutiliza una respuesta.
+**Qué ya estaba decidido y no se decide acá.** Las reglas de negocio de la cotización vienen de los requerimientos y no cambian con esta decisión: la fuente es el BCU a través de datosUruguay, en UYU/USD y mayor que cero; si un día no hay publicación se usa la última válida anterior, nunca una posterior, un promedio ni una estimación; y una falla temporal del servicio no equivale a ausencia de publicación (RF-029, RF-077, RF-103, RF-104, RNF-013). Qué se guarda al confirmar un presupuesto o registrar una factura o un costo está en RF-029, RF-031 y RF-103 y en el MER (`CotizacionConfirmada`, `FechaCotizacionConfirmada`, `CotizacionAplicada`, `FechaCotizacionAplicada`), sin tabla independiente de cotizaciones. La viabilidad de la API se comprobó en la [prueba de concepto S3-T03](../pruebas-concepto/S3-T03-datosuruguay.md), y las reglas de cálculo se revisaron en [S3-T25](revision-reglas-calculo-cotizacion.md). DT-12 solo decide **cómo y cuándo** se consulta el proveedor y cuánto tiempo se reutiliza una respuesta.
 
 **Decisión.**
 
@@ -363,7 +363,7 @@ S2-T30 volvió sobre lo anterior con otra pregunta: ¿las reglas compartidas se 
 **Limitaciones.**
 
 - La caché es por instancia: si algún día se escalara a varias instancias, cada una tendría la suya y podría consultar al proveedor por separado. Las reglas de negocio no se ven afectadas, solo la cantidad de consultas.
-- Si se pide la cotización de un día anterior antes de que el proveedor la haya publicado, se devuelve la publicación previa y queda hasta 24 horas en caché aunque mientras tanto se publique la de ese día. Está detallado como decisión pendiente en [`s3-t18-servicio-cotizaciones.md`](./s3-t18-servicio-cotizaciones.md), sección 9.
+- Si se pide la cotización de un día anterior antes de que el proveedor la haya publicado, se devuelve la publicación previa y queda hasta 24 horas en caché aunque mientras tanto se publique la de ese día. Está detallado como decisión pendiente en [`s3-t18-servicio-cotizaciones.md`](../sprints/sprint-3/s3-t18-servicio-cotizaciones.md), sección 9.
 - El diccionario de turnos conserva un `SemaphoreSlim` por cada fecha consultada mientras la aplicación está en marcha. Para el volumen de EOP es despreciable.
 - La búsqueda hacia atrás tiene un tope de 10 páginas por consulta; si se alcanza sin encontrar una cotización válida, se informa como falla (`BusquedaIncompleta`) y no como ausencia de publicación.
 
@@ -398,7 +398,7 @@ Formato para las próximas:
 
 # Nuevo requerimiento no funcional incorporado
 
-Registro del requerimiento surgido durante el desarrollo del Sprint 1. Ya se incorporó al anteproyecto y a [`requerimientos-no-funcionales.md`](./requerimientos-no-funcionales.md) como RNF-021. Se conserva aquí el contexto de su origen y su relación con DT-04.
+Registro del requerimiento surgido durante el desarrollo del Sprint 1. Ya se incorporó al anteproyecto y a [`requerimientos-no-funcionales.md`](../requerimientos/requerimientos-no-funcionales.md) como RNF-021. Se conserva aquí el contexto de su origen y su relación con DT-04.
 
 ## RNF-021 — Validación completa del RUT uruguayo (Sprint 1)
 

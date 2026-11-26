@@ -39,7 +39,7 @@ El guardado es explícito. No existe guardado automático como sustituto de esta
 
 ### 3.3. Cambios sin guardar
 
-> **Modificado el 25/11/2026 (S3-T15, cambio de navegación libre aprobado).** Antes, abandonar la pantalla con cambios pendientes mostraba una advertencia obligatoria. Ver [consideraciones-documentacion-sprint-3.md](./consideraciones-documentacion-sprint-3.md).
+> **Modificado el 25/11/2026 (S3-T15, cambio de navegación libre aprobado).** Antes, abandonar la pantalla con cambios pendientes mostraba una advertencia obligatoria. Ver [consideraciones-documentacion-sprint-3.md](../sprints/sprint-3/consideraciones-documentacion-sprint-3.md).
 
 El usuario puede abandonar la pantalla de elaboración con cambios pendientes para consultar o registrar información en otras secciones (Catálogo de Materiales, Proveedores, Clientes, listado de presupuestos u otro presupuesto) sin guardar ni descartar. Los cambios se conservan temporalmente en la sesión, separados de lo guardado, y se recuperan al volver al presupuesto mientras la sesión siga disponible. No se guardan automáticamente.
 
@@ -142,4 +142,4 @@ El flujo permite crear y elaborar presupuestos, guardar avances explícitamente,
 
 La implementación y las pruebas de estas operaciones quedan asignadas a las tareas correspondientes del Sprint 3.
 
-**Referencias:** `AGENTS.md`, `docs/user-stories.md`, `docs/requerimientos-funcionales.md` y `docs/diseno-visual.md`.
+**Referencias:** `AGENTS.md`, `docs/historias-de-usuario/user-stories.md`, `docs/requerimientos/requerimientos-funcionales.md` y `docs/diseno-visual/diseno-visual.md`.
