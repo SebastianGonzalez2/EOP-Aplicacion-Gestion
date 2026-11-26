@@ -41,7 +41,7 @@ En EOP usamos **GitHub Actions**, una herramienta de GitHub que ejecuta pasos au
 
 ## 2. ¿Qué configuramos en nuestro proyecto?
 
-La implementación está guardada en el archivo **[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)**. El formato **YAML** es simplemente una manera de escribir instrucciones de configuración; no es una pantalla de la aplicación.
+La implementación está guardada en el archivo **[`.github/workflows/ci.yml`](../../.github/workflows/ci.yml)**. El formato **YAML** es simplemente una manera de escribir instrucciones de configuración; no es una pantalla de la aplicación.
 
 La tarea [S2-T04 — Configurar integración continua](https://trello.com/c/M3ctKqUB) figura como terminada en Trello. El archivo existente define lo siguiente:
 
@@ -171,17 +171,17 @@ Un resultado **verde** (`success`) indica que terminaron correctamente los pasos
 | Falla `restore` | Problemas al descargar las dependencias del proyecto. |
 | Falla `build` | Errores del código que impiden compilar. |
 | Falla `test` | La prueba concreta que no pasó y el mensaje de error asociado. |
-| CI pasa, pero la app no conecta con Azure SQL | Es un problema diferente: revisar la [guía de Azure SQL](./azure-sql-database.md). |
+| CI pasa, pero la app no conecta con Azure SQL | Es un problema diferente: revisar la [guía de Azure SQL](azure-sql-database.md). |
 
 No debemos solucionar fallos usando bases productivas para las pruebas, quitando controles de seguridad o mostrando contraseñas en los logs.
 
 ## 9. Archivos relacionados y mantenimiento
 
-- [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): las instrucciones reales que ejecuta GitHub.
-- [`AGENTS.md`](../AGENTS.md): reglas del equipo sobre ramas, commits y Pull Requests.
+- [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml): las instrucciones reales que ejecuta GitHub.
+- [`AGENTS.md`](../../AGENTS.md): reglas del equipo sobre ramas, commits y Pull Requests.
 - [S2-T04](https://trello.com/c/M3ctKqUB): tarea original de implementación de GitHub Actions.
-- [Revisión de integraciones S2-T31](./revision-integracion-tecnica.md): revisión de la solución técnica.
-- [Azure SQL Database](./azure-sql-database.md): documentación de la base de datos real, distinta del SQL Server temporal de pruebas.
+- [Revisión de integraciones S2-T31](revision-integracion-tecnica.md): revisión de la solución técnica.
+- [Azure SQL Database](azure-sql-database.md): documentación de la base de datos real, distinta del SQL Server temporal de pruebas.
 
 ### Reactivación prevista para diciembre de 2026
 

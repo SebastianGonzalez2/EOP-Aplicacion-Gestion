@@ -82,7 +82,7 @@ para no pisar los valores históricos), el caso quedaba sin camino. Se completó
   copió (nombre, unidad, precio, moneda) ya no coincide con el catálogo, aparece **«Actualizar valores»**. Si
   coinciden, el panel indica «Valores al día con el catálogo» y no ofrece nada. Que el catálogo cambie nunca
   actualiza la fila por sí solo.
-- **Confirmación explícita.** El botón solo abre un diálogo (patrón de `docs/diseno-visual.md` §18.1) que muestra
+- **Confirmación explícita.** El botón solo abre un diálogo (patrón de `docs/diseno-visual/diseno-visual.md` §18.1) que muestra
   los valores de la fila junto a los del catálogo y avisa que los de la fila no se pueden recuperar después.
   Recién «Actualizar valores», dentro del diálogo, envía el POST con `confirmar=true`. El servidor exige ese
   campo (`ActualizarReferenciaDeConcepto`): una solicitud sin confirmar se rechaza y no cambia nada.

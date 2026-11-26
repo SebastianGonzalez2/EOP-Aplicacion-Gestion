@@ -189,7 +189,7 @@ dotnet user-secrets set "AlmacenamientoBlob:TenantId" "<tenant-institucional>" -
 - **RNF-004:** autorización del lado del servidor, a integrar en los casos de uso posteriores.
 - **US-016, US-033, US-034, US-035 y carga de PDF de facturas:** futuros consumidores del almacenamiento, sin implementar sus funcionalidades en S2-T02.
 
-Fuentes internas: [AGENTS.md](../AGENTS.md), [requerimientos no funcionales](./requerimientos-no-funcionales.md), [alcance](./alcance.md), [historias de usuario](./user-stories.md).
+Fuentes internas: [AGENTS.md](../../AGENTS.md), [requerimientos no funcionales](../requerimientos/requerimientos-no-funcionales.md), [alcance](../requerimientos/alcance.md), [historias de usuario](../historias-de-usuario/user-stories.md).
 
 ---
 

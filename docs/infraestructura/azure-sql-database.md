@@ -25,7 +25,7 @@ Hay tres elementos diferentes que conviene no confundir:
 | **Servidor SQL de Azure** | El recurso de Azure que administra la conexión a esa base y sus reglas de acceso. No es una computadora física que tengamos que administrar nosotros. |
 | **Azure Portal** | La página web de Microsoft donde podemos ver y configurar esos recursos. |
 
-Los documentos PDF, imágenes y otros archivos **no** van dentro de SQL: para eso el proyecto prevé [Azure Blob Storage](./azure-blob-storage.md). La base SQL guarda los datos organizados y, cuando corresponda, la referencia al archivo.
+Los documentos PDF, imágenes y otros archivos **no** van dentro de SQL: para eso el proyecto prevé [Azure Blob Storage](azure-blob-storage.md). La base SQL guarda los datos organizados y, cuando corresponda, la referencia al archivo.
 
 ## 2. ¿Qué se hizo hasta ahora?
 
@@ -121,7 +121,7 @@ En la captura anterior había **92.689 segundos de núcleo virtual restantes**. 
 
 **Cómo encontrarlo:** entrar a [Azure Portal](https://portal.azure.com), buscar **SQL databases**, seleccionar la base de EOP y abrir **Overview / Información general**. Desde allí se puede identificar el servidor asociado y consultar otras opciones.
 
-No asumimos que Azure SQL está en la misma suscripción que Blob Storage. En [la guía de Blob](./azure-blob-storage.md) ya se documentó esa infraestructura por separado.
+No asumimos que Azure SQL está en la misma suscripción que Blob Storage. En [la guía de Blob](azure-blob-storage.md) ya se documentó esa infraestructura por separado.
 
 ## 4. ¿Cómo se conecta nuestra aplicación a la base?
 
@@ -258,7 +258,7 @@ Después de revisar el formulario de restauración, entramos a **`eop-sql-dev` �
 
 Según **RNF-008**, antes de la puesta en producción corresponde **restaurar de manera controlada a una base de prueba separada**, sin sobrescribir datos existentes. Luego debe repetirse una comprobación al menos cada seis meses. **Esa prueba todavía está pendiente** y no debe confundirse con haber abierto el formulario de restauración.
 
-La aplicación también debe usar conexiones seguras, mantener las credenciales fuera del código y controlar los permisos. Las copias de SQL protegen los datos estructurados; los documentos de [Azure Blob Storage](./azure-blob-storage.md) tienen protecciones y procedimientos distintos.
+La aplicación también debe usar conexiones seguras, mantener las credenciales fuera del código y controlar los permisos. Las copias de SQL protegen los datos estructurados; los documentos de [Azure Blob Storage](azure-blob-storage.md) tienen protecciones y procedimientos distintos.
 
 Fuentes de Microsoft: [preguntas frecuentes de Azure SQL gratuito](https://learn.microsoft.com/en-us/azure/azure-sql/database/free-offer-faq) y [configuración de copias de seguridad automáticas](https://learn.microsoft.com/en-us/azure/azure-sql/database/automated-backups-change-settings).
 
@@ -271,6 +271,6 @@ Fuentes de Microsoft: [preguntas frecuentes de Azure SQL gratuito](https://learn
 - **Revisado el formulario de restauración** el 16/11/2026: PITR disponible, punto más antiguo visible y redundancia local seleccionada; no se creó ninguna base. **Confirmado:** la política PITR de `eop-db-dev` es de **7 días**. **Pendiente:** antes de producción, autorizar y realizar una prueba real de recuperación considerando los costos; comprobar también la política del futuro entorno productivo.
 - Cuando se despliegue Azure App Service, comprobar su acceso real a la base. El acceso desde nuestra computadora no alcanza para darlo por validado.
 
-**Documentos relacionados:** [reglas técnicas del proyecto](../AGENTS.md), [requerimientos no funcionales](./requerimientos-no-funcionales.md), [revisión de integraciones S2-T31](./revision-integracion-tecnica.md), [Azure Blob Storage](./azure-blob-storage.md) e [integración continua](./integracion-continua.md).
+**Documentos relacionados:** [reglas técnicas del proyecto](../../AGENTS.md), [requerimientos no funcionales](../requerimientos/requerimientos-no-funcionales.md), [revisión de integraciones S2-T31](revision-integracion-tecnica.md), [Azure Blob Storage](azure-blob-storage.md) e [integración continua](integracion-continua.md).
 
 **Mantenimiento:** si se cambia la configuración o se realiza una nueva prueba, actualizar esta guía con lo comprobado mediante una rama y un Pull Request.
