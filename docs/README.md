@@ -65,8 +65,8 @@ Acá está la documentación de trabajo de EOP, organizada por tema. **El antepr
 ### sprints
 
 - [Índice del Sprint 3](./sprints/sprint-3/README.md)
-- [consideraciones-documentacion-sprint-3.md](./sprints/sprint-3/consideraciones-documentacion.md)
-- [decisiones-dependencias-sprint-3.md](./sprints/sprint-3/decisiones-tecnicas-y-dependencias.md)
+- [consideraciones-documentacion.md](./sprints/sprint-3/consideraciones-documentacion.md)
+- [decisiones-tecnicas-y-dependencias.md](./sprints/sprint-3/decisiones-tecnicas-y-dependencias.md)
 - [s3-t09-buscador-materiales.md](./sprints/sprint-3/implementaciones/s3-t09-buscador-materiales.md)
 - [s3-t11-consulta-precios.md](./sprints/sprint-3/implementaciones/s3-t11-consulta-precios.md)
 - [s3-t12-seleccion-conservacion-precio.md](./sprints/sprint-3/implementaciones/s3-t12-seleccion-conservacion-precio.md)

@@ -126,7 +126,7 @@ Las siguientes funcionalidades corresponden a tareas del Sprint 3 y deben verifi
 - Selección de referencias de precios por proveedor.
 - Conservación de valores históricos.
 - Guardado y recuperación de borradores.
-- Gestión de cambios sin guardar con navegación libre (S3-T15; cambio aprobado el 25/11/2026, ver [consideraciones-documentacion-sprint-3.md](consideraciones-documentacion.md)).
+- Gestión de cambios sin guardar con navegación libre (S3-T15; cambio aprobado el 25/11/2026, ver [consideraciones-documentacion.md](consideraciones-documentacion.md)).
 - Cálculo de subtotales y margen.
 - Conversión monetaria y redondeos.
 - Integración con datosUruguay.
