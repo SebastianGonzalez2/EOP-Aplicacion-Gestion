@@ -12,7 +12,7 @@ Acá está la documentación de trabajo de EOP, organizada por tema. **El antepr
 | [`guias/`](./guias/) | Manuales de capacitación. |
 | [`testing/`](./testing/) | Evidencias y matrices de trazabilidad por sprint. |
 | [`pruebas-concepto/`](./pruebas-concepto/) | Resultados y evaluaciones de experimentos; el código experimental queda fuera de docs. |
-| [`sprints/`](./sprints/) | Seguimiento y documentación de tareas por sprint. |
+| [`sprints/`](./sprints/) | Decisiones, cambios de documentación e implementaciones por sprint; el seguimiento actual se consulta en Trello. |
 | [`gestion-proyecto/`](./gestion-proyecto/) | Registros y documentación de gestión. |
 
 ## Archivos principales
@@ -64,13 +64,13 @@ Acá está la documentación de trabajo de EOP, organizada por tema. **El antepr
 
 ### sprints
 
-- [consideraciones-documentacion-sprint-3.md](./sprints/sprint-3/consideraciones-documentacion-sprint-3.md)
-- [decisiones-dependencias-sprint-3.md](./sprints/sprint-3/decisiones-dependencias-sprint-3.md)
-- [s3-t09-buscador-materiales.md](./sprints/sprint-3/s3-t09-buscador-materiales.md)
-- [s3-t11-consulta-precios.md](./sprints/sprint-3/s3-t11-consulta-precios.md)
-- [s3-t12-seleccion-conservacion-precio.md](./sprints/sprint-3/s3-t12-seleccion-conservacion-precio.md)
-- [s3-t18-servicio-cotizaciones.md](./sprints/sprint-3/s3-t18-servicio-cotizaciones.md)
-- [seguimiento-sprint-3.md](./sprints/sprint-3/seguimiento-sprint-3.md)
+- [Índice del Sprint 3](./sprints/sprint-3/README.md)
+- [consideraciones-documentacion.md](./sprints/sprint-3/consideraciones-documentacion.md)
+- [decisiones-tecnicas-y-dependencias.md](./sprints/sprint-3/decisiones-tecnicas-y-dependencias.md)
+- [s3-t09-buscador-materiales.md](./sprints/sprint-3/implementaciones/s3-t09-buscador-materiales.md)
+- [s3-t11-consulta-precios.md](./sprints/sprint-3/implementaciones/s3-t11-consulta-precios.md)
+- [s3-t12-seleccion-conservacion-precio.md](./sprints/sprint-3/implementaciones/s3-t12-seleccion-conservacion-precio.md)
+- [s3-t18-servicio-cotizaciones.md](./sprints/sprint-3/implementaciones/s3-t18-servicio-cotizaciones.md)
 
 ### gestion-proyecto
 
