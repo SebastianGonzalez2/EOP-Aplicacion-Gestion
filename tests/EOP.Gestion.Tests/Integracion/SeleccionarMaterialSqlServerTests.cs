@@ -20,7 +20,7 @@ namespace EOP.Gestion.Tests.Integracion;
 // contra un SQL Server real. Cubre RF-12 y RF-13: la selección es expresa, no toca el catálogo,
 // conserva Concepto detectado, respeta permisos y estado, y no admite el mismo material-proveedor
 // en dos filas (RF-20).
-public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
+public partial class SeleccionarMaterialSqlServerTests : IAsyncLifetime
 {
     private const string TextoDetectadoPorIa = "cable de cobre 2,5 mm (texto de la IA)";
 
@@ -159,11 +159,11 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
         new(new DbContextOptionsBuilder<EopDbContext>().UseSqlServer(_cadenaConexion).Options);
 
     private async Task<FabricaConEntraSimulado.Navegador> IniciarSesionAsync(
-        FabricaConEntraSimulado fabrica, RolUsuario rol, bool responsable = true)
+        FabricaConEntraSimulado fabrica, RolUsuario rol, bool responsable = true,
+        string correo = "seleccion@eop.com.uy")
     {
         using EopDbContext contexto = CrearContexto();
         string objectId = Guid.NewGuid().ToString();
-        string correo = "seleccion@eop.com.uy";
         int usuarioId = await fabrica.GuardarUsuarioAsync(correo, objectId, rol);
         if (responsable)
         {
@@ -599,6 +599,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
     [InlineData(EstadoPresupuesto.Rechazado, true, RolUsuario.Supervisor)]
     [InlineData(EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente, true, RolUsuario.Operador)]
     [InlineData(EstadoPresupuesto.Cancelado, true, RolUsuario.Administrador)]
+    [InlineData(EstadoPresupuesto.Vencido, true, RolUsuario.Administrador)]
     public async Task SinPermisoOPresupuestoNoEditable_ElServidorRechazaLaPantallaYLaSeleccion(
         EstadoPresupuesto estado, bool responsable, RolUsuario rol)
     {
@@ -1224,6 +1225,7 @@ public class SeleccionarMaterialSqlServerTests : IAsyncLifetime
     [InlineData(EstadoPresupuesto.Rechazado, true, RolUsuario.Supervisor)]
     [InlineData(EstadoPresupuesto.EnviadoPendienteDeRespuestaDelCliente, true, RolUsuario.Operador)]
     [InlineData(EstadoPresupuesto.Cancelado, true, RolUsuario.Administrador)]
+    [InlineData(EstadoPresupuesto.Vencido, true, RolUsuario.Administrador)]
     public async Task CambioDeProveedor_SinPermisoOPresupuestoNoEditable_ElServidorLoRechazaYNoCambiaNada(
         EstadoPresupuesto estado, bool responsable, RolUsuario rol)
     {
