@@ -107,7 +107,19 @@ Estos son escenarios a especificar y verificar; no constituyen resultados de pru
 - [PR #99 — S3-T14](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/pull/99)
 - [Tarjeta S3-T15](https://trello.com/c/n159gvnC)
 
-## 3. Control para la documentación de cierre del Sprint 3
+## 3. Incidencia de dedicación — viernes 27/11/2026
+
+**Integrante:** Sebastián Gonzalez  
+**Fecha:** viernes 27/11/2026  
+**Dedicación prevista para la jornada:** 5 horas  
+**Dedicación real:** 1 hora y 30 minutos  
+**Desvío:** 3 horas y 30 minutos menos de dedicación.
+
+Por motivos de salud, Sebastián se encontraba enfermo y no pudo cumplir con la dedicación prevista para esa jornada. Únicamente pudo completar el trabajo correspondiente a S3-T28 [QA] — Probar materiales y precios, entregado mediante el [PR #112](https://github.com/SebastianGonzalez2/EOP-Aplicacion-Gestion/pull/112).
+
+Al documentar el Sprint 3, registrar esta incidencia en el seguimiento del esfuerzo real y explicar su impacto en el avance de la jornada. La finalización del trabajo y la integración del PR deben registrarse por separado.
+
+## 4. Control para la documentación de cierre del Sprint 3
 
 - [ ] Revisar todas las entradas de este registro y confirmar su estado.
 - [ ] Incorporar los cambios aprobados en el apartado de modificaciones de requerimientos funcionales del Sprint 3.
